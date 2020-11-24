@@ -1,0 +1,52 @@
+OVERVIEW
+--------
+
+main.f90: main program
+
+globals.f90: Variables of the main program, except the mixer all
+  other subroutines/functions use intent(in)/intent(out) to protect 
+  these variables, so in some sence this is not global
+  The variables are also allocated here.
+  IMPORTANT: This also gives a short comment what the variable is !
+
+broyden.f90: Broyden mixer, this is the old DFTB stuff with little
+  cleanup
+
+constants.f90: some constants
+
+core_overlap.f90: routines to calculate the core hamiltonian
+  (one-electron) and overlap matrix elements (supervectors)
+
+coulomb_hfex.f90: Coulomb and HF exchange supermatrices
+
+coulomb_potential.f90: Coulomb potential (for ZORA and output) from
+  analytical expressions.
+
+density.f90: routines for electron density, wavefunctions, primitives
+
+densitymatrix.f90: get density matrix
+
+dft.f90: DFT functionals and various helper routines (density on grid ...)
+
+diagonalizations.f90: this is EWEVGE with a wrapper
+
+hamiltonian.f90: routines to build the hamiltonian from its parts
+
+input.f90: input routines
+
+integration.f90: Becke mesh definitions and helper routines
+
+numerical_differentiation.f90: numerical differentiation with 6-points
+  needed for naive ZORA implementation, e.g. dV/dr with V the potential
+
+output.f90: output routines
+
+precision.f90: DFTB precision routine
+
+total_energy.f90: routines to calculate total energy
+
+utilities.f90: misc stuff (factorial etc.)
+
+zora_routines.f90: ZORA routines, contains even the routines for the
+  naive implementation, see NAIVE_ZORA for their use
+
