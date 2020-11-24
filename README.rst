@@ -58,6 +58,34 @@ Follow the usual CMake build workflow:
     cmake --install _build
 
 
+Generating SK-files
+===================
+
+The basic steps of generating the electronic part of the SK-tables are as
+follows:
+
+* Initialize the necessary environment variables by sourceing the
+  ``skprogs-activate.sh`` script (provided you have BASH or compatible shell,
+  otherwise inspect the script and set up the environment variables manually)::
+
+    source <SKPROGS_INSTALL_FOLDER>/bin/skprogs-activate.sh
+
+* Then create a file ``skdef.hsd`` containing the definitions for the elements
+  and element pairs you wish to create. See the ``examples/`` folder for some
+  examples.
+
+* Run the ``skgen`` script to create the SK-tables. For example, in order to
+  generate the electronic part of the SK-tables for C, H and O with dummy (zero)
+  repulsives added, issue ::
+
+    skgen -o slateratom -t sktwocnt sktable -d C,H,O C,H,O
+
+  The SK-files will be created in the current folder. See the help (e.g. ``skgen
+  -h``) for additional options.
+
+Further documentation will be presented in a separate document later.
+
+
 License
 =======
 
