@@ -4,7 +4,7 @@ module coulomb_potential
 ! during SCF except in the ZORA case, but even then the Coulomb matrix 
 ! (J supermatrix) elements are calculated directly
 
-  use accuracy
+  use common_accuracy, only : dp
   use utilities
   use integration
   use core_overlap

@@ -1,6 +1,8 @@
 !!* Read input from stdin
 module input
-  use accuracy
+
+  use common_accuracy, only : dp
+
   implicit none
   private 
   

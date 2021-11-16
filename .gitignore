@@ -4,5 +4,5 @@
 *.a
 *.pyc
 __pycache__
-sktools/build
-
+*build/
+*_build/

@@ -1,5 +1,7 @@
 module broyden
-  use accuracy
+
+  use common_accuracy, only : dp
+
   implicit none
   private
 

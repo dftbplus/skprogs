@@ -1,8 +1,9 @@
 !> Contains the twocenter integrator routines.
 module twocnt
+
   use omp_lib
-  use accuracy
-  use constants
+  use common_accuracy, only : dp
+  use common_constants
   use quadratures
   use coordtrans
   use gridorbital
@@ -10,7 +11,8 @@ module twocnt
   use gridgenerator
   use partition
   use dftxc
-  use fifo_module
+  use common_fifo
+
   implicit none
   private
 
@@ -63,11 +65,11 @@ contains
     type(twocnt_in), target, intent(in) :: inp
     type(integmap), intent(out) :: imap
     real(dp), allocatable, intent(out) :: skham(:,:), skover(:,:)
-    
+
     type(quadrature) :: quads(2)
 
     type(atomdata), pointer :: atom1, atom2
-    type(fifo_real2) :: hamfifo, overfifo
+    type(TFiFoReal2) :: hamfifo, overfifo
     real(dp), allocatable :: grid1(:,:), grid2(:,:)
     real(dp), allocatable :: dots(:), weights(:)
     real(dp), allocatable :: denserr(:)

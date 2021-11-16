@@ -1,9 +1,11 @@
 !> Implements a grid-type orbital.
 module gridorbital
-  use accuracy
-  use constants
+
+  use common_accuracy, only : dp
+  use common_constants
   use bisection
   use interpolation
+
   implicit none
   private
 

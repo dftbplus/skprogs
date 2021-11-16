@@ -1,5 +1,7 @@
 module globals
-  use accuracy
+
+  use common_accuracy, only : dp
+
   implicit none
 
   real(dp) :: conf_r0(0:4) ! confinement radius

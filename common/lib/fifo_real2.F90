@@ -1,76 +1,84 @@
 !> Implements fifo for rank 2 real (double precision) arrays.
-module fifo_real2_module
-  use fifobase_module
+module common_fifo_real2
+
+  use common_fifobase, only : TFiFoBase, size
+
   implicit none
   private
 
-  public :: fifo_real2, size
+  public :: TFiFoReal2
 
   integer, parameter :: dp = kind(1.0d0)
 
+
   !> Extended data type.
-  type :: mydata
+  type :: TMyData
     real(dp), allocatable :: data(:,:)
-  end type mydata
+  end type TMyData
+
 
   !> Extendid fifo.
-  type, extends(fifobase) :: fifo_real2
+  type, extends(TFiFoBase) :: TFiFoReal2
   contains
-    procedure :: push => fifo_real2_push
-    procedure :: pop => fifo_real2_pop
-    procedure :: get => fifo_real2_get
-    procedure :: push_alloc => fifo_real2_push_alloc
-    procedure :: pop_alloc => fifo_real2_pop_alloc
-    procedure :: popall => fifo_real2_popall
-    procedure :: popall_concat => fifo_real2_popall_concat
+    procedure :: push => TFiFoReal2_push
+    procedure :: pop => TFiFoReal2_pop
+    procedure :: get => TFiFoReal2_get
+    procedure :: push_alloc => TFiFoReal2_push_alloc
+    procedure :: pop_alloc => TFiFoReal2_pop_alloc
+    procedure :: popall => TFiFoReal2_popall
+    procedure :: popall_concat => TFiFoReal2_popall_concat
     ! Workaround: should be private, but NAG fails to override private routines.
-    procedure :: datatofile => fifo_real2_datatofile
-    procedure :: datafromfile => fifo_real2_datafromfile
-  end type fifo_real2
+    procedure :: datatofile => TFiFoReal2_datatofile
+    procedure :: datafromfile => TFiFoReal2_datafromfile
+  end type TFiFoReal2
 
 
 contains
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!!! FIFO_REAL2 Routines
+!!! TFIFOREAL2 Routines
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
   !> Makes a copy of item and stores it in the collection.
-  !! \param self  Instance.
+  !! \param this  Instance.
   !! \param item  Item to store.
-  subroutine fifo_real2_push(self, item)
-    class(fifo_real2), intent(inout) :: self
+  subroutine TFiFoReal2_push(this, item)
+
+    class(TFiFoReal2), intent(inout) :: this
+
     real(dp), intent(in) :: item(:,:)
 
     class(*), pointer :: wrapper
 
-    allocate(mydata :: wrapper)
+    allocate(TMyData :: wrapper)
     select type(wrapper)
-    type is (mydata)
+    type is (TMyData)
       wrapper%data = item        ! Automatic allocation
     end select
-    call self%pushptr(wrapper)
+    call this%pushptr(wrapper)
 
-  end subroutine fifo_real2_push
+  end subroutine TFiFoReal2_push
 
 
   !> Retrieves the next item (fifo) and removes it from the collection.
-  !! \param self  Instance.
+  !! \param this  Instance.
   !! \param item  Item storing the result.
-  subroutine fifo_real2_pop(self, item)
-    class(fifo_real2), intent(inout) :: self
+  subroutine TFiFoReal2_pop(this, item)
+
+    class(TFiFoReal2), intent(inout) :: this
+
     real(dp), intent(out) :: item(:,:)
 
     class(*), pointer :: wrapper
 
-    call self%popptr(wrapper)
+    call this%popptr(wrapper)
     select type (wrapper)
-    type is (mydata)
+    type is (TMyData)
       item(:,:) = wrapper%data
     end select
     deallocate(wrapper)
     
-  end subroutine fifo_real2_pop
+  end subroutine TFiFoReal2_pop
 
 
   !> Retrieves the next item without removing it from the collection.
@@ -80,21 +88,23 @@ contains
   !! the last element in the fifo had been returned, the first will be returned
   !! again.
   !!
-  !! \param self  Instance.
+  !! \param this  Instance.
   !! \param item  Item storing the result.
-  subroutine fifo_real2_get(self, item)
-    class(fifo_real2), intent(inout) :: self
+  subroutine TFiFoReal2_get(this, item)
+
+    class(TFiFoReal2), intent(inout) :: this
+
     real(dp), intent(out) :: item(:,:)
 
     class(*), pointer :: wrapper
 
-    call self%getptr(wrapper)
+    call this%getptr(wrapper)
     select type (wrapper)
-    type is (mydata)
+    type is (TMyData)
       item(:,:) = wrapper%data
     end select
 
-  end subroutine fifo_real2_get
+  end subroutine TFiFoReal2_get
 
 
   !> Moves an allocatable item into the collection.
@@ -103,22 +113,24 @@ contains
   !! status of the item is moved to the collection, so that the original item is
   !! automatically deallocated. No temporary copy of the item is created.
   !!
-  !! \param self  Instance.
+  !! \param this  Instance.
   !! \param item  Item to store. Deallocated on return.
-  subroutine fifo_real2_push_alloc(self, item)
-    class(fifo_real2), intent(inout) :: self
+  subroutine TFiFoReal2_push_alloc(this, item)
+
+    class(TFiFoReal2), intent(inout) :: this
+
     real(dp), allocatable, intent(inout) :: item(:,:)
 
     class(*), pointer :: wrapper
 
-    allocate(mydata :: wrapper)
+    allocate(TMyData :: wrapper)
     select type (wrapper)
-    type is (mydata)
+    type is (TMyData)
       call move_alloc(item, wrapper%data)
     end select
-    call self%pushptr(wrapper)
+    call this%pushptr(wrapper)
 
-  end subroutine fifo_real2_push_alloc
+  end subroutine TFiFoReal2_push_alloc
 
 
   !> Retrieves the next item (fifo) and removes it from the collection.
@@ -127,22 +139,24 @@ contains
   !! is moved from the collection to the item, so that the item will be
   !! automatically allocated. No temporary copy of the item is created.
   !!
-  !! \param self  Instance.
+  !! \param this  Instance.
   !! \param item  Item storing the result.
-  subroutine fifo_real2_pop_alloc(self, item)
-    class(fifo_real2), intent(inout) :: self
+  subroutine TFiFoReal2_pop_alloc(this, item)
+
+    class(TFiFoReal2), intent(inout) :: this
+
     real(dp), allocatable, intent(out) :: item(:,:)
 
     class(*), pointer :: wrapper
 
-    call self%popptr(wrapper)
+    call this%popptr(wrapper)
     select type (wrapper)
-    type is (mydata)
+    type is (TMyData)
       call move_alloc(wrapper%data, item)
     end select
     deallocate(wrapper)
     
-  end subroutine fifo_real2_pop_alloc
+  end subroutine TFiFoReal2_pop_alloc
 
 
   !> Retrieves all items from the collection as an array and deletes them.
@@ -151,31 +165,36 @@ contains
   !! collection.  The last dimension will be allocated to the size of the
   !! collection.
   !!
-  !! \param self  Instance.
+  !! \param this  Instance.
   !! \param items  Array containing the items.
   !!
   !! \warning It is the responsibility of the caller to invoke this method
   !! only on collections containing elements with the same shape. No checking
   !! of shape conformance is done.
-  subroutine fifo_real2_popall(self, items)
-    class(fifo_real2), intent(inout) :: self
+  subroutine TFiFoReal2_popall(this, items)
+
+    class(TFiFoReal2), intent(inout) :: this
+
     real(dp), allocatable, intent(out) :: items(:,:,:)
 
     class(*), pointer :: wrapper
+
     integer :: itemshape(2)
+
+    !> Auxiliary variable
     integer :: ii
 
-    call self%getptr(wrapper)
+    call this%getptr(wrapper)
     select type (wrapper)
-    type is (mydata)
+    type is (TMyData)
       itemshape = shape(wrapper%data)
     end select
-    allocate(items(itemshape(1), itemshape(2), size(self)))
-    do ii = 1, size(self)
-      call self%pop(items(:,:,ii))
+    allocate(items(itemshape(1), itemshape(2), size(this)))
+    do ii = 1, size(this)
+      call this%pop(items(:,:,ii))
     end do
     
-  end subroutine fifo_real2_popall
+  end subroutine TFiFoReal2_popall
 
 
   !> Retrieves all items from the collection as an allocatable array by
@@ -184,25 +203,29 @@ contains
   !! \details The routine allocates an array with the given shape times
   !! the size of the collection.
   !!
-  !! \param self  Instance.
+  !! \param this  Instance.
   !! \param items  Array containing the items.
   !!
   !! \warning It is the responsibility of the caller to invoke this method
   !! only on collections containing elements with the same shape apart of their
   !! last dimension. No checking of shape conformance is done.
-  subroutine fifo_real2_popall_concat(self, items)
-    class(fifo_real2), intent(inout) :: self
+  subroutine TFiFoReal2_popall_concat(this, items)
+
+    class(TFiFoReal2), intent(inout) :: this
+
     real(dp), allocatable, intent(out) :: items(:,:)
 
     class(*), pointer :: wrapper
+
     integer :: itemshape(2)
+
     integer :: ii, ind, total, nn
 
     total = 0
-    do ii = 1, size(self)
-      call self%getptr(wrapper)
+    do ii = 1, size(this)
+      call this%getptr(wrapper)
       select type (wrapper)
-      type is (mydata)
+      type is (TMyData)
         total = total + size(wrapper%data, dim=2)
         if (ii == 1) then
           itemshape(:) = shape(wrapper%data)
@@ -211,10 +234,10 @@ contains
     end do
     allocate(items(itemshape(1), total))
     ind = 1
-    do ii = 1, size(self)
-      call self%popptr(wrapper)
+    do ii = 1, size(this)
+      call this%popptr(wrapper)
       select type (wrapper)
-      type is (mydata)
+      type is (TMyData)
         nn = size(wrapper%data, dim=2)
         items(:,ind:ind+nn-1) = wrapper%data
         ind = ind + nn
@@ -222,50 +245,56 @@ contains
       deallocate(wrapper)
     end do
     
-  end subroutine fifo_real2_popall_concat
+  end subroutine TFiFoReal2_popall_concat
 
 
   !> Overides the datatofile method of the base class.
-  !! \param self  Instance.
+  !! \param this  Instance.
   !! \param fileid  Id of the file in which data should be written.
   !! \param filepos  Position in the file, to which data should be written.
   !! \param data  Data node to save to file.
-  subroutine fifo_real2_datatofile(self, fileid, filepos, data)
-    class(fifo_real2), intent(inout) :: self
+  subroutine TFiFoReal2_datatofile(this, fileid, filepos, data)
+
+    class(TFiFoReal2), intent(inout) :: this
+
     integer, intent(in) :: fileid, filepos
+
     class(*), pointer, intent(inout) :: data
 
     select type (data)
-    type is (mydata)
+    type is (TMyData)
       write(fileid, pos=filepos) shape(data%data)
       write(fileid) data%data
     end select
     deallocate(data)
 
-  end subroutine fifo_real2_datatofile
+  end subroutine TFiFoReal2_datatofile
   
 
   !> Overides the datafromfile method of the base class.
-  !! \param self  Instance.
+  !! \param this  Instance.
   !! \param fileid  Id of the file from which data should be read.
   !! \param filepos  Position in the file, from which data should be read.
   !! \param data  Data node to create from file.
-  subroutine fifo_real2_datafromfile(self, fileid, filepos, data)
-    class(fifo_real2), intent(inout) :: self
+  subroutine TFiFoReal2_datafromfile(this, fileid, filepos, data)
+
+    class(TFiFoReal2), intent(inout) :: this
+
     integer, intent(in) :: fileid, filepos
+
     class(*), pointer, intent(out) :: data
 
     integer :: itemshape(2)
 
-    allocate(mydata :: data)
+    allocate(TMyData :: data)
     select type (data)
-    type is (mydata)
+    type is (TMyData)
       read(fileid, pos=filepos) itemshape
       allocate(data%data(itemshape(1), itemshape(2)))
       read(fileid) data%data
     end select
 
-  end subroutine fifo_real2_datafromfile
+  end subroutine TFiFoReal2_datafromfile
     
 
-end module fifo_real2_module
+end module common_fifo_real2

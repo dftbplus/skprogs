@@ -1,6 +1,8 @@
 !> Conains space partioning functions.
 module partition
-  use accuracy
+
+  use common_accuracy, only : dp
+
   implicit none
   private
 

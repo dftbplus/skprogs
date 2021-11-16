@@ -1,11 +1,13 @@
 module output
-  use accuracy
-  use constants
+
+  use common_accuracy, only : dp
+  use common_constants, only : pi
   use core_overlap
   use density
   use coulomb_potential
-  use taggedout
+  use common_taggedout, only : TTaggedwriter, TTaggedwriter_init, writetag
   use utilities, only : fak
+
   implicit none
   private
 
@@ -14,7 +16,7 @@ module output
   public :: write_waves_file_standard, cusp_values, write_energies_tagged
   public :: write_wave_coeffs_file
 
-  character(1), parameter :: orbnames(0:4) = (/ "s", "p", "d", "f", "g" /)
+  character(1), parameter :: orbnames(0:4) = ["s", "p", "d", "f", "g"]
 
 
 contains
@@ -474,9 +476,9 @@ contains
     real(dp), intent(in) :: eigvals(:,0:,:), occ(:,0:,:)
 
     integer :: fp
-    type(TaggedWriter) :: twriter
+    type(TTaggedwriter) :: twriter
 
-    call init(twriter)
+    call TTaggedwriter_init(twriter)
     fp = 95
     open(fp, file="energies.tag", status="replace", action="write")
     call writetag(twriter, fp, "zora", zora)
@@ -504,11 +506,11 @@ contains
     integer, intent(in) :: qnvalorbs(:,0:)
 
     integer :: fp, ii, ll, ncoeff
-    type(TaggedWriter) :: twriter
+    type(TTaggedwriter) :: twriter
     character(20) :: fname
     real(dp), allocatable :: coeffs(:,:)
 
-    call init(twriter)
+    call TTaggedwriter_init(twriter)
     fp = 95
     do ll = 0, max_l
       ncoeff = poly_order(ll) * num_alpha(ll)

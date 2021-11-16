@@ -1,6 +1,8 @@
 !> Output routines for the sktwocnt code.
 module output
-  use accuracy
+
+  use common_accuracy, only : dp
+
   implicit none
   private
 

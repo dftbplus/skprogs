@@ -1,9 +1,10 @@
 module zora_routines
-  use accuracy
-  use constants
+
+  use common_accuracy, only : dp
+  use common_constants
   use coulomb_potential
-!  use numerical_differentiation
   use density
+
   implicit none
   private
 
@@ -130,7 +131,7 @@ contains
     zora_ekin=0.0d0
     zora_ekin1=0.0d0
     zora_ekin2=0.0d0
-    tsol2=1.0_dp/sol**2
+    tsol2=1.0_dp/cc**2
 
     call zora_t_correction(1,zscale,max_l,num_alpha,alpha,poly_order,&
       &num_mesh_points,weight,abcissa,vxc,rho,nuc,p,problemsize)
@@ -283,7 +284,7 @@ contains
     real(dp), intent(out) :: kappa(:,:),kappa2(:,:)
     integer :: ii
 
-    real(dp), parameter :: tsol2 =2.0_dp*sol**2
+    real(dp), parameter :: tsol2 =2.0_dp*cc**2
 
     do ii=1,num_mesh_points
 

@@ -1,6 +1,8 @@
 !!* Contains routines for interpolation and extrapolation
 module interpolation
-  use accuracy
+
+  use common_accuracy, only : dp
+
   implicit none
   private
 

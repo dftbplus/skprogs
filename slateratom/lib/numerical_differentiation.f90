@@ -1,8 +1,10 @@
 module numerical_differentiation
-  use accuracy
-  use constants
+
+  use common_accuracy, only : dp
+  use common_constants
   use utilities
   use integration
+
   implicit none
   private
 
