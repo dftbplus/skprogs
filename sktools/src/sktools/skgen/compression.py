@@ -1,29 +1,36 @@
+'''
+Module to carry out wavefunction and density compressions.
+'''
+
+
 import os.path
 import logging
 import sktools.common as sc
 from . import common as ssc
 
 
-logger = logging.getLogger("skgen.compression")
+LOGGER = logging.getLogger('skgen.compression')
 
 
 def run_denscomp(skdefs, elem, builddir, searchdirs, onecnt_binary):
-    logger.info("Started for {}".format(sc.capitalize_elem_name(elem)))
-    calculator = SkgenDenscomp(
-        builddir, searchdirs, onecnt_binary)
+
+    LOGGER.info('Started for {}'.format(sc.capitalize_elem_name(elem)))
+    calculator = SkgenDenscomp(builddir, searchdirs, onecnt_binary)
     calculator.set_input(skdefs, elem)
     calculator.find_or_run_calculation()
-    logger.info("Finished")
+    LOGGER.info('Finished')
+
     return calculator
 
 
 def run_wavecomp(skdefs, elem, builddir, searchdirs, onecnt_binary):
-    logger.info("Started for {}".format(
-        sc.capitalize_elem_name(elem)))
+
+    LOGGER.info('Started for {}'.format(sc.capitalize_elem_name(elem)))
     calculator = SkgenWavecomp(builddir, searchdirs, onecnt_binary)
     calculator.set_input(skdefs, elem)
     calculator.find_or_run_calculation()
-    logger.info("Finished")
+    LOGGER.info('Finished')
+
     return calculator
 
 
@@ -45,7 +52,7 @@ class SkgenDenscomp:
         atomparams = skdefs.atomparameters[elemlow]
         atomconfig = atomparams.atomconfig
         compression = atomparams.dftbatom.densitycompression
-        compressions = [ compression, ] * (atomconfig.maxang + 1)
+        compressions = [compression,] * (atomconfig.maxang + 1)
         xcfunc = skdefs.globals.xcfunctional
         calculator = skdefs.onecenterparameters[elemlow].calculator
         self._input = AtomCompressionInput(elemlow, atomconfig, compressions,
@@ -64,13 +71,11 @@ class SkgenDenscomp:
         if recalculation_need:
             resultdir = ssc.create_onecenter_workdir(
                 self._builddir, ssc.COMPRESSION_WORKDIR_PREFIX, self._elem)
-            logger.info("Calculating compressed atom "
-                        + sc.log_path(resultdir))
+            LOGGER.info('Calculating compressed atom ' + sc.log_path(resultdir))
             calculation = AtomCompressionCalculation(self._input)
             calculation.run(resultdir, self._onecenter_binary)
         else:
-            logger.info("Matching calculation found "
-                        + sc.log_path(resultdir))
+            LOGGER.info('Matching calculation found ' + sc.log_path(resultdir))
         self._extract_results_if_not_present(self._input, resultdir)
         if recalculation_need:
             self._input.store_signature(resultdir)
@@ -85,8 +90,8 @@ class SkgenDenscomp:
         calculator = AtomCompressionResult(myinput.calculator)
         output = calculator.get_output(resultdir)
         result = {
-            "potentials": output.get_potentials(),
-            "density": output.get_density012()
+            'potentials': output.get_potentials(),
+            'density': output.get_density012()
         }
         sc.store_as_shelf(resultshelf, result)
 
@@ -101,7 +106,6 @@ class SkgenDenscomp:
         return self._resultdir
 
 
-
 class SkgenDenscompResult:
 
     def __init__(self, resultdir):
@@ -109,11 +113,10 @@ class SkgenDenscompResult:
         self._results = sc.retrive_from_shelf(resultshelf)
 
     def get_potential(self):
-        return self._results["potentials"]
+        return self._results['potentials']
 
     def get_density(self):
-        return self._results["density"]
-
+        return self._results['density']
 
 
 class SkgenWavecomp:
@@ -141,7 +144,7 @@ class SkgenWavecomp:
         for compressions, shells in atomcompressions:
             myinput = AtomCompressionInput(elemlow, atomconfig, compressions,
                                            xcfunc, calculator)
-            self._shells_and_inputs.append(( shells, myinput ))
+            self._shells_and_inputs.append((shells, myinput))
         self._onecenter_searchdirs = ssc.get_onecenter_searchdirs(
             self._searchdirs, self._elem)
         self._resultdirs = None
@@ -153,22 +156,22 @@ class SkgenWavecomp:
         previous_calc_dirs = ssc.get_matching_subdirectories(
             self._onecenter_searchdirs, ssc.COMPRESSION_WORKDIR_PREFIX)
         for shells, myinput in self._shells_and_inputs:
-            shellnames = [ sc.shell_ind_to_name(nn, ll) for nn, ll in shells ]
-            logger.info("Processing compression for shell(s) {}".format(
-                " ".join(shellnames)))
+            shellnames = [sc.shell_ind_to_name(nn, ll) for nn, ll in shells]
+            LOGGER.info('Processing compression for shell(s) {}'.format(
+                ' '.join(shellnames)))
             resultdir = myinput.get_first_dir_with_matching_signature(
                 previous_calc_dirs)
             recalculation_needed = not resultdir
             if recalculation_needed:
                 resultdir = ssc.create_onecenter_workdir(
                     self._builddir, ssc.COMPRESSION_WORKDIR_PREFIX, self._elem)
-                logger.info(
-                    "Calculating compressed atom " + sc.log_path(resultdir))
+                LOGGER.info(
+                    'Calculating compressed atom ' + sc.log_path(resultdir))
                 calculation = AtomCompressionCalculation(myinput)
                 calculation.run(resultdir, self._onecenter_binary)
             else:
-                logger.info(
-                    "Matching calculation found " + sc.log_path(resultdir))
+                LOGGER.info(
+                    'Matching calculation found ' + sc.log_path(resultdir))
             self._extract_results_if_not_present(myinput, shells, resultdir)
             if recalculation_needed:
                 myinput.store_signature(resultdir)
@@ -206,15 +209,12 @@ class SkgenWavecomp:
 
 
     def get_result_directory_for_shell(self, nn, ll):
-        resdir = self._resultdir_for_nl.get(( nn, ll ), None)
+        resdir = self._resultdir_for_nl.get((nn, ll), None)
         if resdir is None:
-            msg = "No result directory for shell {:s}".format(
+            msg = 'No result directory for shell {:s}'.format(
                 sc.shell_ind_to_name(nn, ll))
             raise sc.SkgenException(msg)
         return resdir
-
-
-
 
 
 class SkgenWavecompResult:
@@ -232,10 +232,9 @@ class SkgenWavecompResult:
         try:
             wfc = self._result[shellname]
         except KeyError:
-            msg = "Missing wavefunction {}".format(shellname)
+            msg = 'Missing wavefunction {}'.format(shellname)
             raise sc.SkgenException(msg)
         return wfc
-
 
 
 class AtomCompressionInput(ssc.InputWithSignature):
@@ -253,13 +252,12 @@ class AtomCompressionInput(ssc.InputWithSignature):
 
     def get_signature(self):
         signature = {
-            "atomconfig": self.atomconfig,
-            "compressions": self.shell_compressions,
-            "xcfunc": self.xcfunc,
-            "calculator": self.calculator
+            'atomconfig': self.atomconfig,
+            'compressions': self.shell_compressions,
+            'xcfunc': self.xcfunc,
+            'calculator': self.calculator
         }
         return signature
-
 
 
 class AtomCompressionCalculation:
@@ -275,9 +273,8 @@ class AtomCompressionCalculation:
 
     def run(self, workdir, binary):
         self._onecnt_calculator.do_calculation(
-            self._atomconfig, self._xcfunc, self._shell_compressions,
-            binary, workdir)
-
+            self._atomconfig, self._xcfunc, self._shell_compressions, binary,
+            workdir)
 
 
 class AtomCompressionResult:

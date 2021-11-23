@@ -12,7 +12,7 @@ __all__ = ["HSDQueryError", "HSDMissingTagException", "HSDInvalidTagException",
 
 class HSDQuery:
     """Class providing methods for querying a HSD-tree.
-    
+
     Parameters
     ----------
     checkuniqueness : bool, optional
@@ -30,7 +30,7 @@ class HSDQuery:
 
     def findchild(self, node, name, optional=False):
         """Finds a child of a node with a given name.
-        
+
         Parameters
         ----------
         node : Element
@@ -39,12 +39,12 @@ class HSDQuery:
             Name of the child to look for.
         optional : bool, optional
             Whether the child is optional only.
-            
+
         Returns
         -------
          child : Element or None
             A hsd node if child has been found or None.
-            
+
         Raises
         -------
         HSDMissingTagException
@@ -71,7 +71,7 @@ class HSDQuery:
 
     def findchildren(self, node, name, optional=False):
         """Finds children of a node with given name.
-        
+
         Parameters
         ----------
         node : Element
@@ -80,12 +80,12 @@ class HSDQuery:
             Name of the children to look for.
         optional : bool, optional
             Whether the presence of at least one child is optional.
-                
+
         Returns
         -------
         childlist : list
             List of child nodes or empty list.
-            
+
         Raises
         ------
         HSDMissingTagException
@@ -103,7 +103,7 @@ class HSDQuery:
 
     def getchild(self, node, name, optional=False, defattribs=None):
         """Returns child with a given name.
-        
+
         Parameters
         ----------
         node : Element
@@ -142,7 +142,7 @@ class HSDQuery:
                  returnchild=False):
         """Returns the converted value of the data stored in a child with a
         given name.
-        
+
         Parameters
         ----------
         node : Element
@@ -157,7 +157,7 @@ class HSDQuery:
             Default value used if child has not been found. It will be
             converted to text by the tohsd() method of the converter.
         attribs : frozen set
-            Set of attributes the node is allowed to have. 
+            Set of attributes the node is allowed to have.
         defattribs: dict, optional
             Default attribute dictionary used if child has not been found.
         hsdblock : bool, optional
@@ -166,7 +166,7 @@ class HSDQuery:
         returnchild : bool, optional
             Whether not only the value but also the child node should be
             returned.
-                
+
         Returns
         -------
         value : arbitrary
@@ -176,7 +176,7 @@ class HSDQuery:
             value is inserted into the tree.
         child : Element, optional
             Child node. Only returned, if `returnchild=True` was set.
-                
+
         Raises
         ------
         HSDMissingTagException
@@ -185,11 +185,11 @@ class HSDQuery:
             If conversion from tag values was unsuccessful.
         HSDInvalidAttributeException
             If node posses an attribute which is not allowed.
-            
+
         Notes
         -----
         This method may store a reference to the converter object.
-        Make sure you pass something which does not change afterwards.    
+        Make sure you pass something which does not change afterwards.
         """
         optional = defvalue is not None
         child = self.findchild(node, name, optional)
@@ -217,7 +217,7 @@ class HSDQuery:
                      returnchild=False):
         """Returns the value node stored in a child with a given
         name. The child should contain either no nodes at all or only this one.
-         
+
         Parameters
         ----------
         node : Element
@@ -241,7 +241,7 @@ class HSDQuery:
             no subnode, but a text value instead. In that case the text
             value will be deleted and converted into an empty node.
         returnchild : bool, optional
-                 
+
         Returns
         -------
         node : Element or None
@@ -251,17 +251,17 @@ class HSDQuery:
             tree.
         child : Element, optional
             The child not itself. Only returned if `returnchild=Yes` was set.
-                 
+
         Raises
         ------
         HSDMissingTagException
             If child was not found and no default value had been specified.
         HSDInvalidTagException
             If child has more than one child.
-     
+
         Notes
         -----
-        This routine should be used, if the child is not a leaf but 
+        This routine should be used, if the child is not a leaf but
         contains a further child.
         """
         optional = defvalue is not None or defvaluename is not None
@@ -393,7 +393,7 @@ class HSDQuery:
     def markprocessed(self, *nodes):
         """Marks nodes as having been processed, if the query object had been
         initialized with the appropriate option.
-        
+
         Parameters
         ----------
         *nodes : list
@@ -407,7 +407,7 @@ class HSDQuery:
 
     def findunprocessednodes(self, node, allnodes=False):
         """Returns list of all nodes which had been not marked as processed.
-        
+
         Parameters
         ----------
         node : Element
@@ -416,7 +416,7 @@ class HSDQuery:
             By default, only highest unprocessed nodes are returned, but
             not their children (which should be also unprocessed then). Setting
             `allnodes` to True, retuns all nodes.
-            
+
         Returns
         -------
         nodelist : list of Elements
@@ -436,14 +436,14 @@ class HSDQuery:
     @staticmethod
     def _checkattribs(node, attribs):
         """Checks whether the node has only the allowed attributes
-        
+
         Parameters
         ----------
         node : Element
             Node to investigate.
         attribs : frozen set
             Set of allowed attributes
-            
+
         Raises
         ------
         HSDInvalidAttributeException

@@ -12,7 +12,7 @@ class _HSDConvInt0:
     def tohsd(value):
         return str(value)
 
-#: Converts an 
+#: Converts an
 int0 = _HSDConvInt0
 
 
@@ -78,7 +78,7 @@ class _HSDConvStr1:
 
     @staticmethod
     def tohsd(values):
-        return " ".join(values)    
+        return " ".join(values)
 
 str1 = _HSDConvStr1
 
