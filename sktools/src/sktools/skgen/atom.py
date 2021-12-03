@@ -413,4 +413,3 @@ class SkgenAtomResult:
 
     def get_spinws(self):
         return self._result_db["spinw"]
-

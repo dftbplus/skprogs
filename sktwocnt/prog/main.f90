@@ -1,5 +1,6 @@
 program main
-  use accuracy
+
+  use common_accuracy, only : dp
   use input
   use twocnt
   use output

@@ -246,10 +246,10 @@ class VariableTreeBuilder:
 
 class HSDTreeBuilder:
     """Builds HSD-tree by connecting parser with builder."""
-    
+
     def __init__(self, parser=None, builder=None):
         """Initializes a HSDTreeBuilder instance.
-        
+
         Args:
             parser: Event-driven HSD-parser (default: HSDParser)
             builder: Event-driven tree builder (default: TreeBuilder)
@@ -265,14 +265,14 @@ class HSDTreeBuilder:
         self.parser.start_handler = self.builder.start
         self.parser.close_handler = self.builder.end
         self.parser.text_handler = self.builder.data
-        
+
 
     def build(self, fileobj):
         """Builds a HSD-tree from a file-like object.
-        
+
         Args:
             fileobj: File like object containing an HSD in text form.
-            
+
         Returns:
             HSD-tree
         """

@@ -1,5 +1,6 @@
 module input
-  use accuracy
+
+  use common_accuracy, only : dp
   use gridorbital
   use twocnt, only: twocnt_in, atomdata
   implicit none

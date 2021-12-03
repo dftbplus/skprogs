@@ -1,6 +1,8 @@
 !> Contains routines to locate a value in an array using bisection.
 module bisection
-  use accuracy, only : dp
+
+  use common_accuracy, only : dp
+
   implicit none
   private
 

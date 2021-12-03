@@ -1,6 +1,8 @@
 !> Spherical harmonics.
 module sphericalharmonics
-  use accuracy
+
+  use common_accuracy, only : dp
+
   implicit none
   private
 

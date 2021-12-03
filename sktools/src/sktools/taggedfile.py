@@ -116,4 +116,3 @@ class TaggedFile(OrderedDict):
         if fname:
             fp.close()
         return cls(tagvalues)
-

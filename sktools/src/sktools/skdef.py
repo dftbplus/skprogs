@@ -1,4 +1,4 @@
-"""Parser for the skdefs.hsd file"""
+"""Parser for the skdefs.hsd file."""
 
 import re
 import copy
@@ -25,7 +25,7 @@ class Skdef(sc.ClassDict):
     ----------
     globals : Globals
         Global settings
-    atomparams : AtomParameters
+    atomparameters : AtomParameters
         Various atomic parameters
     oncenterparameters : OnecenterParameters
         Parameters influencing the technical details of the one-center
@@ -117,7 +117,6 @@ class Globals(sc.ClassDict):
         myself.xcfunctional = sc.XC_FUNCTIONAL_TYPES[xcfunctional]
         myself.superposition = sc.SUPERPOSITION_TYPES[superpos]
         return myself
-
 
 
 class AtomParameters(sc.ClassDict):
@@ -372,21 +371,26 @@ class DftbAtom(sc.ClassDict):
         """Creates instance from a HSD-node and with given query object."""
 
         shellresolved = query.getvalue(root, "shellresolved", conv.bool0)
+
         customonsites_node = query.getchild(root, "customizedonsites",
                                             optional=True)
-        customonsites = sc.getshellvalues(customonsites_node, query)
+        customonsites = sc.get_shellvalues(customonsites_node, query)
+
         customhubbards_node = query.getchild(root, "customizedhubbards",
                                              optional=True)
-        customhubbards = sc.getshellvalues(customhubbards_node, query)
+        customhubbards = sc.get_shellvalues(customhubbards_node, query)
+
         customoccupations_node = query.getchild(root, "customizedoccupations",
                                                 optional=True)
-        customoccupations = sc.getshellvalues(customoccupations_node, query)
+        customoccupations = sc.get_shellvalues(customoccupations_node, query)
+
         denscompr = sc.hsd_node_factory(
             "density compression", compressions.COMPRESSIONS,
             query.getvaluenode(root, "densitycompression"), query)
         wavecomprs = sc.hsd_node_factory(
             "wave compression container", compressions.COMPRESSION_CONTAINERS,
             query.getvaluenode(root, "wavecompressions"), query)
+
         myself = cls()
         myself.shellresolved = shellresolved
         myself.densitycompression = denscompr
@@ -394,6 +398,7 @@ class DftbAtom(sc.ClassDict):
         myself.customizedonsites = customonsites
         myself.customizedhubbards = customhubbards
         myself.customizedoccupations = customoccupations
+
         return myself
 
 
@@ -480,7 +485,6 @@ class TwocenterParameters(sc.ClassDict):
                 msg = "twocenterparameters/{}-{}:\n{}".format(name1, name2, ex)
                 raise sc.SkgenException(msg)
         return myself
-
 
 
 class TwocenterParameter(sc.ClassDict):

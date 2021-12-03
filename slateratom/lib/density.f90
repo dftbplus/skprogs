@@ -1,6 +1,8 @@
 module density
-  use accuracy
+
+  use common_accuracy, only : dp
   use utilities
+
   implicit none
   private
 

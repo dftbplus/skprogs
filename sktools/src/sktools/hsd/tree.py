@@ -9,11 +9,11 @@ HSD_ATTRIB_PREFIX_LEN = len(HSD_ATTRIB_PREFIX)
 
 
 class HSDTree(ETree.ElementTree):
-    """Wrapper around an entire tree."""  
+    """Wrapper around an entire tree."""
 
     def writehsd(self, file, formatter=None):
         """Writes the tree in HSD format.
-        
+
         Args:
             file: File to write the tree into. It can be file name or a
                 file like object.
@@ -95,7 +95,7 @@ class Element(ETree.Element):
 
     def makeelement(tag, attrib, hsdattrib=None):
         return Element(tag, attrib, hsdattrib)
-    
+
 
 
 def SubElement(parent, tag, attribs=None, hsdattribs=None):

@@ -1,5 +1,6 @@
 program HFAtom
-  use accuracy
+
+  use common_accuracy, only : dp
   use globals
   use integration
   use input

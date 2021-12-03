@@ -1,5 +1,7 @@
 module diagonalizations
-  use accuracy
+
+  use common_accuracy, only : dp
+
   implicit none
   private
 
@@ -189,7 +191,7 @@ module diagonalizations
 ! ********************************************************************** 
 !
       SUBROUTINE EWEVGE (NA,NB,N,A,B,EW,H,IEV,IORD,IER) 
-        use accuracy
+        use common_accuracy, only : dp
         IMPLICIT NONE
         integer, intent(in) :: NA,NB,N
         integer, intent(in) :: iev,iord
@@ -244,7 +246,7 @@ module diagonalizations
 ! ******************************************************************
 !
       SUBROUTINE CHOLES (N,B,NB,ICHO)
-        use accuracy
+        use common_accuracy, only : dp
         IMPLICIT NONE
         integer :: N,NB,ICHO,i,ii,j,K,i1
         real(dp) :: B,d,s
@@ -298,7 +300,7 @@ module diagonalizations
 ! *********************************************************************
 !
       SUBROUTINE MATRAF (N,A,NA,B,NB,H)
-        use accuracy
+        use common_accuracy, only : dp
         IMPLICIT NONE
         integer :: N,NA,NB,i,j,ii,k,i1
         real(dp) :: A,B,H,s,d
@@ -370,7 +372,7 @@ module diagonalizations
 ! ******************************************************************
 !
       SUBROUTINE TRIDIA (NM,N,D,E,A,IEV)
-        use accuracy
+        use common_accuracy, only : dp
         IMPLICIT NONE
         integer :: NM,N,iev,i,j,ii,K,JP1,L
         real(dp) :: A,D,E,H,HH,G,F,scale
@@ -536,7 +538,7 @@ module diagonalizations
 ! **********************************************************************
 !
       SUBROUTINE IQLDIA (NM,N,D,E,Z,IEV,IER)
-        use accuracy
+        use common_accuracy, only : dp
         IMPLICIT NONE
         integer :: NM,N,iev,ier,i,j,ii,k,M,L,MM1,KK,MML
         real(dp) :: E,Z,D,DD,P,G,R,S,T,PSI,PSJ,F,B,C,anorm
@@ -781,8 +783,8 @@ module diagonalizations
 !
 ! **********************************************************************
 !
-      SUBROUTINE BACKTR (N,M,R,NR,X,NX,Y,NY,H)
-        use accuracy
+      SUBROUTINE BACKTR(N,M,R,NR,X,NX,Y,NY,H)
+        use common_accuracy, only : dp
         IMPLICIT NONE
         integer :: N,M,NR,NX,NY,i,j,ii,I1,K
         real(dp) :: R,X,Y,H,D,S
@@ -839,7 +841,7 @@ module diagonalizations
 ! **********************************************************************
 !
       SUBROUTINE SORTVC (NM,N,NQ,D,Q,M,IEV,E)
-        use accuracy
+        use common_accuracy, only : dp
         IMPLICIT NONE
         integer :: NM,M,NQ,IEV,i,j,ii,KK,K,N
         real(dp) :: D,Q,E,H,S

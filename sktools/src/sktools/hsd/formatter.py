@@ -8,10 +8,10 @@ __all__ = [ "HSDFormatter", "HSDStreamFormatter" ]
 
 class HSDFormatter:
     """Event controlled formatter producing HSD output."""
-    
+
     def __init__(self, indentstring="  ", closecomments=False, defattrib=None):
         """Initializes HSDFormatter instance.
-        
+
         Args:
             indentstring: String used for indenting (default: "  ").
             closecomments: Whether comments after tag closing should indicate
@@ -46,7 +46,7 @@ class HSDFormatter:
 
     def start_tag(self, tagname, options, hsdoptions):
         """Starts an HSD tag.
-        
+
         Args:
             tagname: Name of the tag to be started.
             options: Dictionary of the tag options.
@@ -54,7 +54,7 @@ class HSDFormatter:
         tagname = hsdoptions.get(hsd.HSDATTR_TAG, tagname)
         equalsign = hsdoptions.get(hsd.HSDATTR_EQUAL, False)  # opens with '='?
         if options:
-            if (self._defattrib and len(options) == 1 
+            if (self._defattrib and len(options) == 1
                     and self._defattrib in options):
                 optstr = " [" + options[self._defattrib] + "]"
             else:
@@ -77,7 +77,7 @@ class HSDFormatter:
 
     def close_tag(self, tagname):
         """Closes an HSD tag.
-        
+
         Args:
             tagname: Name of the tag to be closed.
         """
@@ -93,10 +93,10 @@ class HSDFormatter:
             self.output.write(", " + tagname)
         del self._equalsigns[-1]
         self._last2, self._last = self._last, 2
-        
+
     def text(self, text):
         """Adds text between tag opening and closing.
-        
+
         Args:
             text: Text to be added.
         """
@@ -104,13 +104,13 @@ class HSDFormatter:
             self.output.write("\n")
         self.output.write(text)
         self._last2, self._last = self._last, 3
-                
+
     def _increaseindentation(self):
         """Increases indentation level and adjusts indentation string."""
         self._indentlist.append(self._curindent)
         if not self._equalsigns[-1]:
             self._curindent += self._indent
-        
+
     def _decreaseindentation(self):
         """Decreases indentation level and adjusts indentation string."""
         self._curindent = self._indentlist.pop()
@@ -118,36 +118,36 @@ class HSDFormatter:
 
 class HSDStreamFormatter:
     """Reads a HSD feed and writes it on the fly formatted into a stream."""
-    
+
     def __init__(self, parser, formatter):
         """Intializes HSDFeedPrinter instance.
-        
+
         Args:
             parser: Event controled parser to be used.
-            formatter: Formatter to be used. 
+            formatter: Formatter to be used.
         """
         self._parser = parser
         self._formatter = formatter
         self._parser.start_handler = self._formatter.start_tag
         self._parser.close_handler = self._formatter.close_tag
         self._parser.text_handler = self._formatter.text
-        
+
     def feed(self, fileobj):
         """Feeds the printer with content.
-        
+
         The contant in fileobj is passed to the parser, and output is generated
         depending on the events.
-        
+
         Args:
             fileobj: File with HSD-content.
         """
         self._parser.feed(fileobj)
-        
 
-if __name__ == "__main__":     
+
+if __name__ == "__main__":
     import io
     from sktools.hsd.parser import HSDParser
-    
+
     fp = io.StringIO("""
 Geometry = GenFormat {
 2  S

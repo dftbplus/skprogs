@@ -1,6 +1,8 @@
 module gridgenerator
-  use accuracy
+
+  use common_accuracy, only : dp
   use quadratures
+
   implicit none
 
 contains
@@ -9,7 +11,7 @@ contains
     type(quadrature), intent(in) :: quads(2)
     interface
       subroutine coordtrans(oldc, newc, jacobi)
-        use accuracy, only : dp
+        use common_accuracy, only : dp
         real(dp), intent(in) :: oldc(:)
         real(dp), intent(out) :: newc(:)
         real(dp), intent(out) :: jacobi
@@ -48,13 +50,13 @@ contains
     type(quadrature), intent(in) :: quads(2)
     interface
       subroutine coordtrans(oldc, newc, jacobi)
-        use accuracy, only : dp
+        use common_accuracy, only : dp
         real(dp), intent(in) :: oldc(:)
         real(dp), intent(out) :: newc(:)
         real(dp), intent(out) :: jacobi
       end subroutine coordtrans
       function partition(r1, r2, dist, params)
-        use accuracy, only : dp
+        use common_accuracy, only : dp
         real(dp), intent(in) :: r1, r2, dist, params(:)
         real(dp) :: partition
       end function partition

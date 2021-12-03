@@ -1,10 +1,12 @@
 module dft
+
   use, intrinsic :: iso_c_binding, only : c_size_t
-  use accuracy
-  use constants
+  use common_accuracy, only : dp
+  use common_constants
   use density
   use integration
   use xc_f90_lib_m
+
   implicit none
   private
 

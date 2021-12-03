@@ -1,11 +1,11 @@
 set(sources-f90
-  accuracy.f90
-  constants.f90
-  fifo.f90
-  fifo_real1.f90
-  fifo_real2.f90
-  fifobase.f90
-  taggedout.f90)
+  accuracy.F90
+  constants.F90
+  fifo.F90
+  fifo_real1.F90
+  fifo_real2.F90
+  fifobase.F90
+  taggedout.F90)
 
 add_library(skprogs-common ${sources-f90})
 
@@ -18,4 +18,3 @@ target_include_directories(skprogs-common PUBLIC
 if(BUILD_SHARED_LIBS)
   install(TARGETS skprogs-common EXPORT skprogs-targets DESTINATION ${CMAKE_INSTALL_LIBDIR})
 endif()
-#install(DIRECTORY ${moddir}/ DESTINATION ${CMAKE_INSTALL_MODULEDIR})
