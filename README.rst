@@ -2,8 +2,8 @@
 SkProgs
 *******
 
-Package containing a few programs enabling to generate Slater-Koster files for
-the DFTB-method.
+Package containing a few programs that are useful in generating Slater-Koster
+files for the DFTB-method.
 
 **NOTE**: This packages comes with minimal documentation and with a currently
 rather fragile user interface. It is considered to be neither stable nor
