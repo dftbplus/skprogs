@@ -246,7 +246,8 @@ contains
     ! No checking for power, e.g. power==0 or power<0 etc. !
 
     real(dp), intent(out) :: vconf(0:,:,:)
-    integer, intent(in) :: max_l,conf_power(0:)
+    integer, intent(in) :: max_l
+    real(dp), intent(in) ::conf_power(0:)
     integer, intent(in) :: num_alpha(0:)
     integer, intent(in) :: poly_order(0:)
     real(dp), intent(in) :: alpha(0:,:),conf_r0(0:)
@@ -256,7 +257,7 @@ contains
     vconf=0.0d0
 
     do ii=0,max_l
-      if (conf_power(ii)/=0) then
+      if (conf_power(ii) > 1d-6) then
         nn=0
         do jj=1,num_alpha(ii)
           do ll=1,poly_order(ii)
@@ -365,19 +366,6 @@ contains
     !  write(*,*) moment
 
   end subroutine moments
-
-  function v(x,i) ! V_{i}(x)
-
-    ! Auxilliary function, see rmp_32_186_1960.pdf eqn. 20
-
-    real(dp), intent(in) :: x
-    integer, intent(in) :: i
-    real(dp) :: v
-
-    v=fak(i)/(x**(i+1))
-
-    return  
-  end function v
 
   function w(x,i,j) ! W_{ij}(x)
 

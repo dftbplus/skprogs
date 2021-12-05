@@ -5,7 +5,7 @@ module globals
   implicit none
 
   real(dp) :: conf_r0(0:4) ! confinement radius
-  integer  :: conf_power(0:4) ! power of confinement
+  real(dp) :: conf_power(0:4) ! power of confinement
   real(dp) :: alpha(0:4,10) ! exponents
   integer  :: occ_shells(0:4) ! number of occupied shells
   integer  :: num_alpha(0:4) ! number of exponents in each shell

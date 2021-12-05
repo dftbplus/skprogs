@@ -8,6 +8,11 @@ module utilities
 
   public :: check_convergence, check_electron_number, vector_length
   public :: fak, polcart, cartpol, dscalar
+  public :: v
+
+  interface v
+    module procedure v_int, v_real
+  end interface
   
 contains
 
@@ -107,13 +112,13 @@ contains
 
   end function vector_length
 
-  FUNCTION fak(n)
+  pure FUNCTION fak(n)
     REAL(dp) :: fak
-    INTEGER :: n
+    INTEGER, intent(in) :: n
     INTEGER :: h
     fak = 1.0_dp
     DO h = 1,n 
-      fak = fak*dble(h) 
+      fak = fak*real(h,dp)
     END DO
     RETURN
   END function fak
@@ -152,6 +157,27 @@ contains
     dscalar = r1(1)*r2(1)+r1(2)*r2(2)+r1(3)*r2(3)
     RETURN
   END function dscalar
+
+  !> Auxilliary function, see eqn. 20 of Roothan https://link.aps.org/doi/10.1103/RevModPhys.32.186
+  pure function v_int(x,i) ! V_{i}(x)
+
+    real(dp), intent(in) :: x
+    integer, intent(in) :: i
+    real(dp) :: v_int
+
+    v_int=fak(i)/(x**(i+1))
+
+  end function v_int
+
+  ! Auxilliary function, continuation of factorial function
+  pure function v_real(x,i) ! V_{i}(x)
+
+    real(dp), intent(in) :: x, i
+    real(dp) :: v_real
+
+    v_real=gamma(i+1)/(x**(i+1))
+
+  end function v_real
 
 end module utilities
 

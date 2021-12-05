@@ -28,7 +28,7 @@ class PowerCompression(sc.ClassDict):
 
         power, child = query.getvalue(root, 'power', conv.float0,
                                       returnchild=True)
-        if power <= 0.0:
+        if power < 0.0:
             raise hsd.HSDInvalidTagValueException(
                 msg='Invalid compression power {:f}'.format(power), node=child)
         radius, child = query.getvalue(root, 'radius', conv.float0,
