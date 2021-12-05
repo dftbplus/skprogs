@@ -67,7 +67,6 @@ contains
     real(dp) :: rhotot,rhodiff,drhotot,ddrhotot,drhodiff,ddrhodiff
     integer :: ii,jj,kk,ll,mm,oo
     integer(c_size_t) :: nn
-    !type(xc_f90_pointer_t) :: xcfunc_x, xcfunc_c, xcinfo
     type(xc_f90_func_t) :: xcfunc_x, xcfunc_c
     type(xc_f90_func_info_t) :: xcinfo
     real(dp), allocatable :: tmprho(:,:), ex(:), ec(:), vx(:,:), vc(:,:)
