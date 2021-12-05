@@ -65,8 +65,8 @@ contains
 
     ! build mixer input 
 
-      pot_new(1,:,:,:)=-float(nuc)*u(:,:,:)+j_matrix(:,:,:)-k_matrix(1,:,:,:)
-      pot_new(2,:,:,:)=-float(nuc)*u(:,:,:)+j_matrix(:,:,:)-k_matrix(2,:,:,:)
+      pot_new(1,:,:,:)=-real(nuc,dp)*u(:,:,:)+j_matrix(:,:,:)-k_matrix(1,:,:,:)
+      pot_new(2,:,:,:)=-real(nuc,dp)*u(:,:,:)+j_matrix(:,:,:)-k_matrix(2,:,:,:)
 
 
     ! mixer

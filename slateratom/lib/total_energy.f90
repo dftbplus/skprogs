@@ -229,7 +229,7 @@ contains
             do mm=1,poly_order(ii)
               tt=tt+1
               kinetic=kinetic+t(ii,ss,tt)*p_total(ii,ss,tt)
-              nuclear=nuclear-float(nuc)*u(ii,ss,tt)*p_total(ii,ss,tt)
+              nuclear=nuclear-real(nuc,dp)*u(ii,ss,tt)*p_total(ii,ss,tt)
               confinement=confinement+vconf(ii,ss,tt)*p_total(ii,ss,tt)
             end do
           end do

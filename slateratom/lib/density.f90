@@ -315,10 +315,10 @@ contains
     if ((r==0.0d0).and.((poly_order+l-1)==0)) then
       basis_1st=normalization*(-alpha*exp(-alpha*r))
     else if ((r==0.0d0).and.((poly_order+l-2)==0)) then
-      basis_1st=normalization*(float(poly_order+l-1)*&
+      basis_1st=normalization*(real(poly_order+l-1,dp)*&
           &exp(-alpha*r)-alpha*r**(poly_order+l-1)*exp(-alpha*r))
     else
-      basis_1st=normalization*(float(poly_order+l-1)*r**(poly_order+l-2)*&
+      basis_1st=normalization*(real(poly_order+l-1,dp)*r**(poly_order+l-2)*&
           &exp(-alpha*r)-alpha*r**(poly_order+l-1)*exp(-alpha*r))
     end if
 
@@ -339,16 +339,16 @@ contains
 
     ! catch 0^0
     if ((r==0.0d0).and.((poly_order+l-3)==0)) then
-      basis_2nd=normalization*(float(poly_order+l-1)*float(poly_order+l-2)*&
+      basis_2nd=normalization*(real(poly_order+l-1,dp)*real(poly_order+l-2,dp)*&
           &exp(-alpha*r))
     else if ((r==0.0d0).and.((poly_order+l-2)==0)) then
-      basis_2nd=normalization*(-2.0d0*alpha*float(poly_order+l-1)*&
+      basis_2nd=normalization*(-2.0d0*alpha*real(poly_order+l-1,dp)*&
           &exp(-alpha*r))
     else if ((r==0.0d0).and.((poly_order+l-1)==0)) then
       basis_2nd=normalization*(alpha**2*exp(-alpha*r))
     else
-      basis_2nd=normalization*(float(poly_order+l-1)*float(poly_order+l-2)*&
-          &r**(poly_order+l-3)*exp(-alpha*r)-2.0d0*alpha*float(poly_order+l-1)*&
+      basis_2nd=normalization*(real(poly_order+l-1,dp)*real(poly_order+l-2,dp)*&
+          &r**(poly_order+l-3)*exp(-alpha*r)-2.0d0*alpha*real(poly_order+l-1,dp)*&
           &r**(poly_order+l-2)*exp(-alpha*r)+alpha**2*r**(poly_order+l-1)*&
           &exp(-alpha*r))
     end if
@@ -419,10 +419,10 @@ contains
           &(-beta)*exp(ab*r)
     else if ((r==0.0d0).and.((m+n-3)==0)) then
       basis_times_basis_1st=normalization1*normalization2*&
-          &(float(n-1))*exp(ab*r)
+          &(real(n-1,dp))*exp(ab*r)
     else
       basis_times_basis_1st=normalization1*normalization2*&
-          &(float(n-1)*r**(m+n-3)-beta*r**(n+m-2))*exp(ab*r)
+          &(real(n-1,dp)*r**(m+n-3)-beta*r**(n+m-2))*exp(ab*r)
     end if
 
     if (abs(basis_times_basis_1st)<1.0d-20) basis_times_basis_1st=0.0d0
@@ -452,8 +452,8 @@ contains
 
     ! WARNING: without summing negative and positive contributions independently
     ! zora becomes completely unstable !
-    positive=float((n-1)*(n-2))*r**(m+n-4)+beta**2*r**(m+n-2)
-    negative=float(2*(n-1))*beta*r**(n+m-3)
+    positive=real((n-1)*(n-2),dp)*r**(m+n-4)+beta**2*r**(m+n-2)
+    negative=real(2*(n-1),dp)*beta*r**(n+m-3)
 
     basis_times_basis_2nd=normalization1*normalization2*&
         &(positive-negative)*exp(ab*r)
@@ -488,16 +488,16 @@ contains
     if ((r==0.0d0).and.((m+n-2)==0)) then
       positive=alpha*beta
     else if ((r==0.0d0).and.((m+n-4)==0)) then
-      positive=float((m-1)*(n-1))
+      positive=real((m-1)*(n-1),dp)
     else
-      positive=float((m-1)*(n-1))*r**(m+n-4)+&
+      positive=real((m-1)*(n-1),dp)*r**(m+n-4)+&
           &alpha*beta*r**(m+n-2)
     end if
 
     if ((r==0.0d0).and.((m+n-3)==0)) then
-      negative=(alpha*float(n-1)+beta*float(m-1))
+      negative=(alpha*real(n-1,dp)+beta*real(m-1,dp))
     else
-      negative=(alpha*float(n-1)+beta*float(m-1))*r**(m+n-3)
+      negative=(alpha*real(n-1,dp)+beta*real(m-1,dp))*r**(m+n-3)
     end if
 
     basis_1st_times_basis_1st=normalization1*normalization2*&
@@ -528,15 +528,15 @@ contains
 
     ! WARNING: without summing negative and positive contributions independently
     ! zora becomes completely unstable !
-    positive=float((m-1)*(m-2)*(n-1)*(n-2))*r**(n+m-6)+&
-        &r**(m+n-4)*(beta**2*float((m-1)*(m-2))+alpha**2*float((n-1)*(n-2))+&
-        &alpha*beta*float(4*(m-1)*(n-1)))+&
+    positive=real((m-1)*(m-2)*(n-1)*(n-2),dp)*r**(n+m-6)+&
+        &r**(m+n-4)*(beta**2*real((m-1)*(m-2),dp)+alpha**2*real((n-1)*(n-2),dp)+&
+        &alpha*beta*real(4*(m-1)*(n-1),dp))+&
         &alpha**2*beta**2*r**(m+n-2)
 
-    negative=r**(m+n-5)*(beta*float(2*(n-1)*(m-1)*(m-2))+&
-        &alpha*float(2*(m-1)*(n-1)*(n-2)))+&
-        &r**(m+n-3)*(alpha*beta**2*float(2*(m-1))+&
-        &beta*alpha**2*float(2*(n-1)))
+    negative=r**(m+n-5)*(beta*real(2*(n-1)*(m-1)*(m-2),dp)+&
+        &alpha*real(2*(m-1)*(n-1)*(n-2),dp))+&
+        &r**(m+n-3)*(alpha*beta**2*real(2*(m-1),dp)+&
+        &beta*alpha**2*real(2*(n-1),dp))
 
     basis_2nd_times_basis_2nd=normalization1*normalization2*&
         &(positive-negative)*exp(ab*r)
@@ -596,7 +596,7 @@ contains
     ! WARNING: without summing negative and positive contributions independently
     ! zora becomes completely unstable !
     basis_times_basis_1st_times_r2=normalization1*normalization2*&
-        &(float(n-1)*r**(m+n-1)-beta*r**(n+m))*exp(ab*r)
+        &(real(n-1,dp)*r**(m+n-1)-beta*r**(n+m))*exp(ab*r)
 
     if (abs(basis_times_basis_1st_times_r2)<1.0d-20) &
         &basis_times_basis_1st_times_r2=0.0d0
@@ -626,8 +626,8 @@ contains
 
     ! WARNING: without summing negative and positive contributions independently
     ! zora becomes completely unstable !
-    positive=float((n-1)*(n-2))*r**(m+n-2)+beta**2*r**(m+n)
-    negative=float(2*(n-1))*beta*r**(n+m-1)
+    positive=real((n-1)*(n-2),dp)*r**(m+n-2)+beta**2*r**(m+n)
+    negative=real(2*(n-1),dp)*beta*r**(n+m-1)
 
     basis_times_basis_2nd_times_r2=normalization1*normalization2*&
         &(positive-negative)*exp(ab*r)
@@ -661,7 +661,7 @@ contains
     ! WARNING: without summing negative and positive contributions independently
     ! zora becomes completely unstable !
     basis_times_basis_1st_times_r=normalization1*normalization2*&
-        &(float(n-1)*r**(m+n-2)-beta*r**(n+m-1))*exp(ab*r)
+        &(real(n-1,dp)*r**(m+n-2)-beta*r**(n+m-1))*exp(ab*r)
 
     if (abs(basis_times_basis_1st_times_r)<1.0d-20) &
         &basis_times_basis_1st_times_r=0.0d0
@@ -689,9 +689,9 @@ contains
 
     ! WARNING: without summing negative and positive contributions independently
     ! zora becomes completely unstable !
-    positive=float((m-1)*(n-1))*r**(m+n-2)+&
+    positive=real((m-1)*(n-1),dp)*r**(m+n-2)+&
         &alpha*beta*r**(m+n)
-    negative=(alpha*float(n-1)+beta*float(m-1))*r**(m+n-1)
+    negative=(alpha*real(n-1,dp)+beta*real(m-1,dp))*r**(m+n-1)
 
     basis_1st_times_basis_1st_times_r2=normalization1*normalization2*&
         &(positive-negative)*exp(ab*r)

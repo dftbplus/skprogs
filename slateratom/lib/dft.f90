@@ -33,14 +33,14 @@ contains
     real(dp) :: b,t,x,rtx
     integer :: ii
 
-    b= (0.69395656d0/float(nuc))**(1.0d0/3.0d0)
+    b= (0.69395656d0/real(nuc,dp))**(1.0d0/3.0d0)
 
     do ii=1,num_mesh_points
 
       x= abcissa(ii)/b
       rtx= sqrt(x)
 
-      t= float(nuc)/(1.0d0+rtx*(0.02747d0-x*(0.1486d0-0.007298d0*x))&
+      t= real(nuc,dp)/(1.0d0+rtx*(0.02747d0-x*(0.1486d0-0.007298d0*x))&
           &+x*(1.243d0+x*(0.2302d0+0.006944d0*x)));
       if (t < 1.0d0) t= 1.0d0
 

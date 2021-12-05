@@ -276,13 +276,13 @@ contains
 
     do ii=1,num_mesh_points
       write(95,'(6ES21.12E3)') abcissa(ii), weight(ii), &
-          &float(-nuc) / abcissa(ii), cpot(ii), vxc(ii,1), vxc(ii,2)
+          &real(-nuc,dp) / abcissa(ii), cpot(ii), vxc(ii,1), vxc(ii,2)
     end do
     close(95)
 
     do ii=1,num_mesh_points
       ecou=ecou+weight(ii)*rhotot(ii)*cpot(ii)*abcissa(ii)**2
-      enuc=enuc-weight(ii)*rhotot(ii)*float(nuc)*abcissa(ii)
+      enuc=enuc-weight(ii)*rhotot(ii)*real(nuc,dp)*abcissa(ii)
       vxcint(1)=vxcint(1)+weight(ii)*rho(ii,1)*vxc(ii,1)*abcissa(ii)**2
       vxcint(2)=vxcint(2)+weight(ii)*rho(ii,2)*vxc(ii,2)*abcissa(ii)**2
     end do

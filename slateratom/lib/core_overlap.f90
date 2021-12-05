@@ -167,7 +167,7 @@ contains
   !            oo=oo+1
   !            nlq=mm+ii
   !
-  !            normalization=float(2**(nlp+nlq+1))/&
+  !            normalization=real(2**(nlp+nlq+1),dp)/&
   !                sqrt(v(alpha(ii,jj),2*nlp)*v(alpha(ii,kk),2*nlq))
   !
   !            part1=exp_int(alpha2,nlp+nlq-1,r0)-exp_int(alpha2,nlp+nlq-1,0.0d0)
@@ -387,7 +387,7 @@ contains
     integer, intent(in) :: i,j
     real(dp) :: w
 
-    w=2.0d0*float((j-i-1))/x
+    w=2.0d0*real((j-i-1),dp)/x
 
     return
   end function w
