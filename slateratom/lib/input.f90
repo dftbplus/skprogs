@@ -18,7 +18,8 @@ contains
     ! Read in everything except occupation numbers.
 
     integer :: ii,jj
-    integer, intent(out)  :: nuc,max_l,maxiter,conf_power(0:),num_occ,num_power
+    integer, intent(out)  :: nuc,max_l,maxiter,num_occ,num_power
+    real(dp), intent(out) :: conf_power(0:)
     integer, intent(out) :: num_alphas,xcnr
     logical, intent(out) :: generate_alpha,eigprint,zora,broyden
     real(dp), intent(out) :: conf_r0(0:),min_alpha,max_alpha,mixing_factor
@@ -165,7 +166,8 @@ contains
     ! Echo completed input to stdout.
 
     integer :: ii,jj
-    integer, intent(in)  :: nuc,max_l,maxiter,conf_power(0:),num_occ,num_power
+    integer, intent(in)  :: nuc,max_l,maxiter,num_occ,num_power
+    real(dp), intent(in) :: conf_power(0:)
     integer, intent(in)  :: num_alphas,xcnr,num_mesh_points
     real(dp), intent(in) :: conf_r0(0:),occ(:,0:,:)
     real(dp), intent(in) :: alpha(0:,:),xalpha_const
@@ -228,8 +230,8 @@ contains
     write(*,'(A)') ' '
     !  write(*,'(A,F12.8,A,I1)') 'Confining Radius is ',conf_r0,' a.u. with power of ',conf_power
     do ii=0,max_l
-      if (conf_power(ii)/=0) then
-        write(*,'(A,I3,A,E15.7,A,I3)') 'l= ',ii,', r0= ',conf_r0(ii),' power= ',&
+      if (conf_power(ii) > 1d-6) then
+        write(*,'(A,I3,A,E15.7,A,E15.7)') 'l= ',ii,', r0= ',conf_r0(ii),' power= ',&
             conf_power(ii)
       else
         write(*,'(A,I3,A)') 'l= ',ii,' no confinement '

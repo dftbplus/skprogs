@@ -137,9 +137,6 @@ class SlateratomInput:
                 msg = "Invalid compressiont type {} for slateratom".format(
                     comp.__class__.__name__)
                 raise sc.SkgenException(msg)
-            if abs(comp.power - float(int(comp.power))) > 1e-8:
-                msg = "Slateratom only supports integer compression exponents"
-                raise sc.SkgenException(msg)
         maxang = atomconfig.maxang
         ncompr = len(compressions)
         if ncompr and ncompr != maxang + 1:
@@ -177,8 +174,8 @@ class SlateratomInput:
                 1e30, 0, self._COMMENT, sc.ANGMOM_TO_SHELL[ll])
                 for ll in range(maxang + 1) ]
         else:
-            out += [ "{:g} {:d} \t{:s} Compr. radius and power ({:s})".format(
-                compr.radius, int(compr.power), self._COMMENT,
+            out += [ "{:g} {:g} \t{:s} Compr. radius and power ({:s})".format(
+                compr.radius, compr.power, self._COMMENT,
                 sc.ANGMOM_TO_SHELL[ll])
                 for ll, compr in enumerate(self._compressions) ]
 
