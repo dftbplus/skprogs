@@ -23,7 +23,7 @@ Prerequisites
 
 * Python3
 
-* LibXC library with f90 interface (tested with version 4.3.4, version 5.x does
+* LibXC library with f90 interface (tested with version 5.1.6, version 4.x does
   not work due to inteface changes in LibXC)
 
   
