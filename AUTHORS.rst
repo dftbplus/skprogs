@@ -9,6 +9,8 @@ contributed to this package :
 
 * Ben Hourahine (University of Strathclyde, UK)
 
+* Ziyang Hu (Hong Kong Quantum AI Lab Limited, HKU)
+
 * Christof Köhler (University of Bremen)
 
 * Thomas Niehaus (University of Lyon, France)
