@@ -35,6 +35,7 @@ contains
 
     b= (0.69395656d0/real(nuc,dp))**(1.0d0/3.0d0)
 
+    !$OMP PARALLEL DO PRIVATE(ii,x,rtx,t)
     do ii=1,num_mesh_points
 
       x= abcissa(ii)/b
@@ -48,6 +49,7 @@ contains
       vxc(ii,2)= (t/abcissa(ii))/2.0d0
 
     end do
+    !$OMP END PARALLEL DO
 
   end subroutine dft_start_pot
 
@@ -90,6 +92,7 @@ contains
       xcinfo = xc_f90_func_get_info(xcfunc_x)
     end if
 
+    !$OMP PARALLEL DO PRIVATE(ii)
     do ii=1,num_mesh_points
 
       rho(ii,1)=density_at_point(p(1,:,:,:),max_l,num_alpha,poly_order,alpha,&
@@ -98,6 +101,7 @@ contains
           &abcissa(ii))
 
     end do
+    !$OMP END PARALLEL DO
 
     rho = max(rho, 0.0_dp)
     !rho(:,:) = sign(max(abs(rho), 1e-14_dp), rho)
@@ -115,6 +119,7 @@ contains
       !call derive2_5(rho(:,1), dz, ddrho(:,1), dzdr, d2zdr2, drho(:,1))
       !call derive2_5(rho(:,2), dz, ddrho(:,2), dzdr, d2zdr2, drho(:,2))
 
+      !$OMP PARALLEL DO PRIVATE(ii)
       do ii = 1, num_mesh_points
 
         drho(ii,1)=density_at_point_1st(p(1,:,:,:),max_l,num_alpha,poly_order,&
@@ -127,6 +132,7 @@ contains
         ddrho(ii,2)=density_at_point_2nd(p(2,:,:,:),max_l,num_alpha,poly_order,&
             &alpha,abcissa(ii))
       end do
+      !$OMP END PARALLEL DO
 
     end if
 
@@ -232,12 +238,14 @@ contains
 
     exc_energy=0.0d0
 
+    !$OMP PARALLEL DO PRIVATE(ii) REDUCTION(+: exc_energy)
     do ii=1,num_mesh_points
 
       exc_energy=exc_energy+weight(ii)*exc(ii)*(rho(ii,1)+rho(ii,2))*&
           &abcissa(ii)**2
 
     end do
+    !$OMP END PARALLEL DO
 
     !
     ! For usual DFT functionals E_xc=\int \rho \eps(\rho,\zeta) d^3r
@@ -259,6 +267,7 @@ contains
 
     vxc_energy=0.0d0
 
+    !$OMP PARALLEL DO PRIVATE(ii) REDUCTION(+: vxc_energy)
     do ii=1,num_mesh_points
 
       vxc_energy(1)=vxc_energy(1)+weight(ii)*vxc(ii,1)*(rho(ii,1))*&
@@ -267,6 +276,7 @@ contains
           &abcissa(ii)**2
 
     end do
+    !$OMP END PARALLEL DO
 
 
   end subroutine dft_vxc_energy
@@ -286,6 +296,7 @@ contains
 
     exc_matrixelement=0.0d0
 
+    !$OMP PARALLEL DO PRIVATE(ii,basis) REDUCTION(+: exc_matrixelement)
     do ii=1,num_mesh_points
 
       basis=basis_times_basis_times_r2(alpha1,poly1,alpha2,poly2,l,abcissa(ii))
@@ -295,6 +306,7 @@ contains
       exc_matrixelement(2)=exc_matrixelement(2)-weight(ii)*vxc(ii,2)*basis
 
     end do
+    !$OMP END PARALLEL DO
 
 
   end subroutine dft_exc_matrixelement

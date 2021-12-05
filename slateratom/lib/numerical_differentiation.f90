@@ -46,6 +46,7 @@ contains
 
     ! handle rest of mesh
 
+    !$OMP PARALLEL DO PRIVATE(ii,stencil)
     do ii=3,num_mesh_points-3
 
       stencil(1)=input(ii-2)
@@ -58,16 +59,19 @@ contains
       output(ii)=six_point(stencil,1,2,step)
 
     end do
+    !$OMP END PARALLEL DO
 
     ! now remember: df(x)/dx=df(z)/dz*dz/dx, e.g. x is the abcissa which is
     ! not equally spaced and z is the generating variable of the Becke mesh
     ! which is equally spaced; so multiply by dz/dx
 
+    !$OMP PARALLEL DO PRIVATE(ii,stencil)
     do ii=1,num_mesh_points
 
       output(ii)=output(ii)*reverse_abcissas_1st(nuc,abcissa(ii))
 
     end do
+    !$OMP END PARALLEL DO
 
   end subroutine numerical_1st_derivative
 

@@ -37,6 +37,7 @@ contains
     temp=pi/real(N+1,dp)
     dz = temp
     !    
+    !$OMP PARALLEL DO PRIVATE(ii,zz,cosz,cosz2,sinz)
     do ii=1,N
       zz = dz * real(ii, dp)
       cosz = cos(zz)
@@ -59,6 +60,7 @@ contains
       ! put fak into weight
       w(ii)=w(ii)*fak(ii)
     end do
+    !$OMP END PARALLEL DO
 
     deallocate(x) 
     deallocate(fak) 
@@ -81,6 +83,7 @@ contains
 
     step=pi/real(N+1,dp)
 
+    !$OMP PARALLEL DO PRIVATE(ii)
     do ii=1,N
 
       ! NOTE prefactor 
@@ -88,6 +91,7 @@ contains
       r(ii)=(1.0_dp+x(ii))/(1.0_dp-x(ii))*bragg(nuc)
 
     end do
+    !$OMP END PARALLEL DO
 
     deallocate(x) 
 
@@ -105,12 +109,14 @@ contains
 
     step=pi/real(N+1,dp)
 
+    !$OMP PARALLEL DO PRIVATE(ii)
     do ii=1,N
 
       dr(ii)=2.0d0*bragg(nuc)*pi*sin(step*real(ii,dp))/&
           &(1.0d0+2.0d0*cos(step*real(ii,dp))+cos(step*real(ii,dp))**2)
 
     end do
+    !$OMP END PARALLEL DO
 
   end subroutine get_abcissas_z_1st
 
@@ -126,12 +132,14 @@ contains
 
     step=pi/real(N+1,dp)
 
+    !$OMP PARALLEL DO PRIVATE(ii)
     do ii=1,N
 
       ddr(ii)=(-2.0d0*bragg(nuc)*pi**2)*(cos(step*real(ii,dp))-2.0d0)/&
           &(1.0d0+2.0d0*cos(step*real(ii,dp))+cos(step*real(ii,dp))**2)
 
     end do
+    !$OMP END PARALLEL DO
 
   end subroutine get_abcissas_z_2nd
 

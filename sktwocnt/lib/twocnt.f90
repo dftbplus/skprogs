@@ -109,6 +109,7 @@ contains
       write(*, "(A,I0,A,F6.3,A,F6.3)") "Calculating ", nbatchline,&
           & " lines: r0 = ", inp%r0 + inp%dr * real(nbatch * nbatchline, dp),&
           & " dr = ", inp%dr
+      !$OMP PARALLEL DO PRIVATE(ir,dist,grid1,grid2,dots,weights)
       do ir = 1, nbatchline
         dist = inp%r0 + inp%dr * real(nbatch * nbatchline + ir - 1, dp)
         call gengrid2_12(quads, coordtrans_becke_12, partition_becke,&
@@ -117,6 +118,7 @@ contains
             &inp%density, inp%ixc, imap, skhambuffer(:,ir), skoverbuffer(:,ir),&
             & denserr(ir))
       end do
+      !$OMP END PARALLEL DO
       denserrmax = max(denserrmax, maxval(denserr))
       maxabs = max(maxval(abs(skhambuffer)), maxval(abs(skoverbuffer)))
       if (dynlen) then
