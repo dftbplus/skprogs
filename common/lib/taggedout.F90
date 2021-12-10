@@ -89,7 +89,7 @@ contains
       nfield = 1
     end if
 
-    write (this%formInt, "('(', I2.2, 'I', I2.2, ')')") nfield, nchar
+    write(this%formInt, "('(', I2.2, 'I', I2.2, ')')") nfield, nchar
 
     write(this%formLogical, "('(40L2)')")
 
