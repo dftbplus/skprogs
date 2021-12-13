@@ -1,6 +1,6 @@
 module coordtrans
 
-  use common_accuracy, only : dp
+  use common_accuracy, only: dp
   use common_constants
 
   implicit none
@@ -18,7 +18,7 @@ contains
     real(dp), intent(out) :: spheric(:)
     real(dp), intent(out) :: jacobi
 
-    real(dp), parameter :: rm = 1.5_dp;
+    real(dp), parameter :: rm = 1.5_dp; 
     real(dp) :: rtmp1, rtmp2
 
     !assert(size(c11) == 3)
@@ -33,7 +33,6 @@ contains
 
   end subroutine coordtrans_becke
 
-
   !> Transforms a 2 dimensional vector with coordinates in [-1,1] onto spherical
   !! coordinates (r, theta), using the Becke algorithm.
   !! \param crd11 2d coordinate vector, each coordinate in [-1,1].
@@ -45,7 +44,7 @@ contains
     real(dp), intent(out) :: spheric(:)
     real(dp), intent(out) :: jacobi
 
-    real(dp), parameter :: rm = 1.5_dp;
+    real(dp), parameter :: rm = 1.5_dp; 
     real(dp) :: rtmp1, rtmp2
 
     !assert(size(c11) == 2)
@@ -58,7 +57,6 @@ contains
     jacobi = 2.0_dp * rm**3 * rtmp1**2 / rtmp2**4
 
   end subroutine coordtrans_becke_12
-
 
   !> Transforms a 2 dimensional vector with coordinates in [-1,1] onto spherical
   !! coordinates (theta, phi), using the Becke algorithm.
@@ -79,7 +77,6 @@ contains
     jacobi = pi
 
   end subroutine coordtrans_becke_23
-  
 
   !> Transforms a 3 dimensional vector with coordinates in [-1,1] onto spherical
   !! coordinates, using the Ahlrichs algorithm.
@@ -93,7 +90,7 @@ contains
     real(dp), intent(out) :: jacobi
 
     real(dp), parameter :: zeta = 1.20_dp
-    real(dp) :: rr 
+    real(dp) :: rr
 
     !assert(size(c11) == 3)
     !assert(size(spheric) == 3)
@@ -105,8 +102,6 @@ contains
     jacobi = (zeta / log(2.0_dp)) / (1.0_dp - c11(1)) * rr * rr * pi
 
   end subroutine coordtrans_ahlrichs1
-
-
 
   !> Transforms a 3 dimensional vector with coordinates in [-1,1] onto spherical
   !! coordinates, using the Ahlrichs algorithm.
@@ -120,7 +115,7 @@ contains
     real(dp), intent(out) :: jacobi
 
     real(dp), parameter :: zeta = 1.20_dp
-    real(dp) :: rr 
+    real(dp) :: rr
 
     !assert(size(c11) == 3)
     !assert(size(spheric) == 3)
@@ -132,7 +127,6 @@ contains
     jacobi = (zeta / log(2.0_dp)) / (1.0_dp - c11(1)) * rr * rr
 
   end subroutine coordtrans_ahlrichs1_2d
-
 
   !> Transforms a 3 dimensional vector with coordinates in [-1,1] onto spherical
   !! coordinates, using the Ahlrichs algorithm.
@@ -164,8 +158,6 @@ contains
 
   end subroutine coordtrans_ahlrichs2
 
-
-
   !> Transforms a 3 dimensional vector with coordinates in [-1,1] onto spherical
   !! coordinates, using the Ahlrichs algorithm.
   !! \param c11 3d coordinate vector, each coordinate in [-1,1].
@@ -195,8 +187,6 @@ contains
         &+ 1.0_dp / (1.0_dp - c11(1))) * rr * rr
 
   end subroutine coordtrans_ahlrichs2_2d
-
-
 
   subroutine coordtrans_identity(c11, ctarget, jacobi)
     real(dp), intent(in) :: c11(:)

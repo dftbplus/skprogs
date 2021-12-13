@@ -1,17 +1,15 @@
 !!* Contains routines for interpolation and extrapolation
 module interpolation
 
-  use common_accuracy, only : dp
+  use common_accuracy, only: dp
 
   implicit none
   private
 
   public :: poly5zero, spline3_free, polyinter
 
-
 contains
 
-  
   !! Returns the value of a polynomial of 5th degree at x.
   !! \param y0 Value of the polynom at x = dx.
   !! \param y0p Value of the 1st derivative at x = dx.
@@ -35,15 +33,13 @@ contains
 
     dx1 = y0p * dx
     dx2 = y0pp * dx * dx
-    dd =  10.0_dp * y0 - 4.0_dp * dx1 + 0.5_dp * dx2
+    dd = 10.0_dp * y0 - 4.0_dp * dx1 + 0.5_dp * dx2
     ee = -15.0_dp * y0 + 7.0_dp * dx1 - 1.0_dp * dx2
-    ff =   6.0_dp * y0 - 3.0_dp * dx1 + 0.5_dp * dx2
+    ff = 6.0_dp * y0 - 3.0_dp * dx1 + 0.5_dp * dx2
     xr = xx / dx
-    yy = ((ff*xr + ee)*xr + dd)*xr*xr*xr
+    yy = ((ff * xr + ee) * xr + dd) * xr * xr * xr
 
   end function poly5zero
-
-  
 
   !! Returns the value of a free spline at a certain point.
   !! \param y0 Function value at x = 0.
@@ -60,7 +56,7 @@ contains
   !!   x = 0 and its value agrees with the provided value at x = dx.
   !! \note If you want the value for a derivative, you have to query them
   !!   both.
- pure subroutine spline3_free(y0, y0p, y0pp, dx, ydx, xx, yy, yp, ypp)
+  pure subroutine spline3_free(y0, y0p, y0pp, dx, ydx, xx, yy, yp, ypp)
     real(dp), intent(in) :: y0
     real(dp), intent(in) :: y0p
     real(dp), intent(in) :: y0pp
@@ -79,18 +75,16 @@ contains
     bb = y0p
     cc = 0.5_dp * y0pp
     dx1 = 1.0_dp / dx
-    dd = (((ydx - y0)*dx1 - y0p)*dx1 - 0.5_dp*y0pp)*dx1
+    dd = (((ydx - y0) * dx1 - y0p) * dx1 - 0.5_dp * y0pp) * dx1
     if (present(yy)) then
-      yy = ((dd*xx + cc)*xx + bb)*xx + aa
+      yy = ((dd * xx + cc) * xx + bb) * xx + aa
     end if
     if (present(yp)) then
-      yp = (3.0_dp*dd*xx + 2.0_dp*cc)*xx + bb
+      yp = (3.0_dp * dd * xx + 2.0_dp * cc) * xx + bb
       ypp = 6.0_dp * dd * xx + 2.0_dp * cc
     end if
-    
-  end subroutine spline3_free
 
-  
+  end subroutine spline3_free
 
   !! Polynomial interpolation through given points
   !! \param xa x-coordinates of the fit points
@@ -130,14 +124,14 @@ contains
     icl = icl - 1
     do mm = 1, nn - 1
       do ii = 1, nn - mm
-        rtmp = xp(ii) - xp(ii+mm)
+        rtmp = xp(ii) - xp(ii + mm)
         !if (abs(rtmp) < epsilon(1.0_dp)) then
-          !write (*,*) "Polint failed"
-          !stop
+        !write(*,*) "Polint failed"
+        !stop
         !end if
-        rtmp = (cc(ii+1) - dd(ii)) / rtmp
+        rtmp = (cc(ii + 1) - dd(ii)) / rtmp
         cc(ii) = (xp(ii) - xx) * rtmp
-        dd(ii) = (xp(ii+mm) - xx) * rtmp
+        dd(ii) = (xp(ii + mm) - xx) * rtmp
       end do
       if (2 * icl < nn - mm) then
         dyy = cc(icl + 1)
@@ -149,6 +143,5 @@ contains
     end do
 
   end function polyinter
-      
 
 end module interpolation

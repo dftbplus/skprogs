@@ -1,13 +1,12 @@
 !> Conains space partioning functions.
 module partition
 
-  use common_accuracy, only : dp
+  use common_accuracy, only: dp
 
   implicit none
   private
 
   public :: partition_becke, partition_becke_hetero, beckepar
-
 
 contains
 
@@ -31,7 +30,6 @@ contains
     res = 0.5_dp * (1.0_dp - res)
 
   end function partition_becke
-
 
   !> Becke partition function for 2 heteronuclear centers.
   !! \param r1 Distance from 1st center.
@@ -57,7 +55,6 @@ contains
 
   end function partition_becke_hetero
 
-
   !> Delivers parameter aij in the becke partition scheme for given atomic
   !! radii.
   !! \param r1 Radius of the first atom.
@@ -77,5 +74,5 @@ contains
     end if
 
   end function beckepar
-    
+
 end module partition

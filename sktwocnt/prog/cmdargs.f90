@@ -4,14 +4,13 @@ module cmdargs
   character(*), parameter :: programName = 'sktwocnt'
   character(*), parameter :: programVersion = '0.9'
 
-
 contains
 
   subroutine parse_command_arguments()
-    
+
     integer :: nArgs, argLen
     character(:), allocatable :: arg
-    
+
     nArgs = command_argument_count()
     if (nArgs > 0) then
       call get_command_argument(1, length=argLen)
@@ -28,5 +27,5 @@ contains
     end if
 
   end subroutine parse_command_arguments
-  
+
 end module cmdargs

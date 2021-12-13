@@ -3,13 +3,15 @@
 !! Not all routines use the string length specifications to set their character string lengths.
 module common_accuracy
 
+  use, intrinsic :: iso_fortran_env, only : real64
+
   implicit none
   private
 
   public :: dp, cp, sc, mc, lc
 
   !> precision of the real data type
-  integer, parameter :: dp = 8
+  integer, parameter :: dp = real64
 
   !> precision of the complex data type
   integer, parameter :: cp = dp
