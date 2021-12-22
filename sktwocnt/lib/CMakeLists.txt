@@ -1,13 +1,8 @@
 set(sources-f90
   bisection.f90
-  coordtrans.f90
   dftbxc.f90
-  gridgenerator.f90
   gridorbital.f90
-  interpolation.f90
-  partition.f90
   quadrature.f90
-  sphericalharmonics.f90
   twocnt.f90)
 
 add_library(skprogs-sktwocnt ${sources-f90})

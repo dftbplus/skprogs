@@ -1,3 +1,4 @@
+!> Module that provides the density mixing functionality (simple, Broyden).
 module broyden
 
   use common_accuracy, only : dp
@@ -7,74 +8,114 @@ module broyden
 
   public :: mixing_driver
 
+
 contains
 
-  ! This is the main driver for simple and broyden mixers, both mix one
-  ! big one-dimensional array.
-  subroutine mixing_driver(pot_old,pot_new,max_l,num_alpha,&
-      &poly_order,problemsize,iter,broyden,mixing_factor)
+  !> This is the main driver for simple and broyden mixers, both mix one big one-dimensional array.
+  subroutine mixing_driver(pot_old, pot_new, max_l, num_alpha, poly_order, problemsize, iter,&
+      & tBroyden, mixing_factor)
 
-    integer, intent(in) :: max_l,num_alpha(0:),poly_order(0:),problemsize,iter
-    logical, intent(in) :: broyden
+    !> old potential
+    real(dp), intent(in) :: pot_old(:,0:,:,:)
+
+    !> contains current potential on entry and mixed potential on exit
+    real(dp), intent(inout) :: pot_new(:,0:,:,:)
+
+    !> maximum angular momentum
+    integer, intent(in) :: max_l
+
+    !> number of exponents in each shell
+    integer, intent(in) :: num_alpha(0:)
+
+    !> highest polynomial order + l in each shell
+    integer, intent(in) :: poly_order(0:)
+
+    !> maximum size of the eigenproblem
+    integer, intent(in) :: problemsize
+
+    !> current SCF iteration
+    integer, intent(in) :: iter
+
+    !> true, if Broyden mixing is desired, otherwise simple mixing is applied
+    logical, intent(in) :: tBroyden
+
+    !> mixing factor
     real(dp), intent(in) :: mixing_factor
 
-    integer :: actualsize,titer
-    real(dp) :: pot_old(:,0:,:,:),pot_new(:,0:,:,:)
-    real(dp), allocatable :: vecin(:),vecout(:)
-    integer :: ii,jj,kk,ll,mm,nn,oo,pp
+    !> serialized potentials
+    real(dp), allocatable :: vecin(:), vecout(:)
 
-    allocate(vecout(10000))
-    allocate(vecin(10000))
-    vecout=0.0d0
-    vecin=0.0d0
+    !> equals current SCF iteration or next one if (iter == 0)
+    integer :: titer
 
-    pp=0
-    do ii=1,2
-      do jj=0,max_l
-        do kk=1,num_alpha(jj)*poly_order(jj)
-          do ll=1,problemsize
-            pp=pp+1
-            vecin(pp)=pot_old(ii,jj,kk,ll)
-            vecout(pp)=pot_new(ii,jj,kk,ll)
+    !> auxiliary variables
+    integer :: ii, jj, kk, ll, pp
+
+    allocate(vecout(size(pot_old)))
+    allocate(vecin(size(pot_old)))
+
+    ! serialize potentials
+    pp = 0
+    do ii = 1, 2
+      do jj = 0, max_l
+        do kk = 1, num_alpha(jj) * poly_order(jj)
+          do ll = 1, problemsize
+            pp = pp + 1
+            vecin(pp) = pot_old(ii, jj, kk, ll)
+            vecout(pp) = pot_new(ii, jj, kk, ll)
           end do
         end do
       end do
     end do
 
-    if (pp>10000) then
-      write(*,*) 'Static dimensions in broyden_mixer too small',pp
-      STOP
+    ! this check is still necessary, since max. 10000 entries is hardcoded in broyden_mixer
+    if (pp > 10000) then
+      write(*,*) 'Static dimensions in broyden_mixer too small: ', pp
+      stop
     end if
 
-    titer=iter
-    ! broyden returns if iter==0
-    if (iter==0) titer=1
+    titer = iter
+    ! broyden returns if (iter == 0)
+    if (iter == 0) titer = 1
 
-    if (broyden) then
-      call broyden_mixer(titer,mixing_factor,10000,vecin,vecout)
+    if (tBroyden) then
+      call broyden_mixer(titer, mixing_factor, size(vecin), vecin, vecout)
     else
-      call simple_mix(vecin,vecout,mixing_factor)
+      call simple_mix(vecin, vecout, mixing_factor)
     end if
 
-    pp=0
-    do ii=1,2
-      do jj=0,max_l
-        !      do kk=1,problemsize
-        do kk=1,num_alpha(jj)*poly_order(jj)
-          do ll=1,problemsize
-            pp=pp+1
-            !          cof_alt(ii,jj,kk,ll)=vecin(pp)
-            !          cof_neu(ii,jj,kk,ll)=vecout(pp)
-            pot_new(ii,jj,kk,ll)=vecin(pp)
+    ! deserialize obtained potential
+    pp = 0
+    do ii = 1, 2
+      do jj = 0, max_l
+        do kk = 1, num_alpha(jj) * poly_order(jj)
+          do ll = 1, problemsize
+            pp = pp + 1
+            pot_new(ii, jj, kk, ll) = vecin(pp)
           end do
         end do
       end do
     end do
-
-    deallocate(vecout)
-    deallocate(vecin)
 
   end subroutine mixing_driver
+
+
+  !> Simple mixer for last and current density.
+  subroutine simple_mix(last, cur, factor)
+
+    !> old vector, holds mixed values at exit
+    real(dp), intent(inout) :: last(:)
+
+    !> new vector
+    real(dp), intent(in) :: cur(:)
+
+    !> mixing factor
+    real(dp), intent(in) :: factor
+
+    last(:) = factor * cur + (1.0_dp - factor) * last
+
+  end subroutine simple_mix
+
 
 !
 !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -466,16 +507,5 @@ contains
       RETURN
       END subroutine inverse
 !
-
-  ! Simple mix, nothing else.
-  subroutine simple_mix(alt,neu,factor)
-    real(dp), intent(inout) :: alt(:)
-    real(dp), intent(in) :: neu(:), factor
-
-
-! simple mix
-    alt=factor*neu+(1.0d0-factor)*alt
-
-  end subroutine simple_mix
 
 end module broyden

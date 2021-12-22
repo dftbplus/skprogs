@@ -3,12 +3,12 @@ module twocnt
 
   use common_accuracy, only : dp
   use common_constants, only : pi
-  use coordtrans, only : coordtrans_becke_12
+  use common_coordtrans, only : coordtrans_becke_12
   use gridorbital, only : TGridorb2
-  use sphericalharmonics, only : TRealTessY, TRealTessY_init
-  use quadratures, only : TQuadrature, gauss_legendre_quadrature
-  use gridgenerator, only : gengrid2_12
-  use partition, only : partition_becke_homo
+  use common_sphericalharmonics, only : TRealTessY, TRealTessY_init
+  use common_quadratures, only : TQuadrature, gauss_legendre_quadrature
+  use common_gridgenerator, only : gengrid2_2
+  use common_partition, only : partition_becke_homo
   use dftxc, only : getxcpot_ldapw91, getxcpot_ggapbe
   use common_fifo, only : TFiFoReal2
 
@@ -190,7 +190,7 @@ contains
           & inp%r0 + inp%dr * real(nBatch * nBatchline, dp), " dr = ", inp%dr
       do ir = 1, nBatchline
         dist = inp%r0 + inp%dr * real(nBatch * nBatchline + ir - 1, dp)
-        call gengrid2_12(quads, coordtrans_becke_12, partition_becke_homo, beckepars, dist, grid1,&
+        call gengrid2_2(quads, coordtrans_becke_12, partition_becke_homo, beckepars, dist, grid1,&
             & grid2, dots, weights)
         call getskintegrals(atom1, atom2, grid1, grid2, dots, weights, inp%tDensitySuperpos,&
             & inp%ixc, imap, skhambuffer(:, ir), skoverbuffer(:, ir), denserr(ir))

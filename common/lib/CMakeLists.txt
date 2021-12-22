@@ -1,11 +1,24 @@
 set(sources-f90
   accuracy.F90
+  anglib.F90
   constants.F90
+  coordtrans.F90
+  fdiff.F90
   fifo.F90
+  fifobase.F90
   fifo_real1.F90
   fifo_real2.F90
-  fifobase.F90
-  taggedout.F90)
+  gridgenerator.F90
+  interpolation.F90
+  lebedev_laikov.F90
+  lebedev_laikov_f77.f
+  partition.F90
+  poisson.F90
+  quadrature.F90
+  sphericalharmonics.F90
+  splines.F90
+  taggedout.F90
+  utils.F90)
 
 add_library(skprogs-common ${sources-f90})
 

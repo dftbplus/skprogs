@@ -1,5 +1,5 @@
 !> Module that provides the functionality for real tesseral spherical harmonics.
-module sphericalharmonics
+module common_sphericalharmonics
 
   use common_accuracy, only : dp
 
@@ -239,4 +239,4 @@ contains
 
   end function calc_realtessy_1d
 
-end module sphericalharmonics
+end module common_sphericalharmonics
