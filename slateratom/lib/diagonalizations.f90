@@ -1,3 +1,4 @@
+!> Module that provides routines for matrix diagonalization.
 module diagonalizations
 
   use common_accuracy, only : dp
@@ -7,115 +8,66 @@ module diagonalizations
 
   public :: diagonalize_overlap, diagonalize
 
-  contains
 
-  subroutine diagonalize_overlap(max_l,num_alpha,poly_order,s)
+contains
 
-! Diagonalize overlap matrix to check for linear dependency of basis
-! set. Implicitely ewevge is called, but with a unit matrix instead of
-! a real overlap.
+  !> Diagonalizes overlap matrix to check for linear dependency of basis set.
+  !! Implicitely ewevge is called, but with a unit matrix instead of a real overlap.
+  subroutine diagonalize_overlap(max_l, num_alpha, poly_order, ss)
 
-  integer, intent(in) :: max_l,num_alpha(0:),poly_order(0:)
-  real(dp), intent(in) :: s(0:,:,:)
-  real(dp), allocatable :: temp1(:,:),temp2(:),dummy2(:,:),dummy1(:)
-  integer :: ii,jj,diagsize,kk,ll,ier
+    !> maximum angular momentum
+    integer, intent(in) :: max_l
 
-  do jj=0,max_l
+    !> number of exponents in each shell
+    integer, intent(in) :: num_alpha(0:)
 
-    diagsize=num_alpha(jj)*poly_order(jj)
+    !> highest polynomial order + l in each shell
+    integer, intent(in) :: poly_order(0:)
 
-    allocate(temp1(diagsize,diagsize))
-    allocate(temp2(diagsize))
-    allocate(dummy2(diagsize,diagsize))
-    allocate(dummy1(diagsize))
-    temp1=0.0d0
-    temp2=0.0d0
-    dummy1=0.0d0
-    dummy2=0.0d0
+    !> overlap supervector
+    real(dp), intent(in) :: ss(0:, :,:)
 
-    do kk=1,diagsize
-      do ll=1,diagsize
-        temp1(kk,ll)=s(jj,kk,ll)
-      end do
-        dummy2(kk,kk)=1.0d0
-    end do
+    !> temporary storage container
+    real(dp), allocatable :: temp1(:,:), temp2(:), dummy2(:,:), dummy1(:)
 
-    call ewevge(diagsize,diagsize,diagsize,&
-                &temp1,dummy2,temp2,dummy1,1,-1,ier)
-  
-    if (ier /= 0) then
-      write(*,*) 'Error in Diagonalization',ier
-      STOP
-    end if
+    !> auxiliary variables
+    integer :: ii, ll, diagsize, iErr
 
-    write(*,'(A,I3,A,E16.8)') 'Smallest eigenvalue of overlap for l= ',jj,&
-          &' : ',temp2(1)
-    
-    if (temp2(1)<1.0d-10) then
-      write(*,'(A)') ' '
-      write(*,'(A)') 'Basis set is nearly linear dependent, reduction necessary'
-      write(*,'(A)') ' '
-      STOP
-    end if
+    do ll = 0, max_l
 
-    deallocate(temp1)
-    deallocate(temp2)
-    deallocate(dummy2)
-    deallocate(dummy1)
-     
-  end do
-  write(*,*) ' '
+      diagsize = num_alpha(ll) * poly_order(ll)
 
-  end subroutine diagonalize_overlap
-
-  subroutine diagonalize(max_l,num_alpha,poly_order,f,s,cof_neu,eigval)
-
-! This is a driver for ewevge. The idea is that the matrices
-! are allocated in the main program for the maximum size of the problem
-! but ewevge is only fed with a matrix of the current size of the
-! eigenproblem.
-
-  integer, intent(in) :: max_l,num_alpha(0:),poly_order(0:)
-  real(dp), intent(in) :: f(:,0:,:,:),s(0:,:,:)
-  real(dp) :: cof_neu(:,0:,:,:),eigval(:,0:,:)
-  real(dp), allocatable :: temp1(:,:),temp2(:),dummy2(:,:),dummy1(:)
-  integer :: ii,jj,diagsize,kk,ll,ier
-
-  do ii=1,2
-    do jj=0,max_l
-
-      diagsize=num_alpha(jj)*poly_order(jj)
-
-      allocate(temp1(diagsize,diagsize))
+      allocate(temp1(diagsize, diagsize))
       allocate(temp2(diagsize))
-      allocate(dummy2(diagsize,diagsize))
-      allocate(dummy1(4*diagsize))
-      temp1=0.0d0
-      temp2=0.0d0
-      dummy1=0.0d0
-      dummy2=0.0d0
+      allocate(dummy1(diagsize))
+      allocate(dummy2(diagsize, diagsize))
 
-      do kk=1,diagsize
-        do ll=1,diagsize
-          temp1(kk,ll)=f(ii,jj,kk,ll)
-          dummy2(kk,ll)=s(jj,kk,ll)
-        end do
+      temp1(:,:) = 0.0_dp
+      temp2(:) = 0.0_dp
+      dummy1(:) = 0.0_dp
+      dummy2(:,:) = 0.0_dp
+
+      do ii = 1, diagsize
+        dummy2(ii, ii) = 1.0_dp
       end do
 
-      call ewevge(diagsize,diagsize,diagsize,&
-                  &temp1,dummy2,temp2,dummy1,1,-1,ier)
+      temp1(:,:) = ss(ll, :,:)
 
-      if (ier /= 0) then
-        write(*,*) 'Error in Diagonalization',ier
-        STOP
+      call ewevge(diagsize, diagsize, diagsize, temp1, dummy2, temp2, dummy1, 1, -1, iErr)
+
+      if (iErr /= 0) then
+        write(*,*) 'Error in Diagonalization', iErr
+        stop
       end if
 
-      do kk=1,diagsize
-        do ll=1,diagsize
-          cof_neu(ii,jj,kk,ll)=temp1(kk,ll)
-        end do
-        eigval(ii,jj,kk)=temp2(kk)
-      end do
+      write(*, '(A,I3,A,E16.8)') 'Smallest eigenvalue of overlap for l= ', ll, ' : ', temp2(1)
+
+      if (temp2(1) < 1.0e-10_dp) then
+        write(*, '(A)') ' '
+        write(*, '(A)') 'Basis set is nearly linear dependent, reduction necessary'
+        write(*, '(A)') ' '
+        stop
+      end if
 
       deallocate(temp1)
       deallocate(temp2)
@@ -123,7 +75,77 @@ module diagonalizations
       deallocate(dummy1)
 
     end do
-  end do
+    write(*,*) ' '
+
+  end subroutine diagonalize_overlap
+
+
+  !> This is a driver for ewevge. The idea is that the matrices are allocated in the main program
+  !! for the maximum size of the problem but ewevge is only fed with a matrix of the current size of
+  !! the eigenproblem.
+  subroutine diagonalize(max_l, num_alpha, poly_order, ff, ss, cof_new, eigval)
+
+    !> maximum angular momentum
+    integer, intent(in) :: max_l
+
+    !> number of exponents in each shell
+    integer, intent(in) :: num_alpha(0:)
+
+    !> highest polynomial order + l in each shell
+    integer, intent(in) :: poly_order(0:)
+
+    !> fock matrix supervector
+    real(dp), intent(in) :: ff(:, 0:, :,:)
+
+    !> overlap supervector
+    real(dp), intent(in) :: ss(0:, :,:)
+
+    !> new wavefunction coefficients
+    real(dp) :: cof_new(:, 0:, :,:)
+
+    !> eigenvalues
+    real(dp) :: eigval(:, 0:, :)
+
+    !> temporary storage container
+    real(dp), allocatable :: temp1(:,:), temp2(:), dummy2(:,:), dummy1(:)
+
+    !> auxiliary variables
+    integer :: ii, jj, diagsize, iErr
+
+    do ii = 1, 2
+      do jj = 0, max_l
+
+        diagsize = num_alpha(jj) * poly_order(jj)
+
+        allocate(temp1(diagsize, diagsize))
+        allocate(temp2(diagsize))
+        allocate(dummy2(diagsize, diagsize))
+        allocate(dummy1(4 * diagsize))
+        temp1(:,:) = 0.0_dp
+        temp2(:) = 0.0_dp
+        dummy1(:) = 0.0_dp
+        dummy2(:,:) = 0.0_dp
+
+        temp1(:,:) = ff(ii, jj, :,:)
+        dummy2(:,:) = ss(jj, :,:)
+
+        call ewevge(diagsize, diagsize, diagsize, temp1, dummy2, temp2, dummy1, 1, -1, iErr)
+
+        if (iErr /= 0) then
+          write(*,*) 'Error in Diagonalization', iErr
+          stop
+        end if
+
+        cof_new(ii, jj, :,:) = temp1
+        eigval(ii, jj, :) = temp2
+
+        deallocate(temp1)
+        deallocate(temp2)
+        deallocate(dummy2)
+        deallocate(dummy1)
+
+      end do
+    end do
 
   end subroutine diagonalize
 
@@ -145,52 +167,52 @@ module diagonalizations
 !  Have fun !!
 !
 !  Copyright for this file by Dirk Porezag
-!  Washington, DC, Janurary 8th, 1995 
+!  Washington, DC, Janurary 8th, 1995
 !
 ! Modifications with some fortran90 features by ckoe
 !
 ! **********************************************************************
-! 
-!     SUBROUTINE EWEVGE 
-!     ================= 
-! 
-! ********************************************************************** 
-! 
-!  Evevge calculates eigenvalues and eigenvectors of the general 
+!
+!     SUBROUTINE EWEVGE
+!     =================
+!
+! **********************************************************************
+!
+!  Evevge calculates eigenvalues and eigenvectors of the general
 !  symmetric eigenvalue problem.
-! 
-!  Method:  *  A*C = E*S*C 
+!
+!  Method:  *  A*C = E*S*C
 !           *  Choleski decomposition  S = R'*R
 !           *  A*C = E*R'*R*C  ->  INV(R')*A*C = E*R*C
 !           *  Transformation Y = R*C  ->  C = INV(R)*Y
-!           *  Solve INV(R')*A*INV(R)*Y = E*Y  (Householder + IQL) 
+!           *  Solve INV(R')*A*INV(R)*Y = E*Y  (Householder + IQL)
 !           *  Back transformation C = INV(R)*Y
-!           *  Sorting of eigenvalues and eigenvectors 
-! 
-!     Parameters: 
-! 
-!       NA      (I) :  Dimension of A 
-!       NB      (I) :  Dimension of B 
-!       N       (I) :  Dimension of Problem  
+!           *  Sorting of eigenvalues and eigenvectors
+!
+!     Parameters:
+!
+!       NA      (I) :  Dimension of A
+!       NB      (I) :  Dimension of B
+!       N       (I) :  Dimension of Problem
 !       A       (I) :  Matrix A (lower triangle)
-!               (O) :  Eigenvector matrix  
+!               (O) :  Eigenvector matrix
 !       B       (I) :  Matrix B (lower triangle)
-!               (O) :  R where B = R'*R (upper triangle) 
-!       EW      (O) :  Eigenvalues 
-!       H       (-) :  Auxiliary vector 
-!       IEV     (I) :  0: No eigenvectors  
-!       IORD    (I) :  1: Descending order of eigenvalues 
+!               (O) :  R where B = R'*R (upper triangle)
+!       EW      (O) :  Eigenvalues
+!       H       (-) :  Auxiliary vector
+!       IEV     (I) :  0: No eigenvectors
+!       IORD    (I) :  1: Descending order of eigenvalues
 !                     -1: Ascending order of eigenvalues
-!                      otherwise: no sorting 
-!       IER     (O) :  Error indication  
-!                      0: No error 
+!                      otherwise: no sorting
+!       IER     (O) :  Error indication
+!                      0: No error
 !                      K: (K <= N)  B is not positive definite
 !                      K: (K > N) Convergence failure for eigenvalue
 !                                 (K-N), (K-N-1) eigenvalues are correct
-! 
-! ********************************************************************** 
 !
-      SUBROUTINE EWEVGE (NA,NB,N,A,B,EW,H,IEV,IORD,IER) 
+! **********************************************************************
+!
+      SUBROUTINE EWEVGE (NA,NB,N,A,B,EW,H,IEV,IORD,IER)
         use common_accuracy, only : dp
         IMPLICIT NONE
         integer, intent(in) :: NA,NB,N
@@ -205,20 +227,20 @@ module diagonalizations
 !            write(*,*) 'we',i,j,a(i,j),b(i,j)
 !          end do
 !        end do
-        IER = 0 
+        IER = 0
         EPS = 0.0_dp
-        CALL CHOLES(N,B,NB,IER) 
-        IF (IER .NE. 0) RETURN 
-        CALL MATRAF(N,A,NA,B,NB,H) 
-        CALL TRIDIA(NA,N,EW,H,A,IEV) 
-        CALL IQLDIA(NA,N,EW,H,A,IEV,IER) 
-        IF (IER .GT. 0) IER = IER+N 
-        IF (IER .NE. 0)  RETURN 
-        IF (IEV .NE. 0) CALL BACKTR(N,N,B,NB,A,NA,A,NA,H) 
-        II = 0 
-        IF (IEV .NE. 0) II = 1 
+        CALL CHOLES(N,B,NB,IER)
+        IF (IER .NE. 0) RETURN
+        CALL MATRAF(N,A,NA,B,NB,H)
+        CALL TRIDIA(NA,N,EW,H,A,IEV)
+        CALL IQLDIA(NA,N,EW,H,A,IEV,IER)
+        IF (IER .GT. 0) IER = IER+N
+        IF (IER .NE. 0)  RETURN
+        IF (IEV .NE. 0) CALL BACKTR(N,N,B,NB,A,NA,A,NA,H)
+        II = 0
+        IF (IEV .NE. 0) II = 1
         CALL SORTVC(NA,N,N,EW,A,IORD,II,H)
-        RETURN 
+        RETURN
       END SUBROUTINE EWEVGE
 !
 ! ******************************************************************
@@ -235,10 +257,10 @@ module diagonalizations
 !
 !     Parameters:
 !
-!       N       (I) :  Dimension of problem 
+!       N       (I) :  Dimension of problem
 !       B       (I) :  Matrix B (lower triangle)
 !               (O) :  Matrix R (upper triangle), inverted main diagonal
-!       NB      (I) :  Dimension of B 
+!       NB      (I) :  Dimension of B
 !       ICHO    (I) :  ICHO - 1 is the dimension of the submatrix that
 !                      is available as Choleski decomposition ( < 1 = 1)
 !               (O) :  Row number where decomposition failed (0 if success)
@@ -284,8 +306,8 @@ module diagonalizations
 !
 ! ******************************************************************
 !
-!  Matraf calculates out of the symmetric matrix A and the 
-!  upper triangular matrix R the product INV(R') * A * INV(R), 
+!  Matraf calculates out of the symmetric matrix A and the
+!  upper triangular matrix R the product INV(R') * A * INV(R),
 !  where the main diagonal of R is given inverted.
 !
 !     Parameters:
@@ -307,7 +329,7 @@ module diagonalizations
 !        IMPLICIT REAL*8 (A-H,O-Z)
         DIMENSION  A(NA,N),B(NB,N),H(N)
 !
-!  FILL MATRIX 
+!  FILL MATRIX
 !
           DO I = 1,N
             DO J = I+1,N
@@ -361,7 +383,7 @@ module diagonalizations
 !
 !     Parameters:
 !
-!       NM      (I) :  Dimension of A 
+!       NM      (I) :  Dimension of A
 !       N       (I) :  Dimension of problem
 !       D       (O) :  Diagonal of tridiagonal matrix
 !       E       (O) :  Subdiagonal of tridiagonal matrix (E(1) = 0.0)
@@ -463,7 +485,7 @@ module diagonalizations
           END DO
 !
 !  DONE WITH THIS TRANSFORMATION
-! 
+!
   290     D(I) = H
         END DO
 !
@@ -488,7 +510,7 @@ module diagonalizations
               A(K,J) = A(K,J) - G * D(K)
             END DO
           END DO
-!        
+!
   380     DO K = 1,L
             A(K,I) = 0.0_dp
           END DO
@@ -523,16 +545,16 @@ module diagonalizations
 !     Parameters:
 !
 !       NM      (I) :  Dimension of Z
-!       N       (I) :  Dimension of the problem 
+!       N       (I) :  Dimension of the problem
 !       D       (I) :  Diagonal of tridiagonal matrix
 !               (O) :  Eigenvalues
 !       E       (I) :  Subdiagonal of tridiagonal matrix
-!       Z       (I) :  Transformation matrix 
+!       Z       (I) :  Transformation matrix
 !               (O) :  Eigenvectors according to Z
 !       IEV     (I) :  0: No eigenvectors
 !       IER     (O) :  Error indication
 !                      0: no error
-!                      K: Convergence failure for the eigenvalue 
+!                      K: Convergence failure for the eigenvalue
 !                         number k, k-1 eigenvalues are correct
 !
 ! **********************************************************************
@@ -576,8 +598,8 @@ module diagonalizations
         DO 250 L = 1, N
           J = 0
 !
-!  LOOK FOR SMALL SUBDIAGONAL ELEMENT 
-! 
+!  LOOK FOR SMALL SUBDIAGONAL ELEMENT
+!
    50     DO M = L, N-1
             DD = ABS(D(M)) + ABS(D(M+1))
             IF (ABS(E(M)) .LE. (EPS * DD)) GOTO 70
@@ -627,7 +649,7 @@ module diagonalizations
           P = 0.0_dp
           MML = M - L
 !
-!  FOR I = M - 1 STEP -1 UNTIL L DO 
+!  FOR I = M - 1 STEP -1 UNTIL L DO
 !
           DO 200 II = 1, MML
             I = M - II
@@ -676,7 +698,7 @@ module diagonalizations
 !
 ! ******************************************************************
 !
-!  This is another version of Iqldia using a less sophisticated 
+!  This is another version of Iqldia using a less sophisticated
 !  shifting algorithm. It is much simpler but 20 percent slower.
 !
 ! ******************************************************************
@@ -694,8 +716,8 @@ module diagonalizations
 !       DO 250 L = 1, N
 !         ITER = 0
 !
-!  LOOK FOR SMALL SUBDIAGONAL ELEMENT 
-! 
+!  LOOK FOR SMALL SUBDIAGONAL ELEMENT
+!
 ! 100     DO 110 M = L, N-1
 !           DD = ABS(D(M)) + ABS(D(M+1))
 !           IF ((ABS(E(M)) + DD) .EQ. DD) GOTO 120
@@ -705,7 +727,7 @@ module diagonalizations
 !         IF (ITER .EQ. 30) GOTO 900
 !         ITER = ITER + 1
 !
-!  FORM SHIFT 
+!  FORM SHIFT
 !
 !         G = (D(L+1) - D(L)) / (2.0 * E(L))
 !         R = SQRT (G * G + 1.0)
@@ -714,7 +736,7 @@ module diagonalizations
 !         C = 1.0
 !         P = 0.0
 !
-!  FOR I = M - 1 STEP -1 UNTIL L DO 
+!  FOR I = M - 1 STEP -1 UNTIL L DO
 !
 !         DO 200 II = 1, M-L
 !           I = M - II
@@ -771,12 +793,12 @@ module diagonalizations
 !  where the main diagonal of R is given inverted.
 !
 !     Parameters:
-!       N       (I) :  Dimension of problem 
+!       N       (I) :  Dimension of problem
 !       M       (I) :  Number of columns in X and Y
 !       R       (I) :  Matrix R (upper triangle)
 !       NR      (I) :  Dimension of R
 !       X       (O) :  Matrix X (solution of system)
-!       NX      (I) :  Dimension of X 
+!       NX      (I) :  Dimension of X
 !       Y       (I) :  Matrix Y (right side)
 !       NY      (I) :  Dimension of Y
 !       H       (I) :  Auxiliary vector
@@ -791,7 +813,7 @@ module diagonalizations
 !        IMPLICIT REAL*8 (A-H,O-Z)
         DIMENSION  R(NR,N),X(NX,M),Y(NY,M),H(N)
 !
-!  CALCULATION OF X = INV(R) * Y 
+!  CALCULATION OF X = INV(R) * Y
 !
         DO II = 1,N
           I = N + 1 - II
@@ -826,7 +848,7 @@ module diagonalizations
 !       N       (I) :  Dimension of problem (size of one vector in Q)
 !       NQ      (I) :  Number of elements in D (or columns in Q)
 !       D       (I) :  Vector to sort
-!               (O) :  Sorted vector 
+!               (O) :  Sorted vector
 !       Q       (I) :  Matrix to sort (vectors in columns)
 !               (O) :  Sorted matrix (vectors in columns)
 !       M       (I) :  1: Descending order in D

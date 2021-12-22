@@ -1,196 +1,296 @@
+!> Module that provides routines for calculating the total energy of a system.
 module totalenergy
 
   use common_accuracy, only : dp
-  use common_constants
-  use dft
+  use dft, only : dft_exc_energy, dft_vxc_energy
 
   implicit none
   private
 
   public :: total_energy, zora_total_energy
-  
+
+
 contains
 
-  subroutine total_energy(t,u,nuc,vconf,j,k,p,max_l,num_alpha,poly_order,&
-      &problemsize,xcnr,num_mesh_points,weight,abcissa,rho,exc,&
-      &kinetic,nuclear,coulomb,exchange,confinement,etot)
+  !> Calculates total energy for non-ZORA calculations.
+  pure subroutine total_energy(tt, uu, nuc, vconf, jj, kk, pp, max_l, num_alpha, poly_order,&
+      & problemsize, xcnr, num_mesh_points, weight, abcissa, rho, exc, kinetic, nuclear, coulomb,&
+      & exchange, confinement, etot)
 
-    ! Calculate total energy for non-ZORA calculations
+    !> kinetic supervector
+    real(dp), intent(in) :: tt(0:,:,:)
 
-    real(dp), intent(in) :: t(0:,:,:),u(0:,:,:),j(0:,:,:,0:,:,:),k(0:,:,:,0:,:,:)
-    real(dp), intent(in) :: vconf(0:,:,:),abcissa(:)
-    real(dp), intent(in) :: p(:,0:,:,:),weight(:),rho(:,:),exc(:)
-    integer, intent(in) :: max_l,num_alpha(0:),poly_order(0:),problemsize,nuc,xcnr
+    !> nucleus-electron supervector
+    real(dp), intent(in) :: uu(0:,:,:)
+
+    !> nuclear charge, i.e. atomic number
+    integer, intent(in) :: nuc
+
+    !> confinement supervector
+    real(dp), intent(in) :: vconf(0:,:,:)
+
+    !> coulomb supermatrix
+    real(dp), intent(in) :: jj(0:,:,:,0:,:,:)
+
+    !> (hf) exchange supermatrix
+    real(dp), intent(in) :: kk(0:,:,:,0:,:,:)
+
+    !> density matrix supervector
+    real(dp), intent(in) :: pp(:,0:,:,:)
+
+    !> maximum angular momentum
+    integer, intent(in) :: max_l
+
+    !> number of exponents in each shell
+    integer, intent(in) :: num_alpha(0:)
+
+    !> highest polynomial order + l in each shell
+    integer, intent(in) :: poly_order(0:)
+
+    !> maximum size of the eigenproblem
+    integer, intent(in) :: problemsize
+
+    !> identifier of exchange-correlation type
+    integer, intent(in) :: xcnr
+
+    !> number of numerical integration points
     integer, intent(in) :: num_mesh_points
-    real(dp), intent(out) :: etot,kinetic,nuclear,coulomb,exchange,confinement
-    real(dp) :: dummy1,dummy2,dummy3
-    integer :: ii,jj,kk,ll,mm,nn,oo,pp,qq,rr,ss,tt,uu,vv,ww
+
+    !> numerical integration weights
+    real(dp), intent(in) :: weight(:)
+
+    !> numerical integration abcissas
+    real(dp), intent(in) :: abcissa(:)
+
+    !> density on grid
+    real(dp), intent(in) :: rho(:,:)
+
+    !> exc energy density on grid
+    real(dp), intent(in) :: exc(:)
+
+    !> resulting energy portions
+    real(dp), intent(out) :: kinetic, nuclear, coulomb, exchange, confinement, etot
+
+    !> density matrix supervector (spins summed up)
     real(dp), allocatable :: p_total(:,:,:)
 
-    allocate(p_total(0:max_l,problemsize,problemsize))
-    p_total=0.0d0
+    !> auxiliary variables
+    real(dp) :: dummy1, dummy2
 
-    etot=0.0d0
-    kinetic=0.0d0
-    nuclear=0.0d0
-    confinement=0.0d0
-    coulomb=0.0d0
-    exchange=0.0d0
-    dummy1=0.0d0
-    dummy2=0.0d0
+    etot = 0.0_dp
+    kinetic = 0.0_dp
+    nuclear = 0.0_dp
+    confinement = 0.0_dp
+    coulomb = 0.0_dp
+    exchange = 0.0_dp
+    dummy1 = 0.0_dp
+    dummy2 = 0.0_dp
 
     ! Build total density matrix
-    do ii=0,max_l
-      do jj=1,problemsize
-        do kk=1,problemsize
-          p_total(ii,jj,kk)=p(1,ii,jj,kk)+p(2,ii,jj,kk)
-        end do
-      end do
-    end do
+    p_total = pp(1, :,:,:) + pp(2, :,:,:)
 
     ! get total energy
 
-    call core_hamiltonian_energies(t,u,vconf,p_total,max_l,num_alpha,&
-        &poly_order,nuc,kinetic,nuclear,confinement)
+    call core_hamiltonian_energies(tt, uu, vconf, p_total, max_l, num_alpha, poly_order, nuc,&
+        & kinetic, nuclear, confinement)
 
-    dummy1=nuclear+kinetic+confinement
+    dummy1 = nuclear + kinetic + confinement
 
-    call coulomb_hf_ex_energy(j,k,p_total,max_l,num_alpha,poly_order,xcnr,&
-        &coulomb,exchange)
+    call coulomb_hf_ex_energy(jj, kk, p_total, max_l, num_alpha, poly_order, xcnr, coulomb,&
+        & exchange)
 
-    if (xcnr>0) then
-
-      exchange=0.0d0
-      call dft_exc_energy(num_mesh_points,rho,exc,weight,abcissa,&
-          &xcnr,exchange)
-
+    if (xcnr > 0) then
+      exchange = 0.0_dp
+      call dft_exc_energy(num_mesh_points, rho, exc, weight, abcissa, exchange)
     end if
 
     ! make sure total energy breakdown agrees with total energy
 
-    if (xcnr==0) then
-      etot=dummy1+0.5d0*coulomb+0.5d0*exchange
+    if (xcnr == 0) then
+      etot = dummy1 + 0.5_dp * coulomb + 0.5_dp * exchange
     else
-      etot=dummy1+0.5d0*coulomb+exchange
+      etot = dummy1 + 0.5_dp * coulomb + exchange
     end if
-
-    !  write(*,*) 'TOTAL ENERGY',hf_total_energy
 
   end subroutine total_energy
 
-  subroutine zora_total_energy(t,u,nuc,vconf,j,k,p,max_l,num_alpha,poly_order,&
-      &problemsize,xcnr,num_mesh_points,weight,abcissa,rho,exc,vxc,&
-      &eigval_scaled,occ,kinetic,nuclear,coulomb,exchange,confinement,etot)
 
-    ! Calculate total energy for ZORA, note that total energy is not well defined
-    ! here ...
+  !> Calculates total energy for ZORA, note that the total energy is not well defined here.
+  pure subroutine zora_total_energy(tt, uu, nuc, vconf, jj, kk, pp, max_l, num_alpha, poly_order,&
+      & problemsize, xcnr, num_mesh_points, weight, abcissa, rho, exc, vxc, eigval_scaled, occ,&
+      & kinetic, nuclear, coulomb, exchange, confinement, etot)
 
-    real(dp), intent(in) :: t(0:,:,:),u(0:,:,:),j(0:,:,:,0:,:,:),k(0:,:,:,0:,:,:)
-    real(dp), intent(in) :: vconf(0:,:,:),abcissa(:),eigval_scaled(:,0:,:)
-    real(dp), intent(in) :: occ(:,0:,:)
-    real(dp), intent(in) :: p(:,0:,:,:),weight(:),rho(:,:),exc(:),vxc(:,:)
-    integer, intent(in) :: max_l,num_alpha(0:),poly_order(0:),problemsize,nuc,xcnr
+    !> kinetic supervector
+    real(dp), intent(in) :: tt(0:,:,:)
+
+    !> nucleus-electron supervector
+    real(dp), intent(in) :: uu(0:,:,:)
+
+    !> nuclear charge, i.e. atomic number
+    integer, intent(in) :: nuc
+
+    !> confinement supervector
+    real(dp), intent(in) :: vconf(0:,:,:)
+
+    !> coulomb supermatrix
+    real(dp), intent(in) :: jj(0:,:,:,0:,:,:)
+
+    !> (hf) exchange supermatrix
+    real(dp), intent(in) :: kk(0:,:,:,0:,:,:)
+
+    !> density matrix supervector
+    real(dp), intent(in) :: pp(:,0:,:,:)
+
+    !> maximum angular momentum
+    integer, intent(in) :: max_l
+
+    !> number of exponents in each shell
+    integer, intent(in) :: num_alpha(0:)
+
+    !> highest polynomial order + l in each shell
+    integer, intent(in) :: poly_order(0:)
+
+    !> maximum size of the eigenproblem
+    integer, intent(in) :: problemsize
+
+    !> identifier of exchange-correlation type
+    integer, intent(in) :: xcnr
+
+    !> number of numerical integration points
     integer, intent(in) :: num_mesh_points
-    real(dp), intent(out) :: etot,kinetic,nuclear,coulomb,exchange,confinement
-    real(dp) :: dummy1,dummy2,dummy3(2),eigsum
-    integer :: ii,jj,kk,ll,mm,nn,oo,pp,qq,rr,ss,tt,uu,vv,ww
+
+    !> numerical integration weights
+    real(dp), intent(in) :: weight(:)
+
+    !> numerical integration abcissas
+    real(dp), intent(in) :: abcissa(:)
+
+    !> density on grid
+    real(dp), intent(in) :: rho(:,:)
+
+    !> exc energy density on grid
+    real(dp), intent(in) :: exc(:)
+
+    !> xc potential on grid
+    real(dp), intent(in) :: vxc(:,:)
+
+    !> zora scaled eigenvalues
+    real(dp), intent(in) :: eigval_scaled(:,0:,:)
+
+    !> occupation numbers
+    real(dp), intent(in) :: occ(:,0:,:)
+
+    !> resulting energy portions
+    real(dp), intent(out) :: kinetic, nuclear, coulomb, exchange, confinement, etot
+
+    !> density matrix supervector (spins summed up)
     real(dp), allocatable :: p_total(:,:,:)
 
-    allocate(p_total(0:max_l,problemsize,problemsize))
-    p_total=0.0d0
+    !> auxiliary variables
+    integer :: mm, nn, oo
+    real(dp) :: dummy1, dummy2, dummy3(2), eigsum
 
-    etot=0.0d0
-    kinetic=0.0d0
-    nuclear=0.0d0
-    confinement=0.0d0
-    coulomb=0.0d0
-    exchange=0.0d0
-    dummy1=0.0d0
-    dummy2=0.0d0
-    eigsum=0.0d0
+    etot = 0.0_dp
+    kinetic = 0.0_dp
+    nuclear = 0.0_dp
+    confinement = 0.0_dp
+    coulomb = 0.0_dp
+    exchange = 0.0_dp
+    dummy1 = 0.0_dp
+    dummy2 = 0.0_dp
+    eigsum = 0.0_dp
 
     ! Build total density matrix
-    do ii=0,max_l
-      do jj=1,problemsize
-        do kk=1,problemsize
-          p_total(ii,jj,kk)=p(1,ii,jj,kk)+p(2,ii,jj,kk)
-        end do
-      end do
-    end do
+    p_total = pp(1, :,:,:) + pp(2, :,:,:)
 
     ! get total energy
 
-    call core_hamiltonian_energies(t,u,vconf,p_total,max_l,num_alpha,&
-        &poly_order,nuc,kinetic,nuclear,confinement)
+    call core_hamiltonian_energies(tt, uu, vconf, p_total, max_l, num_alpha, poly_order, nuc,&
+        & kinetic, nuclear, confinement)
 
     ! sum of occupied eigenvalues
-    do ii=1,2
-      do jj=0,max_l
-        do kk=1,problemsize
-          eigsum=eigsum+eigval_scaled(ii,jj,kk)*occ(ii,jj,kk)
+    do mm = 1, 2
+      do nn = 0, max_l
+        do oo = 1, problemsize
+          eigsum = eigsum + eigval_scaled(mm, nn, oo) * occ(mm, nn, oo)
         end do
       end do
     end do
 
-    kinetic=eigsum
+    kinetic = eigsum
 
-    call coulomb_hf_ex_energy(j,k,p_total,max_l,num_alpha,poly_order,xcnr,&
-        &coulomb,exchange)
+    call coulomb_hf_ex_energy(jj, kk, p_total, max_l, num_alpha, poly_order, xcnr, coulomb,&
+        & exchange)
 
-    exchange=0.0d0
-    call dft_exc_energy(num_mesh_points,rho,exc,weight,abcissa,&
-        &xcnr,exchange)
+    exchange = 0.0_dp
+    call dft_exc_energy(num_mesh_points, rho, exc, weight, abcissa, exchange)
 
-    call dft_vxc_energy(num_mesh_points,rho,vxc,weight,abcissa,&
-        &xcnr,dummy3)
+    call dft_vxc_energy(num_mesh_points, rho, vxc, weight, abcissa, dummy3)
 
-    dummy2=dummy3(1)+dummy3(2)
+    dummy2 = dummy3(1) + dummy3(2)
 
-    etot=eigsum-0.5d0*coulomb+exchange-dummy2
-
-    !  write(*,*) 'ZORA TOTAL ENERGY'
+    etot = eigsum - 0.5_dp * coulomb + exchange - dummy2
 
   end subroutine zora_total_energy
 
-  subroutine coulomb_hf_ex_energy(j,k,p_total,max_l,num_alpha,poly_order,xcnr,&
-      &coulomb,exchange)
 
-    ! get Hartee-Fock exchange and Coulomb contributions to total energy
-    ! by multiplying j and k supermatrixes with the density matrix supervector
-    ! twice
+  !> Calculates Hartee-Fock exchange and Coulomb contributions to total energy by multiplying jj and
+  !! kk supermatrixes with the density matrix supervector twice.
+  pure subroutine coulomb_hf_ex_energy(jj, kk, p_total, max_l, num_alpha, poly_order, xcnr,&
+      & coulomb, exchange)
 
-    real(dp), intent(in) :: j(0:,:,:,0:,:,:),k(0:,:,:,0:,:,:)
+    !> coulomb supermatrix
+    real(dp), intent(in) :: jj(0:,:,:,0:,:,:)
+
+    !> (hf) exchange supermatrix
+    real(dp), intent(in) :: kk(0:,:,:,0:,:,:)
+
+    !> density matrix supervector (spins summed up)
     real(dp), intent(in) :: p_total(0:,:,:)
-    integer, intent(in) :: max_l,num_alpha(0:),poly_order(0:),xcnr
-    real(dp), intent(out) :: coulomb,exchange
-    integer :: ii,jj,kk,ll,mm,nn,oo,pp,qq,rr,ss,tt,uu,vv,ww
 
+    !> maximum angular momentum
+    integer, intent(in) :: max_l
 
-    do ii=0,max_l
-      ss=0
-      do jj=1,num_alpha(ii)
-        do kk=1,poly_order(ii)
-          ss=ss+1
-          tt=0
-          do ll=1,num_alpha(ii)
-            do mm=1,poly_order(ii)
-              tt=tt+1
-              do nn=0,max_l
-                uu=0
-                do oo=1,num_alpha(nn)
-                  do pp=1,poly_order(nn)
-                    uu=uu+1
-                    vv=0
-                    do qq=1,num_alpha(nn)
-                      do rr=1,poly_order(nn)
-                        vv=vv+1
+    !> number of exponents in each shell
+    integer, intent(in) :: num_alpha(0:)
 
-                        coulomb=coulomb+p_total(ii,ss,tt)*j(ii,ss,tt,nn,uu,vv)*&
-                            &p_total(nn,uu,vv)
+    !> highest polynomial order + l in each shell
+    integer, intent(in) :: poly_order(0:)
 
-                        if (xcnr==0) then
-                          exchange=exchange-0.5d0*p_total(ii,ss,tt)*&
-                              &k(ii,ss,tt,nn,uu,vv)*p_total(nn,uu,vv)
+    !> identifier of exchange-correlation type
+    integer, intent(in) :: xcnr
+
+    !> resulting energy portions
+    real(dp), intent(out) :: coulomb, exchange
+
+    !> auxiliary variables
+    integer :: ii, jjj, kkk, ll, mm, nn, oo, pp, qq, rr, ss, tt, uu, vv
+
+    do ii = 0, max_l
+      ss = 0
+      do jjj = 1, num_alpha(ii)
+        do kkk = 1, poly_order(ii)
+          ss = ss + 1
+          tt = 0
+          do ll = 1, num_alpha(ii)
+            do mm = 1, poly_order(ii)
+              tt = tt + 1
+              do nn = 0, max_l
+                uu = 0
+                do oo = 1, num_alpha(nn)
+                  do pp = 1, poly_order(nn)
+                    uu = uu + 1
+                    vv = 0
+                    do qq = 1, num_alpha(nn)
+                      do rr = 1, poly_order(nn)
+                        vv = vv + 1
+
+                        coulomb = coulomb + p_total(ii, ss, tt) * jj(ii, ss, tt, nn, uu, vv)&
+                            & * p_total(nn, uu, vv)
+
+                        if (xcnr == 0) then
+                          exchange = exchange - 0.5_dp * p_total(ii, ss, tt)&
+                              & * kk(ii, ss, tt, nn, uu, vv) * p_total(nn, uu, vv)
                         end if
 
                       end do
@@ -206,31 +306,54 @@ contains
 
   end subroutine coulomb_hf_ex_energy
 
-  subroutine core_hamiltonian_energies(t,u,vconf,p_total,max_l,num_alpha,&
-      &poly_order,nuc,kinetic,nuclear,confinement)
 
-    ! Core Hamiltonian contributions to total energy by multiplying the
-    ! t,u,vconf supervectors with the density matrix supervector once
+  !> Core Hamiltonian contributions to total energy by multiplying the tt, uu, vconf supervectors
+  !! with the density matrix supervector once.
+  pure subroutine core_hamiltonian_energies(tt, uu, vconf, p_total, max_l, num_alpha, poly_order,&
+      & nuc, kinetic, nuclear, confinement)
 
-    real(dp), intent(in) :: t(0:,:,:),u(0:,:,:)
+    !> kinetic supervector
+    real(dp), intent(in) :: tt(0:,:,:)
+
+    !> nucleus-electron supervector
+    real(dp), intent(in) :: uu(0:,:,:)
+
+    !> confinement supervector
     real(dp), intent(in) :: vconf(0:,:,:)
-    real(dp), intent(in) :: p_total(0:,:,:)
-    integer, intent(in) :: max_l,num_alpha(0:),poly_order(0:),nuc
-    real(dp), intent(out) :: kinetic,nuclear,confinement
-    integer :: ii,jj,kk,ll,mm,nn,oo,pp,qq,rr,ss,tt,uu,vv,ww
 
-    do ii=0,max_l
-      ss=0
-      do jj=1,num_alpha(ii)
-        do kk=1,poly_order(ii)
-          ss=ss+1
-          tt=0
-          do ll=1,num_alpha(ii)
-            do mm=1,poly_order(ii)
-              tt=tt+1
-              kinetic=kinetic+t(ii,ss,tt)*p_total(ii,ss,tt)
-              nuclear=nuclear-float(nuc)*u(ii,ss,tt)*p_total(ii,ss,tt)
-              confinement=confinement+vconf(ii,ss,tt)*p_total(ii,ss,tt)
+    !> density matrix supervector (spins summed up)
+    real(dp), intent(in) :: p_total(0:,:,:)
+
+    !> maximum angular momentum
+    integer, intent(in) :: max_l
+
+    !> number of exponents in each shell
+    integer, intent(in) :: num_alpha(0:)
+
+    !> highest polynomial order + l in each shell
+    integer, intent(in) :: poly_order(0:)
+
+    !> nuclear charge, i.e. atomic number
+    integer, intent(in) :: nuc
+
+    !> resulting energy portions
+    real(dp), intent(out) :: kinetic, nuclear, confinement
+
+    !> auxiliary variables
+    integer :: ii, jj, kk, ll, mm, ss, ttt
+
+    do ii = 0, max_l
+      ss = 0
+      do jj = 1, num_alpha(ii)
+        do kk = 1, poly_order(ii)
+          ss = ss + 1
+          ttt = 0
+          do ll = 1, num_alpha(ii)
+            do mm = 1, poly_order(ii)
+              ttt = ttt + 1
+              kinetic = kinetic + tt(ii, ss, ttt) * p_total(ii, ss, ttt)
+              nuclear = nuclear - real(nuc, dp) * uu(ii, ss, ttt) * p_total(ii, ss, ttt)
+              confinement = confinement + vconf(ii, ss, ttt) * p_total(ii, ss, ttt)
             end do
           end do
         end do

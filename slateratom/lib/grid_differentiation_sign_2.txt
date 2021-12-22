@@ -1,40 +1,38 @@
 > r(z)=a*(1-cos(pi*z))/(1+cos(pi*z));
                            a (1 - cos(pi z))
                     r(z) = -----------------
-                             1 + cos(pi z)  
+                             1 + cos(pi z)
 > simplify(diff(a*(1-cos(pi*z))/(1+cos(pi*z)),z));
-> 
-                        2 a sin(pi z) pi      
+>
+                        2 a sin(pi z) pi
                   ----------------------------
                                              2
-                  1 + 2 cos(pi z) + cos(pi z) 
+                  1 + 2 cos(pi z) + cos(pi z)
 > z(r)=1/pi*arccos((a-r)/(r+a));
                                   /-r + a\
                             arccos|------|
                                   \r + a /
                      z(r) = --------------
-                                  pi      
+                                  pi
 > simplify(diff(1/pi*arccos((a-r)/(r+a)),r));
-                               a             
+                               a
                   ---------------------------
                                         (1/2)
-                            2 /  r a   \     
-                  pi (r + a)  |--------|     
-                              |       2|     
-                              \(r + a) /     
+                            2 /  r a   \
+                  pi (r + a)  |--------|
+                              |       2|
+                              \(r + a) /
 > simplify(diff(simplify(diff(a*(1-cos(pi*z))/(1+cos(pi*z)),z)),z));
-                                           2   
-                     2 (cos(pi z) - 2) a pi    
+                                           2
+                     2 (cos(pi z) - 2) a pi
                  - ----------------------------
                                               2
-                   1 + 2 cos(pi z) + cos(pi z) 
+                   1 + 2 cos(pi z) + cos(pi z)
 > simplify(diff(diff(1/pi*arccos((a-r)/(r+a)),r),r));
-                           (a + 3 r) a          
+                           (a + 3 r) a
                - -------------------------------
                                            (1/2)
-                             3   /  r a   \     
-                 2 pi (r + a)  r |--------|     
-                                 |       2|     
-                                 \(r + a) /     
-
-
+                             3   /  r a   \
+                 2 pi (r + a)  r |--------|
+                                 |       2|
+                                 \(r + a) /
