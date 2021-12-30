@@ -1,82 +1,173 @@
+!> Module that provides exchange-correlation DFT routines.
 module dftxc
 
   use, intrinsic :: ieee_arithmetic
-  use common_accuracy, only: dp
-  use common_constants
+  use common_accuracy, only : dp
+  use common_constants, only : pi
+
+  !! vanderhe: proposed libxc integration
+  ! use, intrinsic :: iso_c_binding, only : c_size_t
+  ! use xc_f90_lib_m, only : xc_f90_func_t, xc_f90_func_info_t, xc_f90_func_init,&
+  !     & xc_f90_func_get_info, xc_f90_lda_vxc, xc_f90_gga_vxc, xc_f90_func_end, XC_LDA_X,&
+  !     & XC_LDA_C_PW, XC_GGA_X_PBE, XC_GGA_C_PBE, XC_UNPOLARIZED
 
   implicit none
   private
 
   public :: getxcpot_ldapw91, getxcpot_ggapbe
 
+  !> pre-factor for re-normalization
   real(dp), parameter :: rec4pi = 1.0_dp / (4.0_dp * pi)
+
 
 contains
 
+  !> Calculates xc-potential based on the LDA-PW91 functional.
   subroutine getxcpot_ldapw91(rho4pi, xcpot)
+
+    !> density times 4pi on grid
     real(dp), intent(in) :: rho4pi(:)
+
+    !> resulting xc-potential
     real(dp), intent(out) :: xcpot(:)
 
-    integer :: nn, ii
-    real(dp), allocatable :: rho(:), rs(:)
-    real(dp) :: vcup, vcdn, ec, vx, ex
+    !> density with libxc compatible normalization
+    real(dp), allocatable :: rho(:)
+
+    !> local Seitz radius, needed for functional evaluation
+    real(dp), allocatable :: rs(:)
+
+    !> exchange and correlation (up, down) potential of a single grid point
+    real(dp) :: vx, vcup, vcdn
+
+    !> exchange and correlation energy of a single grid point
+    real(dp) :: ex, ec
+
+    !> number of density grid points
+    integer :: nn
+
+    !> auxiliary variable
+    integer :: ii
 
     nn = size(rho4pi)
     allocate(rs(nn), rho(nn))
 
-    ! Renorm rho (incoming quantity is 4pi normed)
+    ! renorm rho (incoming quantity is 4pi normed)
     rho = rho4pi * rec4pi
-    ! Note: rho is normed to 4pi, therefore 4*pi missing in rs
+    ! note: rho is normed to 4pi, therefore 4*pi missing in rs
     rs = (3.0_dp / rho4pi)**(1.0_dp / 3.0_dp)
     do ii = 1, nn
       if (rho(ii) < epsilon(1.0_dp)) then
         xcpot(ii) = 0.0_dp
       else
-        call correlation_pbe(rs(ii), 0.0_dp, 0.0_dp, 0.0_dp, 0.0_dp, 0.0_dp, &
-            &0, ec, vcup, vcdn)
+        call correlation_pbe(rs(ii), 0.0_dp, 0.0_dp, 0.0_dp, 0.0_dp, 0.0_dp, 0, ec, vcup, vcdn)
         call exchange_pbe(rho(ii), 0.0_dp, 0.0_dp, 0.0_dp, 0, ex, vx)
         xcpot(ii) = vcup + vx
       end if
     end do
 
-    deallocate(rs, rho)
+    !! vanderhe: proposed libxc integration
+    !! --> but Hamiltonian matrix elements differ up to 1e-07 a.u. (something is wrong)!?
+
+    ! !> libxc related objects
+    ! type(xc_f90_func_t) :: xcfunc_x, xcfunc_c
+    ! type(xc_f90_func_info_t) :: xcinfo
+
+    ! !> density with libxc compatible normalization
+    ! real(dp), allocatable :: rho(:)
+
+    ! !> exchange and correlation potential on grid
+    ! real(dp), allocatable :: vx(:), vc(:)
+
+    ! !> number of density grid points
+    ! integer(c_size_t) :: nn
+
+    ! call xc_f90_func_init(xcfunc_x, XC_LDA_X, XC_UNPOLARIZED)
+    ! xcinfo = xc_f90_func_get_info(xcfunc_x)
+    ! call xc_f90_func_init(xcfunc_c, XC_LDA_C_PW, XC_UNPOLARIZED)
+    ! xcinfo = xc_f90_func_get_info(xcfunc_x)
+
+    ! nn = size(rho4pi)
+    ! allocate(vx(nn), vc(nn))
+
+    ! rho = rho4pi * rec4pi
+
+    ! call xc_f90_lda_vxc(xcfunc_x, nn, rho, vx)
+    ! call xc_f90_lda_vxc(xcfunc_c, nn, rho, vc)
+
+    ! xcpot(:) = vx + vc
+
+    ! call xc_f90_func_end(xcfunc_x)
+    ! call xc_f90_func_end(xcfunc_c)
 
   end subroutine getxcpot_ldapw91
 
+
+  !> Calculates xc-potential based on the GGA-PBE functional.
   subroutine getxcpot_ggapbe(rho4pi, absgr4pi, laplace4pi, gr_grabsgr4pi, xcpot)
+
+    !> density times 4pi on grid
     real(dp), intent(in) :: rho4pi(:)
-    real(dp), intent(in) :: absgr4pi(:), laplace4pi(:), gr_grabsgr4pi(:)
+
+    !> absolute gradient of density times 4pi on grid
+    real(dp), intent(in) :: absgr4pi(:)
+
+    !> laplace operator acting on density times 4pi on grid
+    real(dp), intent(in) :: laplace4pi(:)
+
+    !> (grad rho4pi) * grad(abs(grad rho4pi))
+    real(dp), intent(in) :: gr_grabsgr4pi(:)
+
+    !> resulting xc-potential
     real(dp), intent(out) :: xcpot(:)
 
-    real(dp), allocatable :: rho(:), absgr(:), laplace(:), gr_grabsgr(:)
+    !> density with libxc compatible normalization
+    real(dp), allocatable :: rho(:)
+
+    !> absolute gradient of density on grid
+    real(dp), allocatable :: absgr(:)
+
+    !> laplace operator acting on density on grid
+    real(dp), allocatable :: laplace(:)
+
+    !> (grad rho) * grad(abs(grad rho)) / rho**2
+    !! actually calculated based on rho4pi, but 4pi cancels out
+    real(dp), allocatable :: gr_grabsgr(:)
+
+    !> number of density grid points
+    integer :: nn
+
+    !> auxiliary variables
     real(dp), allocatable :: rs(:), fac(:), tt(:), uu(:), vv(:)
     real(dp), allocatable :: ss(:), u2(:), v2(:)
     real(dp) :: alpha, zeta, gg, ww
     real(dp) :: ec, vcup, vcdn, ex, vx
-    integer :: nn, ii
+    integer :: ii
 
     nn = size(rho4pi)
     allocate(rho(nn), absgr(nn), laplace(nn), gr_grabsgr(nn))
     allocate(rs(nn), fac(nn), tt(nn), uu(nn), vv(nn), ss(nn), u2(nn), v2(nn))
 
-    ! Renorm rho and derivatives (incoming quantities are 4pi normed)
+    ! renorm rho and derivatives (incoming quantities are 4pi normed)
     rho = rho4pi * rec4pi
     absgr = absgr4pi / rho4pi
     laplace = laplace4pi / rho4pi
     gr_grabsgr = gr_grabsgr4pi / rho4pi**2
 
-    ! Note: rho is normed to 4pi, therefore 4*pi missing in rs
+    ! note: rho is normed to 4pi, therefore 4*pi missing in rs
     rs = (3.0_dp / rho4pi)**(1.0_dp / 3.0_dp)
     zeta = 0.0_dp
     gg = 1.0_dp
     alpha = (4.0_dp / (9.0_dp * pi))**(1.0_dp / 3.0_dp)
-    ! Factors for the correlation routine
+
+    ! factors for the correlation routine
     fac = sqrt(pi / 4.0_dp * alpha * rs) / (2.0_dp * gg)
     tt = absgr * fac
     uu = gr_grabsgr * fac**3
     vv = laplace * fac**2
     ww = 0.0_dp
-    ! Factors for the exchange routine
+
+    ! factors for the exchange routine
     fac = alpha * rs / 2.0_dp
     ss = absgr * fac
     u2 = gr_grabsgr * fac**3
@@ -86,25 +177,63 @@ contains
       if (rho(ii) < epsilon(1.0_dp)) then
         xcpot(ii) = 0.0_dp
       else
-        call correlation_pbe(rs(ii), 0.0_dp, tt(ii), uu(ii), vv(ii), ww, 1, &
-            &ec, vcup, vcdn)
+        call correlation_pbe(rs(ii), zeta, tt(ii), uu(ii), vv(ii), ww, 1, ec, vcup, vcdn)
         call exchange_pbe(rho(ii), ss(ii), u2(ii), v2(ii), 1, ex, vx)
         if (ieee_is_nan(vcup)) then
-          print*,"VCUP NAN", ii, rs(ii), tt(ii), uu(ii), vv(ii)
-          print*,":", absgr(ii), gr_grabsgr(ii), laplace(ii)
+          print *, "VCUP NAN", ii, rs(ii), tt(ii), uu(ii), vv(ii)
+          print *, ":", absgr(ii), gr_grabsgr(ii), laplace(ii)
           stop
         elseif (ieee_is_nan(vx)) then
-          print*,"VX NAN", ii
+          print *, "VX NAN", ii
           stop
         end if
         xcpot(ii) = vcup + vx
       end if
     end do
 
-    deallocate(rho, absgr, laplace, gr_grabsgr)
-    deallocate(rs, fac, tt, uu, vv)
+    !! vanderhe: proposed libxc integration
+    !! --> but Hamiltonian matrix elements differ up to 1e-02 a.u. (something is wrong)!?
+
+    ! !> libxc related objects
+    ! type(xc_f90_func_t) :: xcfunc_x, xcfunc_c
+    ! type(xc_f90_func_info_t) :: xcinfo
+
+    ! !> density with libxc compatible normalization
+    ! real(dp), allocatable :: rho(:)
+
+    ! !> contracted gradients of the density
+    ! real(dp), allocatable :: sigma(:)
+
+    ! !> exchange and correlation potential on grid
+    ! real(dp), allocatable :: vx(:), vc(:)
+
+    ! !> first partial derivative of the energy per unit volume in terms of sigma
+    ! real(dp), allocatable :: vxsigma(:), vcsigma(:)
+
+    ! !> number of density grid points
+    ! integer(c_size_t) :: nn
+
+    ! nn = size(rho4pi)
+    ! allocate(vx(nn), vc(nn), vxsigma(nn), vcsigma(nn))
+
+    ! rho = rho4pi * rec4pi
+    ! sigma = (absgr4pi * rec4pi)**2
+
+    ! call xc_f90_func_init(xcfunc_x, XC_GGA_X_PBE, XC_UNPOLARIZED)
+    ! xcinfo = xc_f90_func_get_info(xcfunc_x)
+    ! call xc_f90_func_init(xcfunc_c, XC_GGA_C_PBE, XC_UNPOLARIZED)
+    ! xcinfo = xc_f90_func_get_info(xcfunc_x)
+
+    ! call xc_f90_gga_vxc(xcfunc_x, nn, rho, sigma, vx, vxsigma)
+    ! call xc_f90_gga_vxc(xcfunc_c, nn, rho, sigma, vc, vcsigma)
+
+    ! xcpot(:) = vx + vc
+
+    ! call xc_f90_func_end(xcfunc_x)
+    ! call xc_f90_func_end(xcfunc_c)
 
   end subroutine getxcpot_ggapbe
+
 
   SUBROUTINE CORRELATION_PBE(RS, ZET, T, UU, VV, WW, igga, ec, vc1, vc2)
 
@@ -253,10 +382,10 @@ contains
     DVCDN = COMM - PREF
     VC1 = VCUP + DVCUP
     VC2 = VCDN + DVCDN
-    !        print*,'c igga is',dvcup
 
     RETURN
   END subroutine CORRELATION_PBE
+
 
   subroutine exchange_pbe(rho, s, u, t, igga, EX, VX)
 
@@ -293,7 +422,7 @@ contains
     !           TOTAL: EX) AND POTENTIAL (VX)
     !----------------------------------------------------------------------
     ! References:
-    ! [a]J.P.~Perdew, K.~Burke, and M.~Ernzerhof, submiited to PRL, May96
+    ! [a]J.P.~Perdew, K.~Burke, and M.~Ernzerhof, submitted to PRL, May96
     ! [b]J.P. Perdew and Y. Wang, Phys. Rev.  B {\bf 33},  8800  (1986);
     !     {\bf 40},  3399  (1989) (E).
     !----------------------------------------------------------------------
@@ -338,7 +467,6 @@ contains
     !     energy done. calculate potential from [b](24)
     !
     VX = exunif * (thrd4 * f - (u - thrd4 * s**3) * fss - t * fs)
-    !         print*,'e igga is',igga,vx,xunif*thrd4
 
     RETURN
   END subroutine exchange_pbe

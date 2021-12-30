@@ -1,99 +1,124 @@
-!> Spherical harmonics.
+!> Module that provides the functionality for real tesseral spherical harmonics.
 module sphericalharmonics
 
-  use common_accuracy, only: dp
+  use common_accuracy, only : dp
 
   implicit none
   private
 
-  public :: realtess, init, destruct, getvalue, getvalue_1d
+  public :: TRealTessY, TRealTessY_init
 
-  !> Real tessereal shperical.
-  type realtess
-    private
-    integer :: ll, mm
-  end type realtess
 
-  interface init
-    module procedure realtess_init
-  end interface
+  !> Real tesseral spherical harmonics.
+  type TRealTessY
 
-  interface destruct
-    module procedure realtess_destruct
-  end interface
+    !> angular momentum
+    integer :: ll
 
-  interface getvalue
-    module procedure realtess_getvalue
-  end interface
+    !> magnetic quantum number
+    integer :: mm
 
-  interface getvalue_1d
-    module procedure realtess_getvalue_1d
-  end interface
+  contains
+
+    procedure :: getValue => TRealTessY_getValue
+    procedure :: getValue_1d => TRealTessY_getValue_1d
+    procedure :: destruct => TRealTessY_destruct
+
+  end type TRealTessY
+
 
 contains
 
-  !> Initialises realtess.
-  !! \param self instance.
-  !! \param ll angulam momentum (l)
-  !! \param mm magnetic quantum number (m)
-  subroutine realtess_init(self, ll, mm)
-    type(realtess), intent(inout) :: self
-    integer, intent(in) :: ll, mm
+  !> Initialises a TRealTessY object.
+  subroutine TRealTessY_init(this, ll, mm)
 
-    self % ll = ll
-    self % mm = mm
+    !> real tesseral spherical harmonics instance
+    type(TRealTessY), intent(out) :: this
 
-  end subroutine realtess_init
+    !> angular momentum (l)
+    integer, intent(in) :: ll
 
-  !> Destroys the instance.
-  !! \param self instance.
-  subroutine realtess_destruct(self)
-    type(realtess), intent(inout) :: self
+    !> magnetic quantum number (m)
+    integer, intent(in) :: mm
+
+    this%ll = ll
+    this%mm = mm
+
+  end subroutine TRealTessY_init
+
+
+  !> Destroys an initialised instance.
+  subroutine TRealTessY_destruct(this)
+
+    !> real tesseral spherical harmonics instance
+    class(TRealTessY), intent(inout) :: this
 
     continue
 
-  end subroutine realtess_destruct
+  end subroutine TRealTessY_destruct
 
-  !> returns the value of the tessereal function.
-  !! \param self instance.
-  !! \param theta spherical coordinate theta.
-  !! \param phi spherical coordinate phi.
-  elemental function realtess_getvalue(self, theta, phi) result(ang)
-    type(realtess), intent(in) :: self
-    real(dp), intent(in) :: theta, phi
-    real(dp) :: ang
 
-    ang = calc_realtess(self % ll, self % mm, theta, phi)
+  !> Returns value of real tesseral spherical harmonic function.
+  elemental function TRealTessY_getValue(this, theta, phi) result(ang)
 
-  end function realtess_getvalue
+    !> real tesseral spherical harmonics instance
+    class(TRealTessY), intent(in) :: this
 
-  elemental function realtess_getvalue_1d(self, theta) result(ang)
-    type(realtess), intent(in) :: self
+    !> spherical coordinate theta
     real(dp), intent(in) :: theta
+
+    !> spherical coordinate phi
+    real(dp), intent(in) :: phi
+
+    !> value of real tesseral spherical harmonic function
     real(dp) :: ang
 
-    ang = calc_realtess_1d(self % ll, self % mm, theta)
+    ang = calc_realtessy(this%ll, this%mm, theta, phi)
 
-  end function realtess_getvalue_1d
+  end function TRealTessY_getValue
+
+
+  !> Returns value of real tesseral spherical harmonic function.
+  elemental function TRealTessY_getValue_1d(this, theta) result(ang)
+
+    !> real tesseral spherical harmonics instance
+    class(TRealTessY), intent(in) :: this
+
+    !> spherical coordinate theta
+    real(dp), intent(in) :: theta
+
+    !> value of real tesseral spherical harmonic function
+    real(dp) :: ang
+
+    ang = calc_realtessy_1d(this%ll, this%mm, theta)
+
+  end function TRealTessY_getValue_1d
+
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!! private functions
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-  !> Real tessereal spherical harmonics up to f.
-  !! \param ll angular momentum (l).
-  !! \param mm magnetic moment (m)
-  !! \param theta spherical coordinate theta.
-  !! \param phi spherical coordinate phi.
-  !! \return value of the real tesseral harmonics.
-  elemental function calc_realtess(ll, mm, theta, phi) result(rty)
+  !> Real tesseral spherical harmonics up to angular momentum f.
+  elemental function calc_realtessy(ll, mm, theta, phi) result(rty)
+
+    !> angular momentum (l)
     integer, intent(in) :: ll
+
+    !> magnetic quantum number (m)
     integer, intent(in) :: mm
-    real(dp), intent(in) :: theta, phi
+
+    !> spherical coordinate theta
+    real(dp), intent(in) :: theta
+
+    !> spherical coordinate phi
+    real(dp), intent(in) :: phi
+
+    !> value of real tesseral spherical harmonic function
     real(dp) :: rty
 
-    !assert(ll >= 0 .and. ll <= 3)
-    !assert(abs(mm) <= ll)
+    ! assert(ll >= 0 .and. ll <= 3)
+    ! assert(abs(mm) <= ll)
 
     select case (ll)
     case (0)
@@ -144,22 +169,26 @@ contains
       end select
     end select
 
-  end function calc_realtess
+  end function calc_realtessy
 
-  !> Real tessereal spherical harmonics up to f.
-  !! \param ll angular momentum (l).
-  !! \param mm magnetic moment (m)
-  !! \param theta spherical coordinate theta.
-  !! \param phi spherical coordinate phi.
-  !! \return value of the real tesseral harmonics.
-  elemental function calc_realtess_1d(ll, mm, theta) result(rty)
+
+  !> Real tesseral spherical harmonics up to angular momentum f.
+  elemental function calc_realtessy_1d(ll, mm, theta) result(rty)
+
+    !> angular momentum (l)
     integer, intent(in) :: ll
+
+    !> magnetic quantum number (m)
     integer, intent(in) :: mm
+
+    !> spherical coordinate theta
     real(dp), intent(in) :: theta
+
+    !> value of real tesseral spherical harmonic function
     real(dp) :: rty
 
-    !assert(ll >= 0 .and. ll <= 3)
-    !assert(abs(mm) <= ll)
+    ! assert(ll >= 0 .and. ll <= 3)
+    ! assert(abs(mm) <= ll)
 
     select case (ll)
     case (0)
@@ -208,6 +237,6 @@ contains
       end select
     end select
 
-  end function calc_realtess_1d
+  end function calc_realtessy_1d
 
 end module sphericalharmonics

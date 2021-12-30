@@ -1,36 +1,49 @@
-!> Contains routines to locate a value in an array using bisection.
+!> Module that contains routines to locate a value in an array using bisection.
 module bisection
 
-  use common_accuracy, only: dp
+  use common_accuracy, only : dp
 
   implicit none
   private
 
   public :: bisect
 
-  !> Bisection driver.
+  !> Bisection driver that interfaces integer- and real-valued array routines.
   interface bisect
     module procedure bisect_real
     module procedure bisect_int
   end interface bisect
 
+
 contains
 
-  !> Real case for bisection search to to find a point in an array xx(:)
-  !! between xx(1) and xx(size(xx)) such that element indexed ind is less than
-  !! the value x0 queried.
-  !! \param xx Array of values in monotonic order to search through.
-  !! \param x0 Value to locate ind for.
-  !! \param ind Located element such that xx(ind) < x < xx(ind).
+  !> Real case for bisection search to to find a point in an array xx(:) between xx(1) and
+  !! xx(size(xx)) such that element indexed ind is less than the value x0 queried.
   pure subroutine bisect_real(xx, x0, ind, tol)
-    real(dp), intent(in) :: xx(:), x0
+
+    !> array of values in monotonic order to search through
+    real(dp), intent(in) :: xx(:)
+
+    !> value to locate ind for
+    real(dp), intent(in) :: x0
+
+    !> located element such that xx(ind) < x0 < xx(ind)
     integer, intent(out) :: ind
+
+    !> optional, user-specified tolerance for comparisons
     real(dp), intent(in), optional :: tol
 
+    !> length of array to search
     integer :: nn
-    integer :: ilower, iupper, icurr
-    real(dp) :: rTol      ! real tolerance
-    logical :: ascending
+
+    !> lower, upper and current value index
+    integer :: iLower, iUpper, iCurr
+
+    !> actual tolerance selected
+    real(dp) :: rTol
+
+    !> true, if xx(:) is in ascending ordering
+    logical :: tAscending
 
     nn = size(xx)
     if (nn == 0) then
@@ -53,34 +66,41 @@ contains
     else if (x0 > xx(nn) + rTol) then
       ind = nn
     else
-      ascending = (xx(nn) >= xx(1))
-      ilower = 0
-      icurr = nn + 1
-      do while ((icurr - ilower) > 1)
-        iupper = (icurr + ilower) / 2
-        if (ascending .eqv. (x0 >= xx(iupper) + rTol)) then
-          ilower = iupper
+      tAscending = (xx(nn) >= xx(1))
+      iLower = 0
+      iCurr = nn + 1
+      do while ((iCurr - iLower) > 1)
+        iUpper = (iCurr + iLower) / 2
+        if (tAscending .eqv. (x0 >= xx(iUpper) + rTol)) then
+          iLower = iUpper
         else
-          icurr = iupper
+          iCurr = iUpper
         end if
       end do
-      ind = ilower
+      ind = iLower
     end if
 
   end subroutine bisect_real
 
-  !> Integer case for bisection search to to find a point in an array xx(:)
-  !! between xx(1) and xx(size(xx)) such that element indexed ind is less than
-  !! the value x0 queried
-  !! \param xx Array of values in monotonic order to search through.
-  !! \param x0 Value to locate ind for.
-  !! \param ind Located element such that xx(ind) < x < xx(ind).
+
+  !> Integer case for bisection search to to find a point in an array xx(:) between xx(1) and
+  !! xx(size(xx)) such that element indexed ind is less than the value x0 queried.
   pure subroutine bisect_int(xx, x0, ind)
-    integer, intent(in) :: xx(:), x0
+
+    !> array of values in monotonic order to search through
+    integer, intent(in) :: xx(:)
+
+    !> value to locate ind for
+    integer, intent(in) :: x0
+
+    !> located element such that xx(ind) < x0 < xx(ind)
     integer, intent(out) :: ind
 
+    !> length of array to search
     integer :: nn
-    integer :: ilower, iupper, icurr
+
+    !> lower, upper and current value index
+    integer :: iLower, iUpper, iCurr
 
     nn = size(xx)
     if (nn == 0) then
@@ -97,17 +117,17 @@ contains
     else if (x0 > xx(nn)) then
       ind = nn
     else
-      ilower = 0
-      icurr = nn + 1
-      do while ((icurr - ilower) > 1)
-        iupper = (icurr + ilower) / 2
-        if ((xx(nn) >= xx(1)) .eqv. (x0 >= xx(iupper))) then
-          ilower = iupper
+      iLower = 0
+      iCurr = nn + 1
+      do while ((iCurr - iLower) > 1)
+        iUpper = (iCurr + iLower) / 2
+        if ((xx(nn) >= xx(1)) .eqv. (x0 >= xx(iUpper))) then
+          iLower = iUpper
         else
-          icurr = iupper
+          iCurr = iUpper
         end if
       end do
-      ind = ilower
+      ind = iLower
     end if
 
   end subroutine bisect_int
