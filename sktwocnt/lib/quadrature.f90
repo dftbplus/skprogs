@@ -38,13 +38,13 @@ contains
     !> at exit, holds abscissas and weights for numerical quadrature
     type(TQuadrature), intent(out) :: quad
 
-    !> number of roots after symmetry is considered
+    !! number of roots after symmetry is considered
     integer :: mm
 
-    !> initial approximations to the roots
+    !! initial approximations to the roots
     real(dp) :: zz
 
-    !> auxiliary variables
+    !! auxiliary variables
     integer :: ii, jj
     real(dp) :: z1, pp, p1, p2, p3, rj
 
@@ -90,10 +90,10 @@ contains
     !> at exit, holds abscissas and weights for numerical quadrature
     type(TQuadrature), intent(out) :: quad
 
-    !> recurring argument of trigonometry functions
+    !! recurring argument of trigonometry functions
     real(dp) :: rtmp
 
-    !> auxiliary variable
+    !! auxiliary variable
     integer :: ii
 
     allocate(quad%xx(nn))
@@ -120,10 +120,10 @@ contains
     !> at exit, holds abscissas and weights for numerical quadrature
     type(TQuadrature), intent(out) :: quad
 
-    !> discretization stepwidth of interval [-1,1]
+    !! discretization stepwidth of interval [-1,1]
     real(dp) :: fac
 
-    !> auxiliary variable
+    !! auxiliary variable
     integer :: ii
 
     allocate(quad%xx(nn))

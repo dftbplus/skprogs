@@ -31,7 +31,7 @@ module partition
       !> holds partitioning parameters, if required
       real(dp), intent(in) :: partparams(:)
 
-      !> resulting value of the partition function, between [0,1]
+      !! resulting value of the partition function, between [0,1]
       real(dp) :: res
 
     end function partitionFunc
@@ -57,10 +57,10 @@ contains
     !> arbitrary dummy real array, unused in this routine
     real(dp), intent(in) :: partparams(:)
 
-    !> resulting value of the partition function, between [0,1]
+    !! resulting value of the partition function, between [0,1]
     real(dp) :: res
 
-    !> auxiliary variable
+    !! auxiliary variable
     integer :: ii
 
     ! see A. D. Becke, J. Chem. Phys. 88, 2547 (1988), eqn. 11
@@ -93,13 +93,13 @@ contains
     !> real array containing the parameter aij in the Becke partitioning scheme
     real(dp), intent(in) :: partparams(:)
 
-    !> resulting value of the partition function, between [0,1]
+    !! resulting value of the partition function, between [0,1]
     real(dp) :: res
 
-    !> see A. D. Becke, J. Chem. Phys. 88, 2547 (1988), eqn. 11
+    !! see A. D. Becke, J. Chem. Phys. 88, 2547 (1988), eqn. 11
     real(dp) :: mu
 
-    !> auxiliary variable
+    !! auxiliary variable
     integer :: ii
 
     ! assert(abs(partparams(1)) <= 0.5_dp)
@@ -128,13 +128,13 @@ contains
     !> Bragg-Slater radius of first and second atom
     real(dp), intent(in) :: r1, r2
 
-    !> parameter a_{ij}, see A. D. Becke, J. Chem. Phys. 88, 2547 (1988), eqn. A5
+    !! parameter a_{ij}, see A. D. Becke, J. Chem. Phys. 88, 2547 (1988), eqn. A5
     real(dp) :: res
 
-    !> see A. D. Becke, J. Chem. Phys. 88, 2547 (1988), eqn. A4
+    !! see A. D. Becke, J. Chem. Phys. 88, 2547 (1988), eqn. A4
     real(dp) :: chi
 
-    !> see A. D. Becke, J. Chem. Phys. 88, 2547 (1988), eqn. A6
+    !! see A. D. Becke, J. Chem. Phys. 88, 2547 (1988), eqn. A6
     real(dp) :: uu
 
     chi = sqrt(r1 / r2)

@@ -15,10 +15,10 @@ contains
   !> Parses command line arguments or prints program/version information.
   subroutine parse_command_arguments()
 
-    !> number of command line arguments and length buffer
+    !! number of command line arguments and length buffer
     integer :: nArgs, argLen
 
-    !> string representation of a single command line argument
+    !! string representation of a single command line argument
     character(len=:), allocatable :: arg
 
     nArgs = command_argument_count()

@@ -33,16 +33,16 @@ contains
     !> optional, user-specified tolerance for comparisons
     real(dp), intent(in), optional :: tol
 
-    !> length of array to search
+    !! length of array to search
     integer :: nn
 
-    !> lower, upper and current value index
+    !! lower, upper and current value index
     integer :: iLower, iUpper, iCurr
 
-    !> actual tolerance selected
+    !! actual tolerance selected
     real(dp) :: rTol
 
-    !> true, if xx(:) is in ascending ordering
+    !! true, if xx(:) is in ascending ordering
     logical :: tAscending
 
     nn = size(xx)
@@ -96,10 +96,10 @@ contains
     !> located element such that xx(ind) < x0 < xx(ind)
     integer, intent(out) :: ind
 
-    !> length of array to search
+    !! length of array to search
     integer :: nn
 
-    !> lower, upper and current value index
+    !! lower, upper and current value index
     integer :: iLower, iUpper, iCurr
 
     nn = size(xx)

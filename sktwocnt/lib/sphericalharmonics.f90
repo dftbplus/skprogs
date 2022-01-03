@@ -70,7 +70,7 @@ contains
     !> spherical coordinate phi
     real(dp), intent(in) :: phi
 
-    !> value of real tesseral spherical harmonic function
+    !! value of real tesseral spherical harmonic function
     real(dp) :: ang
 
     ang = calc_realtessy(this%ll, this%mm, theta, phi)
@@ -87,7 +87,7 @@ contains
     !> spherical coordinate theta
     real(dp), intent(in) :: theta
 
-    !> value of real tesseral spherical harmonic function
+    !! value of real tesseral spherical harmonic function
     real(dp) :: ang
 
     ang = calc_realtessy_1d(this%ll, this%mm, theta)
@@ -114,7 +114,7 @@ contains
     !> spherical coordinate phi
     real(dp), intent(in) :: phi
 
-    !> value of real tesseral spherical harmonic function
+    !! value of real tesseral spherical harmonic function
     real(dp) :: rty
 
     ! assert(ll >= 0 .and. ll <= 3)
@@ -184,7 +184,7 @@ contains
     !> spherical coordinate theta
     real(dp), intent(in) :: theta
 
-    !> value of real tesseral spherical harmonic function
+    !! value of real tesseral spherical harmonic function
     real(dp) :: rty
 
     ! assert(ll >= 0 .and. ll <= 3)

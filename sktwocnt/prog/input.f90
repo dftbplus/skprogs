@@ -31,22 +31,22 @@ contains
     !> filename
     character(len=*), intent(in) :: fname
 
-    !> file identifier
+    !! file identifier
     integer :: fp
 
-    !> current line index
+    !! current line index
     integer :: iLine
 
-    !> character buffer
+    !! character buffer
     character(len=maxlen) :: line, buffer1, buffer2
 
-    !> error status
+    !! error status
     integer :: iErr
 
-    !> potential data columns, summed up in order to receive the total atomic potential
+    !! potential data columns, summed up in order to receive the total atomic potential
     integer, allocatable :: potcomps(:)
 
-    !> true, if radial grid-orbital 1st/2nd derivative shall be read
+    !! true, if radial grid-orbital 1st/2nd derivative shall be read
     logical :: tReadRadDerivs
 
     fp = 14
@@ -125,16 +125,16 @@ contains
     !> atomic properties instance
     type(TAtomdata), intent(out) :: atom
 
-    !> character buffer
+    !! character buffer
     character(maxlen) :: line, buffer
 
-    !> temporarily stores atomic wavefunction and potential
+    !! temporarily stores atomic wavefunction and potential
     real(dp), allocatable :: data(:,:), potval(:)
 
-    !> error status
+    !! error status
     integer :: iErr
 
-    !> auxiliary variables
+    !! auxiliary variables
     integer :: ii, imax
 
     call nextline_(fp, iLine, line)
@@ -215,25 +215,25 @@ contains
     !> obtained data on grid with nGrid entries
     real(dp), intent(out), allocatable :: data(:,:)
 
-    !> temporarily stores all columns of a single line in file
+    !! temporarily stores all columns of a single line in file
     real(dp), allocatable :: tmp(:)
 
-    !> character buffer for current line of file
+    !! character buffer for current line of file
     character(maxlen) :: line
 
-    !> number of grid points stored in file
+    !! number of grid points stored in file
     integer :: nGrid
 
-    !> error status
+    !! error status
     integer :: iErr
 
-    !> current line
+    !! current line
     integer :: iLine
 
-    !> file identifier
+    !! file identifier
     integer :: fp
 
-    !> auxiliary variable
+    !! auxiliary variable
     integer :: ii
 
     fp = 12
@@ -272,10 +272,10 @@ contains
     !> line buffer
     character(maxlen), intent(out) :: line
 
-    !> position of comment string in line if present, otherwise zero
+    !! position of comment string in line if present, otherwise zero
     integer :: ii
 
-    !> temporarily stores an entire line
+    !! temporarily stores an entire line
     character(maxlen) :: buffer
 
     do while (.true.)

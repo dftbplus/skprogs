@@ -119,10 +119,10 @@ contains
     !> radius to calculate the value for
     real(dp), intent(in) :: rr
 
-    !> radial part of the orbital at the given distance
+    !! radial part of the orbital at the given distance
     real(dp) :: rad
 
-    !> auxiliary variables
+    !! auxiliary variables
     integer :: ind, iStart, iEnd
     real(dp) :: rmax, f0, f1, f2, f1p, f1pp
 
@@ -176,13 +176,13 @@ contains
     !> r, f(r) values on grid
     real(dp), intent(in) :: rvals(:), fvals(:)
 
-    !> grid-orbital instance
+    !! grid-orbital instance
     type(TGridorb1) :: orb
 
-    !> Gauss-Chebyshev abscissas and inverse Becke radii
+    !! Gauss-Chebyshev abscissas and inverse Becke radii
     real(dp) :: xx, rr
 
-    !> auxiliary variable
+    !! auxiliary variable
     integer :: ii
 
     ! assert(size(values, dim=1) == 2)
@@ -236,10 +236,10 @@ contains
     !> radius to calculate the value for
     real(dp), intent(in) :: rr
 
-    !> radial part of the orbital at the given distance
+    !! radial part of the orbital at the given distance
     real(dp) :: rad
 
-    !> auxiliary variables
+    !! auxiliary variables
     integer :: ind, iStart, iEnd
     real(dp) :: rmax, f0, f1, f2, f1p, f1pp
     real(dp) :: xx

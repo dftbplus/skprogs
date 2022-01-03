@@ -26,13 +26,13 @@ contains
     !> two-dimensional atom grid, whereas r = grid(:, 1) and theta = grid(:, 2)
     real(dp), intent(out), allocatable :: grid(:,:)
 
-    !>
+    !> integration weights
     real(dp), intent(out), allocatable :: weights(:)
 
-    !> atomic and total number of quadrature abscissas
+    !! atomic and total number of quadrature abscissas
     integer :: n1, n2, nn
 
-    !> auxiliary variables
+    !! auxiliary variables
     integer :: ind, i1, i2
     real(dp) :: coord(2), coordreal(2), jacobi
 
@@ -88,10 +88,10 @@ contains
     !> integration weights
     real(dp), intent(out), allocatable :: weights(:)
 
-    !> atomic and total number of quadrature abscissas
+    !! atomic and total number of quadrature abscissas
     integer :: n1, n2, nn
 
-    !> auxiliary variables
+    !! auxiliary variables
     integer :: ind, i1, i2
     real(dp) :: coord(2), coordreal(2)
     real(dp) :: r1, theta1, r2a, r2b, theta2a, theta2b, rtmpa, rtmpb, jacobi

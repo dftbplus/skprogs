@@ -108,55 +108,55 @@ contains
     !> resulting Hamiltonian and overlap matrices
     real(dp), intent(out), allocatable :: skham(:,:), skover(:,:)
 
-    !> abscissas and weight instances for numerical quadrature
+    !! abscissas and weight instances for numerical quadrature
     type(TQuadrature) :: quads(2)
 
-    !> pointer to atomic properties of dimer atoms
+    !! pointer to atomic properties of dimer atoms
     type(TAtomdata), pointer :: atom1, atom2
 
-    !> database that holds Hamiltonian and overlap matrices
+    !! database that holds Hamiltonian and overlap matrices
     type(TFiFoReal2) :: hamfifo, overfifo
 
-    !> integration grids of dimer atoms, holding spherical coordinates (r, theta)
+    !! integration grids of dimer atoms, holding spherical coordinates (r, theta)
     real(dp), allocatable :: grid1(:,:), grid2(:,:)
 
-    !> ??? and integration weights
+    !! ??? and integration weights
     real(dp), allocatable :: dots(:), weights(:)
 
-    !> relative density integration error for all dimer distances of a batch
+    !! relative density integration error for all dimer distances of a batch
     real(dp), allocatable :: denserr(:)
 
-    !> buffer holding Hamiltonian and overlap of current distance batch
+    !! buffer holding Hamiltonian and overlap of current distance batch
     real(dp), allocatable :: skhambuffer(:,:), skoverbuffer(:,:)
 
-    !> arbitrary dummy real array, unused for homonuclear Becke partitioning
+    !! arbitrary dummy real array, unused for homonuclear Becke partitioning
     real(dp) :: beckepars(1)
 
-    !> maximal density integration error
+    !! maximal density integration error
     real(dp) :: denserrmax
 
-    !> current dimer distance
+    !! current dimer distance
     real(dp) :: dist
 
-    !> maximum absolute Hamiltonian or overlap matrix element
+    !! maximum absolute Hamiltonian or overlap matrix element
     real(dp) :: maxabs
 
-    !> maximum dimer distance
+    !! maximum dimer distance
     real(dp) :: maxdist
 
-    !> iterates through a batch of dimer distances
+    !! iterates through a batch of dimer distances
     integer :: ir
 
-    !> number of batches for which SK-integrals got calculated
+    !! number of batches for which SK-integrals got calculated
     integer :: nBatch
 
-    !> number of dimer distances in a single batch
+    !! number of dimer distances in a single batch
     integer :: nBatchline
 
-    !> true, if dimer distances are shall dynamically be extended if convergency isn't reached
+    !! true, if dimer distances are shall dynamically be extended if convergency isn't reached
     logical :: tDynlen
 
-    !> true, if maximum absolute Hamiltonian or overlap matrix element is below given tolerance
+    !! true, if maximum absolute Hamiltonian or overlap matrix element is below given tolerance
     logical :: tConverged
 
     call gauss_legendre_quadrature(inp%ninteg1, quads(1))
@@ -255,43 +255,43 @@ contains
     !> relative density integration error
     real(dp), intent(out) :: denserr
 
-    !> instance of real tesseral spherical harmonics
+    !! instance of real tesseral spherical harmonics
     type(TRealTessY) :: tes1, tes2
 
-    !> spherical coordinates (r, theta) of atom 1 and atom 2 on grid
+    !! spherical coordinates (r, theta) of atom 1 and atom 2 on grid
     real(dp), pointer :: r1(:), r2(:), theta1(:), theta2(:)
 
-    !> radial grid-orbital portion for all basis functions of atom 1
+    !! radial grid-orbital portion for all basis functions of atom 1
     real(dp), allocatable :: radval1(:,:)
 
-    !> radial grid-orbital portion and 1st/2nd derivative for all basis functions of atom 2
+    !! radial grid-orbital portion and 1st/2nd derivative for all basis functions of atom 2
     real(dp), allocatable :: radval2(:,:), radval2p(:,:), radval2pp(:,:)
 
-    !> total potential and electron density of two atoms
+    !! total potential and electron density of two atoms
     real(dp), allocatable :: potval(:), densval(:)
 
-    !> atomic 1st and 2nd density derivatives of atom 1
+    !! atomic 1st and 2nd density derivatives of atom 1
     real(dp), allocatable :: densval1p(:), densval1pp(:)
 
-    !> atomic 1st and 2nd density derivatives of atom 2
+    !! atomic 1st and 2nd density derivatives of atom 2
     real(dp), allocatable :: densval2p(:), densval2pp(:)
 
-    !> real tesseral spherical harmonic for spherical coordinate (theta) of atom 1 and atom 2
+    !! real tesseral spherical harmonic for spherical coordinate (theta) of atom 1 and atom 2
     real(dp), allocatable :: spherval1(:), spherval2(:)
 
-    !> higher-level density expressions
+    !! higher-level density expressions
     real(dp), allocatable :: absgr(:), laplace(:), gr_grabsgr(:)
 
-    !> temporary storage for Hamiltonian, overlap, density and pre-factors
+    !! temporary storage for Hamiltonian, overlap, density and pre-factors
     real(dp) :: integ1, integ2, dens, prefac
 
-    !> number of integration points
+    !! number of integration points
     integer :: nGrid
 
-    !>  orbital indices/angular momenta on the two atoms and interaction type
+    !!  orbital indices/angular momenta on the two atoms and interaction type
     integer :: i1, i2, l1, l2, mm
 
-    !> auxiliary variable
+    !! auxiliary variable
     integer :: ii
 
     r1 => grid1(:, 1)
@@ -395,7 +395,7 @@ contains
     !> integration weights
     real(dp), intent(in) :: weights(:)
 
-    !> resulting orbital overlap
+    !! resulting orbital overlap
     real(dp) :: res
 
     res = sum(rad1 * rad2 * spher1 * spher2 * weights)
@@ -415,7 +415,7 @@ contains
     !> integration weights
     real(dp), intent(in) :: weights(:)
 
-    !> resulting electron density
+    !! resulting electron density
     real(dp) :: res
 
     res = sum(((rad1 * spher1)**2 + (rad2 * spher2)**2) * weights)
@@ -448,7 +448,7 @@ contains
     !> integration weights
     real(dp), intent(in) :: weights(:)
 
-    !> resulting Hamiltonian matrix element
+    !! resulting Hamiltonian matrix element
     real(dp) :: res
 
     res = sum((rad1 * spher1)&
@@ -482,10 +482,10 @@ contains
     !> (grad rho4pi) * grad(abs(grad rho4pi))
     real(dp), intent(out) :: gr_grabsgr(:)
 
-    !> temporary storage
+    !! temporary storage
     real(dp), allocatable :: f1(:), f2(:)
 
-    !> number of grid points
+    !! number of grid points
     integer :: nn
 
     nn = size(drho1)
@@ -516,16 +516,16 @@ contains
     !> atomic property instances of dimer atoms
     type(TAtomdata), intent(in) :: atom1, atom2
 
-    !> number of all nonzero two-center integrals between orbitals of two atoms
+    !! number of all nonzero two-center integrals between orbitals of two atoms
     integer :: ninteg
 
-    !> maximum mutual angular momentum
+    !! maximum mutual angular momentum
     integer :: mmax
 
-    !>  orbital indices/angular momenta on the two atoms and interaction type
+    !!  orbital indices/angular momenta on the two atoms and interaction type
     integer :: i1, i2, l1, l2, mm
 
-    !> auxiliary variable
+    !! auxiliary variable
     integer :: ind
 
     mmax = min(maxval(atom1%angmoms), maxval(atom2%angmoms))

@@ -31,22 +31,22 @@ contains
     !> resulting xc-potential
     real(dp), intent(out) :: xcpot(:)
 
-    !> density with libxc compatible normalization
+    !! density with libxc compatible normalization
     real(dp), allocatable :: rho(:)
 
-    !> local Seitz radius, needed for functional evaluation
+    !! local Seitz radius, needed for functional evaluation
     real(dp), allocatable :: rs(:)
 
-    !> exchange and correlation (up, down) potential of a single grid point
+    !! exchange and correlation (up, down) potential of a single grid point
     real(dp) :: vx, vcup, vcdn
 
-    !> exchange and correlation energy of a single grid point
+    !! exchange and correlation energy of a single grid point
     real(dp) :: ex, ec
 
-    !> number of density grid points
+    !! number of density grid points
     integer :: nn
 
-    !> auxiliary variable
+    !! auxiliary variable
     integer :: ii
 
     nn = size(rho4pi)
@@ -69,17 +69,17 @@ contains
     !! vanderhe: proposed libxc integration
     !! --> but Hamiltonian matrix elements differ up to 1e-07 a.u. (something is wrong)!?
 
-    ! !> libxc related objects
+    ! !! libxc related objects
     ! type(xc_f90_func_t) :: xcfunc_x, xcfunc_c
     ! type(xc_f90_func_info_t) :: xcinfo
 
-    ! !> density with libxc compatible normalization
+    ! !! density with libxc compatible normalization
     ! real(dp), allocatable :: rho(:)
 
-    ! !> exchange and correlation potential on grid
+    ! !! exchange and correlation potential on grid
     ! real(dp), allocatable :: vx(:), vc(:)
 
-    ! !> number of density grid points
+    ! !! number of density grid points
     ! integer(c_size_t) :: nn
 
     ! call xc_f90_func_init(xcfunc_x, XC_LDA_X, XC_UNPOLARIZED)
@@ -121,23 +121,23 @@ contains
     !> resulting xc-potential
     real(dp), intent(out) :: xcpot(:)
 
-    !> density with libxc compatible normalization
+    !! density with libxc compatible normalization
     real(dp), allocatable :: rho(:)
 
-    !> absolute gradient of density on grid
+    !! absolute gradient of density on grid
     real(dp), allocatable :: absgr(:)
 
-    !> laplace operator acting on density on grid
+    !! laplace operator acting on density on grid
     real(dp), allocatable :: laplace(:)
 
-    !> (grad rho) * grad(abs(grad rho)) / rho**2
+    !! (grad rho) * grad(abs(grad rho)) / rho**2
     !! actually calculated based on rho4pi, but 4pi cancels out
     real(dp), allocatable :: gr_grabsgr(:)
 
-    !> number of density grid points
+    !! number of density grid points
     integer :: nn
 
-    !> auxiliary variables
+    !! auxiliary variables
     real(dp), allocatable :: rs(:), fac(:), tt(:), uu(:), vv(:)
     real(dp), allocatable :: ss(:), u2(:), v2(:)
     real(dp) :: alpha, zeta, gg, ww
@@ -194,23 +194,23 @@ contains
     !! vanderhe: proposed libxc integration
     !! --> but Hamiltonian matrix elements differ up to 1e-02 a.u. (something is wrong)!?
 
-    ! !> libxc related objects
+    ! !! libxc related objects
     ! type(xc_f90_func_t) :: xcfunc_x, xcfunc_c
     ! type(xc_f90_func_info_t) :: xcinfo
 
-    ! !> density with libxc compatible normalization
+    ! !! density with libxc compatible normalization
     ! real(dp), allocatable :: rho(:)
 
-    ! !> contracted gradients of the density
+    ! !! contracted gradients of the density
     ! real(dp), allocatable :: sigma(:)
 
-    ! !> exchange and correlation potential on grid
+    ! !! exchange and correlation potential on grid
     ! real(dp), allocatable :: vx(:), vc(:)
 
-    ! !> first partial derivative of the energy per unit volume in terms of sigma
+    ! !! first partial derivative of the energy per unit volume in terms of sigma
     ! real(dp), allocatable :: vxsigma(:), vcsigma(:)
 
-    ! !> number of density grid points
+    ! !! number of density grid points
     ! integer(c_size_t) :: nn
 
     ! nn = size(rho4pi)

@@ -32,7 +32,7 @@ contains
     !> point, where the polynomials value and first two derivatives should take the provided values
     real(dp), intent(in) :: dx
 
-    !> value of the polynomial at xx
+    !! value of the polynomial at xx
     real(dp) :: yy
 
     real(dp) :: dx1, dx2, cc, bb, aa, xr
@@ -92,10 +92,10 @@ contains
     !> second derivative at xx
     real(dp), intent(out), optional :: ypp
 
-    !> spline coefficients
+    !! spline coefficients
     real(dp) :: aa, bb, cc, dd
 
-    !> reciprocal second fitting point
+    !! reciprocal second fitting point
     real(dp) :: dx1
 
     ! assert(present(yp) .eqv. present(ypp))
@@ -132,13 +132,13 @@ contains
     !> point, where the polynomial should be evaluated
     real(dp), intent(in) :: xx
 
-    !> value of the polynomial
+    !! value of the polynomial
     real(dp) :: yy
 
-    !> number of interpolation abscissas
+    !! number of interpolation abscissas
     integer :: nn
 
-    !> auxiliary variables
+    !! auxiliary variables
     integer :: icl, ii, mm
     real(dp) :: cc(size(xp)), dd(size(xp))
     real(dp) :: dx, dxnew, dyy, rtmp

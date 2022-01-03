@@ -51,11 +51,11 @@ contains
     !> Jacobi determinant
     real(dp), intent(out) :: jacobi
 
-    !> midpoint of the integration interval,
+    !! midpoint of the integration interval,
     !! allows adjustment of the radial point distribution to a suitable physical scale
     real(dp), parameter :: rm = 1.5_dp
 
-    !> recurring factors
+    !! recurring factors
     real(dp) :: rtmp1, rtmp2
 
     ! assert(size(c11) == 3)
@@ -85,11 +85,11 @@ contains
     !> Jacobi determinant
     real(dp), intent(out) :: jacobi
 
-    !> midpoint of the integration interval,
+    !! midpoint of the integration interval,
     !! allows adjustment of the radial point distribution to a suitable physical scale
     real(dp), parameter :: rm = 1.5_dp
 
-    !> recurring factors
+    !! recurring factors
     real(dp) :: rtmp1, rtmp2
 
     ! assert(size(c11) == 2)
