@@ -14,7 +14,7 @@ module gridgenerator
 contains
 
 
-  !> ???
+  !> Generates a 1D (radial) grid around two centers.
   pure subroutine gengrid1_12(quads, coordtrans, grid, weights)
 
     !> abscissas and weights for numerical quadrature
@@ -60,7 +60,7 @@ contains
   end subroutine gengrid1_12
 
 
-  !> ???
+  !> Generates a 2D (radial and azimuthal) grid around two centers.
   pure subroutine gengrid2_12(quads, coordtrans, partition, partparams, dist, grid1, grid2, dots,&
       & weights)
 
@@ -121,14 +121,14 @@ contains
         r2a = sqrt(rtmpa - rtmpb) ! dist > 0
         r2b = sqrt(rtmpa + rtmpb) ! dist < 0
 
-        rtmpa = - 0.5_dp * (dist**2 + r2a**2 - r1**2) / (dist * r2a)
+        rtmpa = -0.5_dp * (dist**2 + r2a**2 - r1**2) / (dist * r2a)
         rtmpb = 0.5_dp * (dist**2 + r2b**2 - r1**2) / (dist * r2b)
 
         ! make sure, we are not sliding out from [-1,1] range for acos
         rtmpa = min(rtmpa, 1.0_dp)
-        rtmpa = max(rtmpa, - 1.0_dp)
+        rtmpa = max(rtmpa, -1.0_dp)
         rtmpb = min(rtmpb, 1.0_dp)
-        rtmpb = max(rtmpb, - 1.0_dp)
+        rtmpb = max(rtmpb, -1.0_dp)
 
         theta2a = acos(rtmpa)
         theta2b = acos(rtmpb)
@@ -148,7 +148,7 @@ contains
 
         rtmpa = quads(1)%ww(i1) * quads(2)%ww(i2) * jacobi
         weights(ind) = rtmpa * partition(r1, r2a, dist, partparams)
-        weights(ind + nn) = rtmpa * partition(r1, r2b, - dist, partparams)
+        weights(ind + nn) = rtmpa * partition(r1, r2b, -dist, partparams)
         ind = ind + 1
       end do
     end do

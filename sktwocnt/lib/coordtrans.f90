@@ -209,9 +209,9 @@ contains
     spheric(2) = acos(c11(2))
     spheric(3) = pi * (c11(3) + 1.0_dp)
 
-    jacobi = (zeta * (1.0_dp + c11(1))**alpha / log(2.0_dp)) * (alpha&
-        & * log(2.0_dp / (1.0_dp - c11(1))) / (1.0_dp + c11(1)) + 1.0_dp / (1.0_dp - c11(1)))&
-        & * rr * rr * pi
+    jacobi = (zeta * (1.0_dp + c11(1))**alpha / log(2.0_dp))&
+        & * (alpha * log(2.0_dp / (1.0_dp - c11(1))) / (1.0_dp + c11(1)) + 1.0_dp&
+        & / (1.0_dp - c11(1))) * rr * rr * pi
 
   end subroutine coordtrans_ahlrichs2
 
