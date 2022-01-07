@@ -1,15 +1,25 @@
+!> Module that handles command line argument parsing.
 module cmdargs
-  implicit none
 
-  character(*), parameter :: programName = 'sktwocnt'
-  character(*), parameter :: programVersion = '0.9'
+  implicit none
+  private
+
+  public :: parse_command_arguments
+
+  character(len=*), parameter :: programName = 'sktwocnt'
+  character(len=*), parameter :: programVersion = '0.9'
+
 
 contains
 
+  !> Parses command line arguments or prints program/version information.
   subroutine parse_command_arguments()
 
+    !! number of command line arguments and length buffer
     integer :: nArgs, argLen
-    character(:), allocatable :: arg
+
+    !! string representation of a single command line argument
+    character(len=:), allocatable :: arg
 
     nArgs = command_argument_count()
     if (nArgs > 0) then

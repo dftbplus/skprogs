@@ -1,225 +1,297 @@
-!> Implements a grid-type orbital.
+!> Module that implements a grid-type orbital.
 module gridorbital
 
-  use common_accuracy, only: dp
-  use common_constants
-  use bisection
-  use interpolation
+  use common_accuracy, only : dp
+  use common_constants, only : pi
+  use bisection, only : bisect
+  use interpolation, only : polyinter, poly5zero
 
   implicit none
   private
 
-  public :: gridorb, gridorb2, init, destruct, getvalue, rescale
+  public :: TGridorb1, TGridorb1_init, TGridorb2, TGridorb2_init
+
 
   !> Contains the data of a grid function.
-  type gridorb
-    integer :: ngrid
+  type TGridorb1
+
+    !> number of grid points
+    integer :: nGrid
+
+    !> r, f(r) values on grid
     real(dp), allocatable :: rvalues(:), fvalues(:)
-  end type gridorb
 
-  type gridorb2
-    integer :: ngrid
+  contains
+
+    procedure :: getValue => TGridorb1_getValue
+    procedure :: destruct => TGridorb1_destruct
+
+  end type TGridorb1
+
+
+  !> Contains the data of a grid function.
+  type TGridorb2
+
+    !> number of grid points
+    integer :: nGrid
+
+    !> r, f(r) values on grid
     real(dp), allocatable :: rvalues(:), fvalues(:)
-    real(dp) :: delta, rcut
-  end type gridorb2
 
-  type gridorb_wrap
-    type(gridorb), pointer :: ptr => null()
-  end type gridorb_wrap
+    !> Gauss-Chebyshev pre-factor
+    real(dp) :: delta
 
-  type gridorb2_wrap
-    type(gridorb2), pointer :: ptr => null()
-  end type gridorb2_wrap
+    !> cutoff radius at which the values f(r) shall vanish
+    real(dp) :: rcut
 
-  interface init
-    module procedure gridorb_init
-    module procedure gridorb2_init
-  end interface
+  contains
 
-  interface destruct
-    module procedure gridorb_destruct
-    module procedure gridorb2_destruct
-  end interface
+    procedure :: getValue => TGridorb2_getValue
+    procedure :: rescale => TGridorb2_rescale
+    procedure :: destruct => TGridorb2_destruct
 
-  interface getvalue
-    module procedure gridorb_getvalue
-    module procedure gridorb2_getvalue
-  end interface
+  end type TGridorb2
 
-  interface rescale
-    module procedure gridorb2_rescale
-  end interface
+
+  !> Wraps around TGridorb1 pointer.
+  type TGridorb1Wrap
+    type(TGridorb1), pointer :: ptr => null()
+  end type TGridorb1Wrap
+
+
+  !> Wraps around TGridorb2 pointer.
+  type TGridorb2Wrap
+    type(TGridorb2), pointer :: ptr => null()
+  end type TGridorb2Wrap
+
 
   real(dp), parameter :: distfudge = 1.0_dp
+  real(dp), parameter :: deltar = 1e-04_dp
+
   integer, parameter :: ninter = 8
   integer, parameter :: nrightinter = 4
-  real(dp), parameter :: deltar = 1e-4_dp
 
   integer, parameter :: npoint = 10000
-  !real(dp), parameter :: tol = 1e-12_dp
   integer, parameter :: ninter2 = 4
   integer, parameter :: nrightinter2 = 2
 
+
 contains
 
-  !> Initializes the grid orbital.
-  !! \param self  initialised instance on exit.
-  !! \param values r,f(r) values for the grid
-  subroutine gridorb_init(self, rvals, fvals)
-    type(gridorb), intent(inout) :: self
+  !> Initializes a TGridorb1 grid-orbital.
+  subroutine TGridorb1_init(this, rvals, fvals)
+
+    !> initialised grid-orbital instance on exit
+    type(TGridorb1), intent(out) :: this
+
+    !> r, f(r) values on grid
     real(dp), intent(in) :: rvals(:), fvals(:)
 
-    !assert(size(values, dim=1) == 2)
-    !assert(size(values, dim=2) > 0)
+    ! assert(size(values, dim=1) == 2)
+    ! assert(size(values, dim=2) > 0)
 
-    self % ngrid = size(rvals)
-    allocate(self % rvalues(self % ngrid))
-    allocate(self % fvalues(self % ngrid))
-    self % rvalues = rvals(:)
-    self % fvalues = fvals(:)
+    this%nGrid = size(rvals)
 
-  end subroutine gridorb_init
+    this%rvalues = rvals
+    this%fvalues = fvals
 
-  !> Destructs the instance.
-  !! \param self instance.
-  subroutine gridorb_destruct(self)
-    type(gridorb), intent(inout) :: self
+  end subroutine TGridorb1_init
 
-    deallocate(self % rvalues)
-    deallocate(self % fvalues)
 
-  end subroutine gridorb_destruct
+  !> Destructs a TGridorb1 grid-orbital.
+  subroutine TGridorb1_destruct(this)
 
-  !> Delivers the value of the orbital
-  !! \param self instance.
-  !! \param rr radius at which to calculate the value.
-  !! \return rad radial part of the orbital at the given distance.
-  elemental function gridorb_getvalue(self, rr) result(rad)
-    type(gridorb), intent(in) :: self
+    !> initialised grid-orbital instance to destruct
+    class(TGridorb1), intent(inout) :: this
+
+    if (allocated(this%rvalues)) deallocate(this%rvalues)
+    if (allocated(this%fvalues)) deallocate(this%fvalues)
+
+  end subroutine TGridorb1_destruct
+
+
+  !> Delivers radial part of the orbital at the given distance.
+  elemental function TGridorb1_getValue(this, rr) result(rad)
+
+    !> grid-orbital instance
+    class(TGridorb1), intent(in) :: this
+
+    !> radius to calculate the value for
     real(dp), intent(in) :: rr
+
+    !! radial part of the orbital at the given distance
     real(dp) :: rad
 
-    integer :: ind, istart, iend
+    !! auxiliary variables
+    integer :: ind, iStart, iEnd
     real(dp) :: rmax, f0, f1, f2, f1p, f1pp
 
     ! sanity check
-    !if (self%ngrid < ninter + 1) then
-    !  write(*,*) "not enough points in the orbital grid!"
-    !  stop
-    !end if
+    ! if (this%nGrid < ninter + 1) then
+    !   write(*,*) "Not enough points in the orbital grid!"
+    !   stop
+    ! end if
 
-    ! Find position of the point
-    call bisect(self % rvalues, rr, ind, 1e-10_dp)
-    rmax = self % rvalues(self % ngrid) + distfudge
+    ! find position of the point
+    call bisect(this%rvalues, rr, ind, 1e-10_dp)
+    rmax = this%rvalues(this%nGrid) + distfudge
     if (rr >= rmax) then
       ! outside of the region -> 0
       rad = 0.0_dp
-    elseif (ind < self % ngrid) then
+    elseif (ind < this%nGrid) then
       ! before last gridpoint
-      iend = min(self % ngrid, ind + nrightinter)
-      iend = max(iend, ninter)
-      istart = iend - ninter + 1
-      rad = polyinter(self % rvalues(istart:iend), self % fvalues(istart:iend), rr)
+      iEnd = min(this%nGrid, ind + nrightinter)
+      iEnd = max(iEnd, ninter)
+      iStart = iEnd - ninter + 1
+
+      rad = polyinter(this%rvalues(iStart:iEnd), this%fvalues(iStart:iEnd), rr)
     else
-      iend = self % ngrid
-      istart = iend - ninter + 1
+      iEnd = this%nGrid
+      iStart = iEnd - ninter + 1
+
       ! calculate 1st und 2nd derivatives at the end
-      f1 = self % fvalues(iend)
-      f0 = polyinter(self % rvalues(istart:iend), self % fvalues(istart:iend), &
-          &self % rvalues(iend) - deltar)
-      f2 = polyinter(self % rvalues(istart:iend), self % fvalues(istart:iend), &
-          &self % rvalues(iend) + deltar)
+      f1 = this%fvalues(iEnd)
+      f0 = polyinter(this%rvalues(iStart:iEnd), this%fvalues(iStart:iEnd),&
+          & this%rvalues(iEnd) - deltar)
+      f2 = polyinter(this%rvalues(iStart:iEnd), this%fvalues(iStart:iEnd),&
+          & this%rvalues(iEnd) + deltar)
+
+      ! 1st order central finite difference --> 1st derivative
       f1p = (f2 - f0) / (2.0_dp * deltar)
+      ! 2nd order central finite difference --> 2nd derivative
       f1pp = (f2 + f0 - 2.0_dp * f1) / deltar**2
-      rad = poly5zero(f1, f1p, f1pp, rr - rmax, -1.0_dp * distfudge)
+
+      rad = poly5zero(f1, f1p, f1pp, rr - rmax, - 1.0_dp * distfudge)
     end if
 
-  end function gridorb_getvalue
+  end function TGridorb1_getValue
 
-  !> Initializes the grid orbital.
-  !! \param self  initialised instance on exit.
-  !! \param values r,f(r) values for the grid
-  subroutine gridorb2_init(self, rvals, fvals)
-    type(gridorb2), intent(inout) :: self
+
+  !> Initializes a TGridorb2 grid-orbital.
+  subroutine TGridorb2_init(this, rvals, fvals)
+
+    !> initialised grid-orbital instance on exit
+    type(TGridorb2), intent(out) :: this
+
+    !> r, f(r) values on grid
     real(dp), intent(in) :: rvals(:), fvals(:)
 
-    type(gridorb) :: orb
+    !! grid-orbital instance
+    type(TGridorb1) :: orb
+
+    !! Gauss-Chebyshev abscissas and inverse Becke radii
     real(dp) :: xx, rr
+
+    !! auxiliary variable
     integer :: ii
 
-    !assert(size(values, dim=1) == 2)
-    !assert(size(values, dim=2) > 0)
+    ! assert(size(values, dim=1) == 2)
+    ! assert(size(values, dim=2) > 0)
 
-    call init(orb, rvals, fvals)
-    self % ngrid = npoint
-    allocate(self % rvalues(self % ngrid))
-    allocate(self % fvalues(self % ngrid))
-    self % delta = pi / real(self % ngrid + 1, dp)
-    do ii = 1, self % ngrid
-      xx = cos(self % delta * real(ii, dp))
+    call TGridorb1_init(orb, rvals, fvals)
+
+    this%nGrid = npoint
+
+    allocate(this%rvalues(this%nGrid))
+    allocate(this%fvalues(this%nGrid))
+
+    ! Gauss-Chebyshev pre-factor
+    this%delta = pi / real(this%nGrid + 1, dp)
+
+    do ii = 1, this%nGrid
+      ! Gauss-Chebyshev abscissas
+      xx = cos(this%delta * real(ii, dp))
+
+      ! inverse Becke radius?
       rr = (1.0_dp - xx) / (1.0_dp + xx)
-      self % rvalues(ii) = rr
-      self % fvalues(ii) = getvalue(orb, rr)
+      this%rvalues(ii) = rr
+      this%fvalues(ii) = orb%getValue(rr)
     end do
-    self % rcut = self % rvalues(self % ngrid) + distfudge
-    call destruct(orb)
 
-  end subroutine gridorb2_init
+    ! cutoff radius at which the values f(r) shall vanish
+    this%rcut = this%rvalues(this%nGrid) + distfudge
 
-  !> Destructs the instance.
-  !! \param self instance.
-  subroutine gridorb2_destruct(self)
-    type(gridorb2), intent(inout) :: self
+    call orb%destruct()
 
-    deallocate(self % fvalues)
+  end subroutine TGridorb2_init
 
-  end subroutine gridorb2_destruct
 
-  !> Delivers the value of the orbital
-  !! \param self instance.
-  !! \param rr radius at which to calculate the value.
-  !! \return rad radial part of the orbital at the given distance.
-  elemental function gridorb2_getvalue(self, rr) result(rad)
-    type(gridorb2), intent(in) :: self
+  !> Destructs a TGridorb2 grid-orbital.
+  subroutine TGridorb2_destruct(this)
+
+    !> initialised grid-orbital instance to destruct
+    class(TGridorb2), intent(inout) :: this
+
+    if (allocated(this%fvalues)) deallocate(this%fvalues)
+
+  end subroutine TGridorb2_destruct
+
+
+  !> Delivers radial part of the orbital at the given distance.
+  elemental function TGridorb2_getValue(this, rr) result(rad)
+
+    !> grid-orbital instance
+    class(TGridorb2), intent(in) :: this
+
+    !> radius to calculate the value for
     real(dp), intent(in) :: rr
+
+    !! radial part of the orbital at the given distance
     real(dp) :: rad
 
-    integer :: ind, istart, iend
+    !! auxiliary variables
+    integer :: ind, iStart, iEnd
     real(dp) :: rmax, f0, f1, f2, f1p, f1pp
     real(dp) :: xx
 
-    if (rr > self % rcut) then
+    if (rr > this%rcut) then
       rad = 0.0_dp
     end if
+
+    ! abscissa
     xx = (1.0_dp - rr) / (1.0_dp + rr)
-    ind = floor(acos(xx) / self % delta)
-    if (ind < self % ngrid) then
-      iend = min(self % ngrid, ind + nrightinter2)
-      iend = max(iend, ninter2)
-      istart = iend - ninter2 + 1
-      rad = polyinter(self % rvalues(istart:iend), self % fvalues(istart:iend), rr)
+
+    ! abscissa index
+    ind = floor(acos(xx) / this%delta)
+
+    if (ind < this%nGrid) then
+      iEnd = min(this%nGrid, ind + nrightinter2)
+      iEnd = max(iEnd, ninter2)
+      iStart = iEnd - ninter2 + 1
+      rad = polyinter(this%rvalues(iStart:iEnd), this%fvalues(iStart:iEnd), rr)
     else
-      iend = self % ngrid
-      istart = iend - ninter2 + 1
+      iEnd = this%nGrid
+      iStart = iEnd - ninter2 + 1
+
       ! calculate 1st und 2nd derivatives at the end
-      f1 = self % fvalues(iend)
-      f0 = polyinter(self % rvalues(istart:iend), self % fvalues(istart:iend), &
-          &self % rvalues(iend) - deltar)
-      f2 = polyinter(self % rvalues(istart:iend), self % fvalues(istart:iend), &
-          &self % rvalues(iend) + deltar)
+      f1 = this%fvalues(iEnd)
+      f0 = polyinter(this%rvalues(iStart:iEnd), this%fvalues(iStart:iEnd),&
+          & this%rvalues(iEnd) - deltar)
+      f2 = polyinter(this%rvalues(iStart:iEnd), this%fvalues(iStart:iEnd),&
+          & this%rvalues(iEnd) + deltar)
+
+      ! 1st order central finite difference --> 1st derivative
       f1p = (f2 - f0) / (2.0_dp * deltar)
+      ! 2nd order central finite difference --> 2nd derivative
       f1pp = (f2 + f0 - 2.0_dp * f1) / deltar**2
-      rad = poly5zero(f1, f1p, f1pp, rr - rmax, -1.0_dp * distfudge)
+
+      rad = poly5zero(f1, f1p, f1pp, rr - rmax, - 1.0_dp * distfudge)
     end if
 
-  end function gridorb2_getvalue
+  end function TGridorb2_getValue
 
-  subroutine gridorb2_rescale(self, fac)
-    type(gridorb2), intent(inout) :: self
+
+  !> Rescales stored values f(r) of a grid-orbital instance.
+  subroutine TGridorb2_rescale(this, fac)
+
+    !> grid-orbital instance
+    class(TGridorb2), intent(inout) :: this
+
+    !> rescaling factor for f(r) values
     real(dp), intent(in) :: fac
 
-    self % fvalues = self % fvalues * fac
+    this%fvalues = this%fvalues * fac
 
-  end subroutine gridorb2_rescale
+  end subroutine TGridorb2_rescale
 
 end module gridorbital
