@@ -67,9 +67,7 @@ contains
     real(dp) :: rhotot,rhodiff,drhotot,ddrhotot,drhodiff,ddrhodiff
     integer :: ii,jj,kk,ll,mm,oo
     integer(c_size_t) :: nn
-    !type(xc_f90_pointer_t) :: xcfunc_x, xcfunc_c, xcinfo
-    type(xc_f90_func_t) :: xcfunc_x, xcfunc_c
-    type(xc_f90_func_info_t) :: xcinfo
+    type(xc_f90_pointer_t) :: xcfunc_x, xcfunc_c, xcinfo
     real(dp), allocatable :: tmprho(:,:), ex(:), ec(:), vx(:,:), vc(:,:)
     real(dp), allocatable :: tmpsigma(:,:), vxsigma(:,:), vcsigma(:,:)
     real(dp), allocatable :: tmpv(:), tmpv2(:)
@@ -79,15 +77,11 @@ contains
 
     if (xcnr==0) return
     if (xcnr == 2) then
-      call xc_f90_func_init(xcfunc_x, XC_LDA_X, XC_POLARIZED)
-      xcinfo = xc_f90_func_get_info(xcfunc_x)
-      call xc_f90_func_init(xcfunc_c, XC_LDA_C_PW, XC_POLARIZED)
-      xcinfo = xc_f90_func_get_info(xcfunc_x)
+      call xc_f90_func_init(xcfunc_x, xcinfo, XC_LDA_X, XC_POLARIZED)
+      call xc_f90_func_init(xcfunc_c, xcinfo, XC_LDA_C_PW, XC_POLARIZED)
     elseif (xcnr == 3) then
-      call xc_f90_func_init(xcfunc_x, XC_GGA_X_PBE, XC_POLARIZED)
-      xcinfo = xc_f90_func_get_info(xcfunc_x)
-      call xc_f90_func_init(xcfunc_c, XC_GGA_C_PBE, XC_POLARIZED)
-      xcinfo = xc_f90_func_get_info(xcfunc_x)
+      call xc_f90_func_init(xcfunc_x, xcinfo, XC_GGA_X_PBE, XC_POLARIZED)
+      call xc_f90_func_init(xcfunc_c, xcinfo, XC_GGA_C_PBE, XC_POLARIZED)
     end if
 
     do ii=1,num_mesh_points
