@@ -24,10 +24,10 @@ module output
 contains
 
   subroutine write_energies(kinetic_energy, nuclear_energy, coulomb_energy, exchange_energy,&
-      & conf_energy, total_ene, tZora)
+      & xc_energy, conf_energy, total_ene, tZora)
 
     real(dp), intent(in) :: kinetic_energy, nuclear_energy, coulomb_energy
-    real(dp), intent(in) :: exchange_energy, total_ene, conf_energy
+    real(dp), intent(in) :: exchange_energy, xc_energy, total_ene, conf_energy
 
     !> true, if zero-order regular approximation for relativistic effects is desired
     logical, intent(in) :: tZora
@@ -38,15 +38,17 @@ contains
     write(*, '(A,F22.6,A)') 'KINETIC ENERGY     ', kinetic_energy, ' Hartree'
     write(*, '(A,F22.6,A)') 'NUC. ATTR. ENERGY  ', nuclear_energy, ' Hartree'
     write(*, '(A,F22.6,A)') 'COULOMB ENERGY     ', 0.5_dp * coulomb_energy, ' Hartree'
-    write(*, '(A,F22.6,A)') 'XC ENERGY          ', exchange_energy, ' Hartree'
+    write(*, '(A,F22.6,A)') 'HFX ENERGY         ', 0.5_dp * exchange_energy, ' Hartree'
+    write(*, '(A,F22.6,A)') 'XC ENERGY          ', xc_energy, ' Hartree'
     write(*, '(A,F22.6,A)') 'CONFINEMENT ENERGY ', conf_energy, ' Hartree'
     write(*,*) ' '
+
     if (.not. tZora) then
       write(*, '(A,F22.6,A)') 'TOTAL ENERGY       ', total_ene, ' Hartree'
       write(*, '(A)') 'Remark: For HF use 0.5*XC Energy'
       write(*, '(A)') ' '
       write(*, '(A,F22.6)') 'DFT VIRIAL ', (nuclear_energy + 0.5_dp * coulomb_energy&
-          & + exchange_energy + conf_energy) / kinetic_energy
+          & + 0.5_dp * exchange_energy + xc_energy + conf_energy) / kinetic_energy
     else
       write(*, '(A,F22.6,A)') 'TOTAL ENERGY       ',&
         & kinetic_energy + nuclear_energy + 0.5_dp * coulomb_energy + exchange_energy&

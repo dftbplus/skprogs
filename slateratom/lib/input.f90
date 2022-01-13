@@ -2,6 +2,7 @@
 module input
 
   use common_accuracy, only : dp
+  use common_poisson, only : becke_grid_params
 
   implicit none
   private
@@ -14,7 +15,7 @@ contains
   !> Reads in all properties, except for occupation numbers.
   subroutine read_input_1(nuc, max_l, occ_shells, maxiter, poly_order, min_alpha, max_alpha,&
       & num_alpha, tAutoAlphas, alpha, conf_r0, conf_power, num_occ, num_power, num_alphas,&
-      & xcnr, tPrintEigvecs, tZora, tBroyden, mixing_factor, xalpha_const)
+      & xcnr, tPrintEigvecs, tZora, tBroyden, mixing_factor, xalpha_const, kappa, grid_params)
 
     !> nuclear charge, i.e. atomic number
     integer, intent(out) :: nuc
@@ -79,11 +80,11 @@ contains
     !> exchange parameter for X-Alpha exchange
     real(dp), intent(out) :: xalpha_const
 
-    ! !>
-    ! real(dp), intent(out) :: kappa
+    !> range-separation parameter
+    real(dp), intent(out) :: kappa
 
-    ! !>
-    ! type(becke_grid_params), intent(out) :: grid_params
+    !> holds parameters, defining a Becke integration grid
+    type(becke_grid_params), intent(out) :: grid_params
 
     !> auxiliary variables
     integer :: ii, jj
@@ -91,8 +92,13 @@ contains
     write(*, '(A)') 'Enter nuclear charge, maximal angular momentum (s=0), max. SCF, ZORA'
     read(*,*) nuc, max_l, maxiter, tZora
 
-    write(*, '(A)') 'Enter XC functional, 0=HF, 1=X-Alpha, 2=PW-LDA, 3=PBE'
-    read(*,*) xcnr
+    write(*, '(A)') 'NRadial NAngular ll_max rm'
+    read(*,*) grid_params%N_radial, grid_params%N_angular, grid_params%ll_max, grid_params%rm
+
+    write(*, '(A)') 'Enter XC functional:&
+        & 0=HF, 1=X-Alpha, 2=PW-LDA, 3=PBE, 4=BLYP, 5=LCY-PBE, 6=BNL'
+    read(*,*) xcnr, kappa
+
     if (xcnr == 0) write(*, '(A)') 'WARNING: ONLY CORRECT FOR CLOSED SHELL 1S !'
     if ((xcnr == 0) .and. tZora) then
       write(*, '(A)') 'ZORA only available for DFT !'
@@ -105,7 +111,7 @@ contains
 
     if (max_l > 4) then
       write(*, '(A)') 'Sorry, l=', max_l, ' is a bit too large. No nuclear weapons allowed.'
-      STOP
+      stop
     end if
 
     write(*, '(A)') 'Enter Confinement: r_0 and integer power, power=0 -> off'
@@ -218,8 +224,8 @@ contains
 
 
   !> Echos gathered input to stdout.
-  subroutine echo_input(nuc, max_l, occ_shells, poly_order, num_alpha, alpha, conf_r0, conf_power,&
-      & occ, num_occ, num_power, num_alphas, xcnr, tZora, num_mesh_points, xalpha_const)
+  subroutine echo_input(nuc, max_l, occ_shells, maxiter, poly_order, num_alpha, alpha, conf_r0,&
+      & conf_power, occ, num_occ, num_power, num_alphas, xcnr, tZora, num_mesh_points, xalpha_const)
 
     !> nuclear charge, i.e. atomic number
     integer, intent(in) :: nuc
@@ -229,6 +235,9 @@ contains
 
     !> number of occupied shells
     integer, intent(in) :: occ_shells(0:)
+
+    !> maximum number of SCF calculations
+    integer, intent(in) :: maxiter
 
     !> highest polynomial order + l in each shell
     integer, intent(in) :: poly_order(0:)
@@ -287,6 +296,9 @@ contains
     if (xcnr == 1) write(*, '(A,F12.8)') 'X-Alpha, alpha= ', xalpha_const
     if (xcnr == 2) write(*, '(A,I3)') 'LDA, Perdew-Wang Parametrization'
     if (xcnr == 3) write(*, '(A,I3)') 'PBE'
+    if (xcnr == 4) write(*, '(A,I3)') 'BLYP'
+    if (xcnr == 5) write(*, '(A,I3)') 'Range-separated: LCY-PBE'
+    if (xcnr == 6) write(*, '(A,I3)') 'Range-separated: BNL, LCY-LDA for exchange + PBE correlation'
 
     write(*, '(A,I1)') 'Max. angular momentum: ', max_l
     write(*, '(A,I5)') 'Number of points for numerical radial integration: ', num_mesh_points
@@ -299,6 +311,13 @@ contains
     write(*, '(A)') ' '
     do ii = 0, max_l
       write(*, '(A,I1,A,I2)') 'Number of Polynomial Coeff. for l=', ii, ': ', poly_order(ii)
+    end do
+
+    do ii = 1, max_l
+      if ((poly_order(ii) /= poly_order(0)) .and. (xcnr >= 5)) then
+        write(*,*) 'LC functionals: polynomial orders need to be same for all shells.'
+        stop
+      end if
     end do
 
     write(*, '(A)') ' '

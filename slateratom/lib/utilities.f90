@@ -53,7 +53,7 @@ contains
       end do
     end do
 
-    if (change_max < 1.0d-08) then
+    if (change_max < 1.0e-10_dp) then
       tConverged = .true.
     end if
 

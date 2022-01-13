@@ -15,7 +15,7 @@ contains
   !> Calculates total energy for non-ZORA calculations.
   pure subroutine total_energy(tt, uu, nuc, vconf, jj, kk, pp, max_l, num_alpha, poly_order,&
       & problemsize, xcnr, num_mesh_points, weight, abcissa, rho, exc, kinetic, nuclear, coulomb,&
-      & exchange, confinement, etot)
+      & exchange, xc_energy, confinement, etot)
 
     !> kinetic supervector
     real(dp), intent(in) :: tt(0:,:,:)
@@ -69,22 +69,21 @@ contains
     real(dp), intent(in) :: exc(:)
 
     !> resulting energy portions
-    real(dp), intent(out) :: kinetic, nuclear, coulomb, exchange, confinement, etot
+    real(dp), intent(out) :: kinetic, nuclear, coulomb, exchange, xc_energy, confinement, etot
 
     !> density matrix supervector (spins summed up)
     real(dp), allocatable :: p_total(:,:,:)
 
-    !> auxiliary variables
-    real(dp) :: dummy1, dummy2
+    !> auxiliary variable, i.e. (nuclear + kinetic + confinement)
+    real(dp) :: dummy1
 
     etot = 0.0_dp
     kinetic = 0.0_dp
     nuclear = 0.0_dp
+    xc_energy = 0.0_dp
     confinement = 0.0_dp
     coulomb = 0.0_dp
     exchange = 0.0_dp
-    dummy1 = 0.0_dp
-    dummy2 = 0.0_dp
 
     ! Build total density matrix
     p_total = pp(1, :,:,:) + pp(2, :,:,:)
@@ -96,20 +95,27 @@ contains
 
     dummy1 = nuclear + kinetic + confinement
 
-    call coulomb_hf_ex_energy(jj, kk, p_total, max_l, num_alpha, poly_order, xcnr, coulomb,&
+    call coulomb_hf_ex_energy(jj, kk, pp, p_total, max_l, num_alpha, poly_order, xcnr, coulomb,&
         & exchange)
 
+    ! pure HF
+    ! coulomb = P^Tot J P^Tot. The Coulomb energy is half of that.
+    ! exchange = -P^up K P^up - -P^dn K P^dn. The Exchange energy is half of that.
     if (xcnr > 0) then
-      exchange = 0.0_dp
-      call dft_exc_energy(num_mesh_points, rho, exc, weight, abcissa, exchange)
+      xc_energy = 0.0_dp
+      call dft_exc_energy(num_mesh_points, rho, exc, weight, abcissa, xc_energy)
     end if
 
+    ! HF
     ! make sure total energy breakdown agrees with total energy
-
     if (xcnr == 0) then
       etot = dummy1 + 0.5_dp * coulomb + 0.5_dp * exchange
+    ! Local/semi-local xc
+    elseif ((xcnr > 0) .and. (xcnr <= 4)) then
+      etot = dummy1 + 0.5_dp * coulomb + xc_energy
+    ! LC functionals
     else
-      etot = dummy1 + 0.5_dp * coulomb + exchange
+      etot = dummy1 + 0.5_dp * coulomb + 0.5_dp * exchange + xc_energy
     end if
 
   end subroutine total_energy
@@ -118,7 +124,7 @@ contains
   !> Calculates total energy for ZORA, note that the total energy is not well defined here.
   pure subroutine zora_total_energy(tt, uu, nuc, vconf, jj, kk, pp, max_l, num_alpha, poly_order,&
       & problemsize, xcnr, num_mesh_points, weight, abcissa, rho, exc, vxc, eigval_scaled, occ,&
-      & kinetic, nuclear, coulomb, exchange, confinement, etot)
+      & kinetic, nuclear, coulomb, exchange, xc_energy, confinement, etot)
 
     !> kinetic supervector
     real(dp), intent(in) :: tt(0:,:,:)
@@ -181,14 +187,14 @@ contains
     real(dp), intent(in) :: occ(:,0:,:)
 
     !> resulting energy portions
-    real(dp), intent(out) :: kinetic, nuclear, coulomb, exchange, confinement, etot
+    real(dp), intent(out) :: kinetic, nuclear, coulomb, exchange, xc_energy, confinement, etot
 
     !> density matrix supervector (spins summed up)
     real(dp), allocatable :: p_total(:,:,:)
 
     !> auxiliary variables
     integer :: mm, nn, oo
-    real(dp) :: dummy1, dummy2, dummy3(2), eigsum
+    real(dp) :: xc_pot, dummy(2), eigsum
 
     etot = 0.0_dp
     kinetic = 0.0_dp
@@ -196,8 +202,7 @@ contains
     confinement = 0.0_dp
     coulomb = 0.0_dp
     exchange = 0.0_dp
-    dummy1 = 0.0_dp
-    dummy2 = 0.0_dp
+    xc_energy = 0.0_dp
     eigsum = 0.0_dp
 
     ! Build total density matrix
@@ -219,24 +224,31 @@ contains
 
     kinetic = eigsum
 
-    call coulomb_hf_ex_energy(jj, kk, p_total, max_l, num_alpha, poly_order, xcnr, coulomb,&
+    call coulomb_hf_ex_energy(jj, kk, pp, p_total, max_l, num_alpha, poly_order, xcnr, coulomb,&
         & exchange)
 
-    exchange = 0.0_dp
-    call dft_exc_energy(num_mesh_points, rho, exc, weight, abcissa, exchange)
+    call dft_exc_energy(num_mesh_points, rho, exc, weight, abcissa, xc_energy)
+    call dft_vxc_energy(num_mesh_points, rho, vxc, weight, abcissa, dummy)
 
-    call dft_vxc_energy(num_mesh_points, rho, vxc, weight, abcissa, dummy3)
+    xc_pot = dummy(1) + dummy(2)
 
-    dummy2 = dummy3(1) + dummy3(2)
-
-    etot = eigsum - 0.5_dp * coulomb + exchange - dummy2
+    !! HF
+    if (xcnr == 0) then
+      etot = eigsum - 0.5_dp * coulomb - 0.5_dp * exchange
+    !! Local/semi-local xc
+    elseif ((xcnr > 0) .and. (xcnr <= 4)) then
+      etot = eigsum - 0.5_dp * coulomb + xc_energy - xc_pot
+    !! LC functionals
+    else
+      etot = eigsum - 0.5_dp * coulomb - 0.5_dp * exchange + xc_energy - xc_pot
+    end if
 
   end subroutine zora_total_energy
 
 
   !> Calculates Hartee-Fock exchange and Coulomb contributions to total energy by multiplying jj and
   !! kk supermatrixes with the density matrix supervector twice.
-  pure subroutine coulomb_hf_ex_energy(jj, kk, p_total, max_l, num_alpha, poly_order, xcnr,&
+  pure subroutine coulomb_hf_ex_energy(jj, kk, pp, p_total, max_l, num_alpha, poly_order, xcnr,&
       & coulomb, exchange)
 
     !> coulomb supermatrix
@@ -244,6 +256,9 @@ contains
 
     !> (hf) exchange supermatrix
     real(dp), intent(in) :: kk(0:,:,:,0:,:,:)
+
+    !> density matrix supervector
+    real(dp), intent(in) :: pp(:,0:,:,:)
 
     !> density matrix supervector (spins summed up)
     real(dp), intent(in) :: p_total(0:,:,:)
@@ -264,7 +279,7 @@ contains
     real(dp), intent(out) :: coulomb, exchange
 
     !> auxiliary variables
-    integer :: ii, jjj, kkk, ll, mm, nn, oo, pp, qq, rr, ss, tt, uu, vv
+    integer :: ii, jjj, kkk, ll, mm, nn, oo, ppp, qq, rr, ss, tt, uu, vv
 
     do ii = 0, max_l
       ss = 0
@@ -278,7 +293,7 @@ contains
               do nn = 0, max_l
                 uu = 0
                 do oo = 1, num_alpha(nn)
-                  do pp = 1, poly_order(nn)
+                  do ppp = 1, poly_order(nn)
                     uu = uu + 1
                     vv = 0
                     do qq = 1, num_alpha(nn)
@@ -288,9 +303,11 @@ contains
                         coulomb = coulomb + p_total(ii, ss, tt) * jj(ii, ss, tt, nn, uu, vv)&
                             & * p_total(nn, uu, vv)
 
-                        if (xcnr == 0) then
-                          exchange = exchange - 0.5_dp * p_total(ii, ss, tt)&
-                              & * kk(ii, ss, tt, nn, uu, vv) * p_total(nn, uu, vv)
+                        if ((xcnr == 0) .or. (xcnr >= 5)) then
+                          exchange = exchange - pp(1, ii, ss, tt) * kk(ii, ss, tt, nn, uu, vv)&
+                              & * pp(1, nn, uu, vv)
+                          exchange = exchange - pp(2, ii, ss, tt) * kk(ii, ss, tt, nn, uu, vv)&
+                              & * pp(2, nn, uu, vv)
                         end if
 
                       end do

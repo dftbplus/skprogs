@@ -1,5 +1,8 @@
 cmake_minimum_required(VERSION 3.16)
 
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake
+  ${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules)
+
 project(SkProgs VERSION 0.1 LANGUAGES Fortran)
 
 include(GNUInstallDirs)
@@ -39,6 +42,10 @@ endif()
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
 set(PYTHON_INTERPRETER "${Python3_EXECUTABLE}")
 set(PYTHON_VERSION_MAJOR_MINOR "${Python3_VERSION_MAJOR}.${Python3_VERSION_MINOR}")
+
+find_package(CustomBlas REQUIRED)
+find_package(CustomLapack REQUIRED)
+
 #################### Add source components ####################
 
 add_subdirectory(common/lib)

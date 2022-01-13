@@ -17,8 +17,8 @@ contains
 
   !> Main driver routine for Fock matrix build-up. Also calls mixer with potential matrix.
   subroutine build_fock(iScf, tt, uu, nuc, vconf, jj, kk, pp, max_l, num_alpha, poly_order,&
-      & problemsize, xcnr, num_mesh_points, weight, abcissa, vxc, alpha, pot_old, pot_new, tZora,&
-      & tBroyden, mixing_factor, ff)
+      & problemsize, xcnr, num_mesh_points, weight, abcissa, vxc, alpha, pot_old, pot_new,&
+      & tZora, tBroyden, mixing_factor, ff)
 
     !> current SCF step
     integer, intent(in) :: iScf
@@ -95,6 +95,9 @@ contains
     !> auxiliary matrices
     real(dp), allocatable :: j_matrix(:,:,:), k_matrix(:,:,:,:), p_total(:,:,:), t_zora(:,:,:,:)
 
+    !> auxiliary matrix for hybrids
+    real(dp), allocatable :: k_matrix2(:,:,:,:)
+
     !> auxiliary variables
     integer :: ii, jjj, kkk, ll, mm, ss, ttt, iMix
 
@@ -102,6 +105,9 @@ contains
 
     allocate(j_matrix(0:max_l, problemsize, problemsize))
     allocate(k_matrix(2, 0:max_l, problemsize, problemsize))
+
+    ! additional k_matrix for hybrids
+    allocate(k_matrix2(2, 0:max_l, problemsize, problemsize))
 
     allocate(t_zora(2, 0:max_l, problemsize, problemsize))
     t_zora(:,:,:,:) = 0.0_dp
@@ -113,12 +119,26 @@ contains
     ! build coulomb matrices
     call build_coulomb_matrix(jj, p_total, max_l, num_alpha, poly_order, j_matrix)
 
-    ! build exchange(-correlation) potential matrices
+    ! build exchange(-correlation) potential matrices:
+
+    ! pure Hartree-Fock
     if (xcnr == 0) then
       call build_hf_ex_matrix(kk, pp, max_l, num_alpha, poly_order, k_matrix)
-    else
+    end if
+
+    ! pure DFT
+    if ((xcnr > 0) .and. (xcnr <= 4)) then
       call build_dft_exc_matrix(max_l, num_alpha, poly_order, alpha, num_mesh_points, abcissa,&
           & weight, vxc, k_matrix)
+    end if
+
+    ! HF - DFT hybrid
+    if (xcnr >= 5) then
+       call build_hf_ex_matrix(kk, pp, max_l, num_alpha, poly_order, k_matrix)
+       call build_dft_exc_matrix(max_l, num_alpha, poly_order, alpha, num_mesh_points, abcissa,&
+           & weight, vxc, k_matrix2)
+       k_matrix(1, :,:,:) = k_matrix(1, :,:,:) + k_matrix2(1, :,:,:)
+       k_matrix(2, :,:,:) = k_matrix(2, :,:,:) + k_matrix2(2, :,:,:)
     end if
 
     ! build mixer input
