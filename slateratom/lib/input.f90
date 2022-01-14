@@ -101,7 +101,7 @@ contains
 
     if (xcnr == 0) write(*, '(A)') 'WARNING: ONLY CORRECT FOR CLOSED SHELL 1S !'
     if ((xcnr == 0) .and. tZora) then
-      write(*, '(A)') 'ZORA only available for DFT !'
+      write(*, '(A)') 'ZORA only available for DFT!'
       stop
     end if
     if (xcnr == 1) then

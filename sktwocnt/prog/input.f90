@@ -43,6 +43,13 @@ contains
     !! error status
     integer :: iErr
 
+    !! xc-functional type
+    !! (2: LDA-PW91, 3: GGA-PBE, 4: BNL, 5: LDA/libXC, 6:PBE/libXC, 7: BLYP/libXC, 8: LCY-PBE/libXC)
+    integer :: iXC
+
+    !! xc-functional string
+    character(len=:), allocatable :: stringXC
+
     !! potential data columns, summed up in order to receive the total atomic potential
     integer, allocatable :: potcomps(:)
 
@@ -53,27 +60,61 @@ contains
     open(fp, file=fname, form="formatted", action="read")
     ! general part
     iLine = 0
+
     call nextline_(fp, iLine, line)
-    read(line, *, iostat=iErr) buffer1, buffer2
+    read(line, *, iostat=iErr) buffer1, buffer2, iXC
     call checkerror_(fname, line, iLine, iErr)
-    if (buffer1 /= "hetero" .and. buffer1 /= "homo") then
-      call error_("Wrong interaction (must be hetero or homo)", fname, line, iLine)
+    if ((buffer1 /= "hetero") .and. (buffer1 /= "homo")) then
+      call error_("Wrong interaction (must be 'hetero' or 'homo')!", fname, line, iLine)
     end if
     inp%tHetero = (buffer1 == "hetero")
+
     select case (buffer2)
-    case ("potential")
+    case("potential")
       inp%tDensitySuperpos = .false.
-      inp%ixc = 0
-    case ("density_lda")
+    case("density")
       inp%tDensitySuperpos = .true.
-      inp%ixc = 1
-    case ("density_pbe")
-      inp%tDensitySuperpos = .true.
-      inp%ixc = 2
     case default
-      call error_("Wrong superposition mode (must be potential, density_lda or density_pbe", fname,&
-          & line, iLine)
+      call error_("Wrong superposition mode (must be 'potential' or 'density')!", fname, line,&
+          & iline)
     end select
+
+    select case (iXC)
+    case(2)
+      stringXC = "PW-LDA"
+      inp%tXchyb = .false.
+    case(3)
+      stringXC = "PBE"
+      inp%tXchyb = .false.
+    case(4)
+      stringXC = "BNL (long-range corrected)"
+      inp%tXchyb = .true.
+    case(5)
+      stringXC = "LDA/libXC"
+      inp%tXchyb = .false.
+    case(6)
+      stringXC = "PBE/libXC"
+      inp%tXchyb = .false.
+    case(7)
+      stringXC = "BLYP/libXC"
+      inp%tXchyb = .false.
+    case(8)
+      stringXC = "LCY-PBE/libXC (long-range corrected)"
+      inp%tXchyb = .true.
+    case default
+      call error_("Unknown exchange-correlation potential!", fname, line, iline)
+    end select
+    inp%iXC = iXC
+    write(*, '(A,A)') '==> Chosen exchange-correlation potential is ', stringXC, '.'
+
+    call nextline_(fp, iLine, line)
+    read(line, *, iostat=iErr) inp%kappa, inp%nRadial, inp%nAngular, inp%ll_max, inp%rm,&
+        & inp%verbosity
+    if (inp%tXchyb .and. (inp%kappa < 1.0e-08_dp)) then
+      write(*,'(a)') 'Chosen kappa too small.'
+      stop
+    end if
+    call checkerror_(fname, line, iLine, iErr)
 
     call nextline_(fp, iLine, line)
     read(line, *, iostat=iErr) inp%r0, inp%dr, inp%epsilon, inp%maxdist
@@ -91,6 +132,7 @@ contains
       potcomps = [2, 3, 4]
     end if
     tReadRadDerivs = .not. inp%tHetero
+
     call readatom_(fname, fp, iLine, potcomps, inp%tDensitySuperpos, tReadRadDerivs, inp%atom1)
     if (inp%tHetero) then
       call readatom_(fname, fp, iLine, potcomps, inp%tDensitySuperpos, .true., inp%atom2)
@@ -128,6 +170,9 @@ contains
     !! character buffer
     character(maxlen) :: line, buffer
 
+    !! temporary storage for checking radial wavefunction sign
+    real(dp) :: vals(2)
+
     !! temporarily stores atomic wavefunction and potential
     real(dp), allocatable :: data(:,:), potval(:)
 
@@ -138,7 +183,7 @@ contains
     integer :: ii, imax
 
     call nextline_(fp, iLine, line)
-    read(line, *, iostat=iErr) atom%nBasis
+    read(line, *, iostat=iErr) atom%nBasis, atom%nCore
     call checkerror_(fname, line, iLine, iErr)
 
     allocate(atom%angmoms(atom%nBasis))
@@ -172,8 +217,24 @@ contains
         stop
       end if
     end do
-
     call checkangmoms_(atom%angmoms)
+
+    ! read core orbitals
+    allocate(atom%coreAngmoms(atom%nCore))
+    allocate(atom%coreOcc(atom%nCore))
+    allocate(atom%coreRad(atom%nCore))
+
+    do ii = 1, atom%nCore
+      call nextline_(fp, iLine, line)
+      read(line, *, iostat=iErr) buffer, atom%coreAngmoms(ii), atom%coreOcc(ii)
+      call checkerror_(fname, line, iLine, iErr)
+      call readdata_(buffer, [1, 3], data)
+      call TGridorb2_init(atom%coreRad(ii), data(:, 1), data(:, 2))
+      vals = atom%coreRad(ii)%getValue([0.01_dp, 0.02_dp])
+      if ((vals(2) - vals(1)) < 0.0_dp) then
+        call atom%coreRad(ii)%rescale(-1.0_dp)
+      end if
+    end do
 
     call nextline_(fp, iLine, line)
     read(line, *, iostat=iErr) buffer
