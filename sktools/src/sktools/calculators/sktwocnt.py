@@ -9,7 +9,12 @@ from sktools import twocenter_grids
 from sktools import radial_grid
 
 
-AVAILABLE_FUNCTIONALS = [ sc.XC_FUNCTIONAL_LDA, sc.XC_FUNCTIONAL_PBE ]
+# AVAILABLE_FUNCTIONALS = [sc.XC_FUNCTIONAL_LDA, sc.XC_FUNCTIONAL_PBE,
+#                          sc.XC_FUNCTIONAL_BLYP, sc.XC_FUNCTIONAL_LCPBE,
+#                          sc.XC_FUNCTIONAL_LCBNL]
+# SUPPORTED_FUNCTIONALS = {'xcpbe' : 'density_pbe', 'xclda' : 'density_lda'}
+SUPPORTED_FUNCTIONALS = {'xclda' : 2, 'xcpbe' : 3, 'xclcbnl' : 4, 'xcblyp' : 7, 'xclcpbe' : 8}
+
 INPUT_FILE = "sktwocnt.in"
 STDOUT_FILE = "output"
 BASISFUNCTION_FILE = "basisfuncs.dbm"
@@ -93,21 +98,21 @@ class SktwocntInput:
             self._atom2data = self._atom1data
         self._check_superposition(superpos)
         self._densitysuperpos = (superpos == sc.SUPERPOSITION_DENSITY)
-        self._check_functional(functional)
+        self._check_functional(functional.__class__.__name__.lower())
         self._functional = functional
         self._check_grid(grid)
         self._grid = grid
 
     @staticmethod
     def _check_superposition(superpos):
-        if superpos not in [ sc.SUPERPOSITION_POTENTIAL,
-                             sc.SUPERPOSITION_DENSITY ]:
+        if superpos not in \
+        [sc.SUPERPOSITION_POTENTIAL, sc.SUPERPOSITION_DENSITY]:
             msg = "Sktwocnt: Invalid superposition type"
             sc.SkgenException(msg)
 
     @staticmethod
     def _check_functional(functional):
-        if functional not in AVAILABLE_FUNCTIONALS:
+        if functional not in SUPPORTED_FUNCTIONALS:
             raise sc.SkgenException("Invalid functional type")
 
     @staticmethod
@@ -133,6 +138,9 @@ class SktwocntInput:
                                                      atomdata.potentials, iatom)
         atomfiles.density = self._store_density(workdir, atomdata.density,
                                                 iatom)
+        atomfiles.dens_wavefuncs = self._store_dens_wavefuncs(
+            workdir, atomdata.dens_wavefuncs, iatom)
+        atomfiles.occshells = atomdata.occshells
         return atomfiles
 
     @staticmethod
@@ -142,15 +150,25 @@ class SktwocntInput:
             fname = "wave{:d}_{:d}{:s}.dat".format(iatom, nn,
                                                    sc.ANGMOM_TO_SHELL[ll])
             wfc012.tofile(os.path.join(workdir, fname))
-            wavefuncfiles.append(( nn, ll, fname ))
+            wavefuncfiles.append((nn, ll, fname))
+        return wavefuncfiles
+
+    @staticmethod
+    def _store_dens_wavefuncs(workdir, wavefuncs, iatom):
+        wavefuncfiles = []
+        for nn, ll, wfc012 in wavefuncs:
+            fname = "dens_wave{:d}_{:d}{:s}.dat".format(iatom, nn,
+                                                        sc.ANGMOM_TO_SHELL[ll])
+            wfc012.tofile(os.path.join(workdir, fname))
+            wavefuncfiles.append((nn, ll, fname))
         return wavefuncfiles
 
     @staticmethod
     def _store_potentials(workdir, potentials, iatom):
         fname = "potentials{:d}.dat".format(iatom)
         # Vxc up and down should be equivalent, twocnt reads only one.
-        newdata = potentials.data.take(( radial_grid.VNUC, radial_grid.VHARTREE, radial_grid.VXCUP ),
-                                       axis=1)
+        newdata = potentials.data.take((radial_grid.VNUC, radial_grid.VHARTREE,
+                                        radial_grid.VXCUP), axis=1)
         newgriddata = radial_grid.GridData(potentials.grid, newdata)
         newgriddata.tofile(os.path.join(workdir, fname))
         return fname
@@ -164,10 +182,10 @@ class SktwocntInput:
     def _store_basisfunctions(self, workdir):
         config = shelve.open(
             os.path.join(workdir, BASISFUNCTION_FILE), "n")
-        config["basis1"] = [ (nn, ll) for nn, ll, wfc012
-                             in self._atom1data.wavefuncs ]
-        config["basis2"] = [ (nn, ll) for nn, ll, wfc012
-                             in self._atom2data.wavefuncs ]
+        config["basis1"] = [(nn, ll) for nn, ll, wfc012
+                            in self._atom1data.wavefuncs]
+        config["basis2"] = [(nn, ll) for nn, ll, wfc012
+                            in self._atom2data.wavefuncs]
         config.close()
 
     def _store_twocnt_input(self, workdir, atomfiles1, atomfiles2=None):
@@ -182,14 +200,28 @@ class SktwocntInput:
 
     def _write_twocnt_header(self, fp):
         if self._densitysuperpos:
-            superposname = \
-                self._DENSITY_SUPERPOS_FROM_FUNCTIONAL[self._functional]
+            superposname = 'density'
         else:
-            superposname = self._POTENTIAL_SUPERPOS
-        fp.write("{} {}\n".format("hetero" if self._hetero else "homo",
-                                  superposname))
+            superposname = 'potential'
+
+        xcfkey = self._functional.__class__.__name__.lower()
+        ixc = SUPPORTED_FUNCTIONALS[xcfkey]
+        fp.write('{} {} {}\n'.format('hetero' if self._hetero else 'homo',
+                                     superposname, ixc))
 
     def _write_twocnt_gridinfo(self, fp):
+        # omega, grid info
+        # hardcoded parameters for the Becke integration,
+        # -> should probably be moved to to skdef.hsd
+        becke = ' 2000 194 11 1.0  0'
+
+        # sktwocnt expects omega even for local functionals, dummy in that case.
+        if self._functional.type in ('lc-bnl', 'lc-pbe'):
+            omega = self._functional.omega
+        else:
+            omega = 0.0
+
+        fp.write("{:f} {:s}\n".format(omega, becke))
         fp.write("{:f} {:f} {:e} {:f}\n".format(
             self._grid.gridstart, self._grid.gridseparation,
             self._grid.tolerance, self._grid.maxdistance))
@@ -198,15 +230,24 @@ class SktwocntInput:
         fp.write("{:d} {:d}\n".format(*self._settings.integrationpoints))
 
     def _write_twocnt_atom_block(self, fp, atomfiles):
-        fp.write("{:d}\n".format(len(atomfiles.wavefuncs)))
+        fp.write("{:d} {:d}\n".format(len(atomfiles.wavefuncs),
+                                      len(atomfiles.dens_wavefuncs)))
         for nn, ll, wavefuncfile in atomfiles.wavefuncs:
             fp.write("'{}' {:d}\n".format(wavefuncfile, ll))
+
+        occdict = {}
+        for xx in atomfiles.occshells:
+            occdict[xx[0]] = xx[1]
+
+        for nn, ll, dens_wavefuncfile in atomfiles.dens_wavefuncs:
+            fp.write("'{}' {:d} {:f}\n"
+                     .format(dens_wavefuncfile, ll, occdict[(nn, ll)]))
+
         fp.write("'{}'\n".format(atomfiles.potential))
         if self._densitysuperpos:
             fp.write("'{}'\n".format(atomfiles.density))
         else:
             fp.write("'{}'\n".format("nostart"))
-
 
 
 class SktwocntCalculation:
@@ -218,12 +259,11 @@ class SktwocntCalculation:
     def run(self):
         fpin = open(os.path.join(self._workdir, INPUT_FILE), "r")
         fpout = open(os.path.join(self._workdir, STDOUT_FILE), "w")
-        proc = subproc.Popen([ self._binary ], cwd=self._workdir,
+        proc = subproc.Popen([self._binary], cwd=self._workdir,
                              stdin=fpin, stdout=fpout, stderr=subproc.STDOUT)
         proc.wait()
         fpin.close()
         fpout.close()
-
 
 
 class SktwocntResult:
@@ -262,7 +302,7 @@ class SktwocntResult:
         nline = int(fp.readline())
         # noinspection PyNoneFunctionAssignment,PyTypeChecker
         tmp = np.fromfile(fp, dtype=float, count=ninteg * nline, sep=" ")
-        tmp.shape = ( nline, ninteg )
+        tmp.shape = (nline, ninteg)
         return tmp
 
     def get_hamiltonian(self):

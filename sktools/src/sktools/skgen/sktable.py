@@ -114,6 +114,7 @@ class SkgenSktableInput:
         atomparam2 = skdefs.atomparameters[elem2]
         self.atomconfig1 = atomparam1.atomconfig
         self.atomconfig2 = atomparam2.atomconfig
+        self.xcf = skdefs.globals.xcf
         if self.homo:
             dftbatom = atomparam1.dftbatom
             self.shellresolved = dftbatom.shellresolved
@@ -145,6 +146,14 @@ class SkgenSktableAssembly:
         valshells1 = myinput.atomconfig1.valenceshells
         valshells2 = myinput.atomconfig2.valenceshells
         grid = myinput.grid
+
+        # if range-separated hybrid is used, add the RangeSep tag
+        extra_tag = None
+        xcn = myinput.xcf.__class__.__name__.lower()
+        if xcn in ('xclcbnl', 'xclcpbe'):
+            rsh_tag = "RangeSep\nLC {:f}".format(myinput.xcf.omega)
+            extra_tag = [rsh_tag]
+
         if self._input.homo:
             onsites, occs, hubbus, spinpolerr, mass = self._get_atomic_data()
             if not myinput.shellresolved:
@@ -153,11 +162,12 @@ class SkgenSktableAssembly:
             skfiles = sktools.oldskfile.OldSKFileSet(
                 grid, ham, over, valshells1, None, onsites=onsites,
                 spinpolerror=spinpolerr, hubbardus=hubbus, occupations=occs,
-                mass=mass, dummy_repulsive=add_dummy_repulsive)
+                mass=mass, dummy_repulsive=add_dummy_repulsive,
+                extraTag=extra_tag)
         else:
             skfiles = sktools.oldskfile.OldSKFileSet(
                 grid, ham, over, valshells1, valshells2,
-                dummy_repulsive=add_dummy_repulsive)
+                dummy_repulsive=add_dummy_repulsive, extraTag=extra_tag)
         files_written = skfiles.tofile(workdir, myinput.elem1, myinput.elem2)
         return files_written
 

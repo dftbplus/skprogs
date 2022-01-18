@@ -37,10 +37,23 @@ RELATIVISTICS_ZORA = 1
 RELATIVISTICS_TYPES = {'none': RELATIVISTICS_NONE,
                        'zora': RELATIVISTICS_ZORA}
 
+# XC_FUNCTIONAL_LDA = 2
+# XC_FUNCTIONAL_PBE = 3
+# XC_FUNCTIONAL_BLYP = 4
+# XC_FUNCTIONAL_LCPBE = 5
+# XC_FUNCTIONAL_LCBNL = 6
+# XC_FUNCTIONAL_TYPES = {'lda': XC_FUNCTIONAL_LDA,
+#                        'pbe': XC_FUNCTIONAL_PBE,
+#                        'blyp': XC_FUNCTIONAL_BLYP,
+#                        'lcpbe': XC_FUNCTIONAL_LCPBE,
+#                        'lcbnl': XC_FUNCTIONAL_LCBNL}
+
 XC_FUNCTIONAL_LDA = 0
 XC_FUNCTIONAL_PBE = 1
-XC_FUNCTIONAL_TYPES = {'lda': XC_FUNCTIONAL_LDA,
-                       'pbe': XC_FUNCTIONAL_PBE}
+XC_FUNCTIONAL_RSH = 2
+XC_FUNCTIONAL_TYPES = {"lda": XC_FUNCTIONAL_LDA,
+                       "pbe": XC_FUNCTIONAL_PBE,
+                       "rsh": XC_FUNCTIONAL_RSH}
 
 SUPERPOSITION_POTENTIAL = 0
 SUPERPOSITION_DENSITY = 1

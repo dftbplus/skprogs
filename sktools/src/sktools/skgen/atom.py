@@ -83,7 +83,7 @@ class SkgenAtomInput(ssc.InputWithSignature):
         self.elem = elem
         atomparams = skdefs.atomparameters[elem]
         self.atomconfig = atomparams.atomconfig
-        self.xcfunc = skdefs.globals.xcfunctional
+        self.xcf = skdefs.globals.xcf
         self.onecentpars = skdefs.onecenterparameters[elem]
 
 
@@ -91,10 +91,9 @@ class SkgenAtomInput(ssc.InputWithSignature):
         signature = {
             "atomconfig": self.atomconfig,
             "onecentpars": self.onecentpars,
-            "xcfunc": self.xcfunc
+            "xcf": self.xcf
         }
         return signature
-
 
 
 class SkgenAtomCalculation:
@@ -106,7 +105,7 @@ class SkgenAtomCalculation:
             self._atomconfig, self._delta_occ)
         calculator = myinput.onecentpars.calculator
         self._oncenter_calculator = ssc.OnecenterCalculatorWrapper(calculator)
-        self._xcfunc = myinput.xcfunc
+        self._xcf = myinput.xcf
         self._workdir = workdir
         self._binary = binary
 
@@ -122,8 +121,18 @@ class SkgenAtomCalculation:
         if eigenonly or eigenspinonly:
             return
 
+        xcn = self._xcf.__class__.__name__.lower()
+        if xcn in ('xclcpbe', 'xclcbnl'):
+            hubbus = self._calculate_hubbus_corrected(result_spinavg_atom,
+                                            replace_empty_with_homo=True)
+        else:
+            hubbus = self._calculate_hubbus(result_spinavg_atom,
+                                            replace_empty_with_homo=True)
+
         hubbus = self._calculate_hubbus(result_spinavg_atom,
                                         replace_empty_with_homo=True)
+
+
         self._log_substitutions(result_spinavg_atom)
         self._log_hubbus(hubbus)
         spinws = self._calculate_spinws(result_spinavg_atom,
@@ -159,7 +168,7 @@ class SkgenAtomCalculation:
 
     def _calculate_free_atom(self, workdir):
         output = self._oncenter_calculator.do_calculation(
-            self._atomconfig, self._xcfunc, None, self._binary, workdir)
+            self._atomconfig, self._xcf, None, self._binary, workdir)
         result = self._collect_free_atom_result(output)
         self._log_free_atom_result(result)
         return result
@@ -171,19 +180,19 @@ class SkgenAtomCalculation:
         eigvals0 = []
         occs0 = []
         for nn, ll in self._atomconfig.valenceshells:
-            eigval = ( output.get_eigenvalue(0, nn, ll),
-                       output.get_eigenvalue(1, nn, ll) )
+            eigval = (output.get_eigenvalue(0, nn, ll),
+                      output.get_eigenvalue(1, nn, ll))
             eigvals0.append(eigval)
-            occ = ( output.get_occupation(0, nn, ll),
-                    output.get_occupation(1, nn, ll) )
+            occ = (output.get_occupation(0, nn, ll),
+                   output.get_occupation(1, nn, ll))
             occs0.append(occ)
         homo0 = output.get_homo_or_lowest_nl(0)
         homo1 = output.get_homo_or_lowest_nl(1)
         result.valence_eigvals = np.array(eigvals0, dtype=float)
         result.valence_occs = np.array(occs0, dtype=float)
-        result.homo = ( homo0, homo1 )
-        result.homo_eigval = ( output.get_eigenvalue(0, homo0[0], homo0[1]),
-                               output.get_eigenvalue(1, homo1[0], homo1[1]) )
+        result.homo = (homo0, homo1)
+        result.homo_eigval = (output.get_eigenvalue(0, homo0[0], homo0[1]),
+                              output.get_eigenvalue(1, homo1[0], homo1[1]))
         return result
 
 
@@ -201,6 +210,66 @@ class SkgenAtomCalculation:
         return valence_hubbus
 
 
+    def _calculate_hubbus_corrected(self, result_spinavg,
+                                    replace_empty_with_homo):
+        workdir = os.path.join(self._workdir, "hubbu")
+        logger.info("Calculating Hubbard U values " + sc.log_path(workdir))
+        shells, ihomo, energies = self._get_shells_and_energies_for_deriv_calc(
+            result_spinavg, replace_empty_with_homo)
+        sc.create_workdir(workdir)
+        all_derivs = self._calc_deriv_matrix(workdir, shells, energies,
+                                             spin_averaged=True)
+        all_derivs = 0.5 * (all_derivs + np.transpose(all_derivs))
+        valence_hubbus = self._get_valence_derivs(all_derivs, ihomo,
+                                                  replace_empty_with_homo)
+
+        logger.info("Applying the Hubbard correction algorithm")
+        # needs: ll, omega, Hubbard
+        # value of l: print(shells[ihomo][1])
+        # valence Hubbard: print(valence_hubbus[ihomo][ihomo])
+        # omega: print(self._xcf.omega)
+        corr_hubb = self._correct_hubbard(shells[ihomo][1],
+                                          valence_hubbus[ihomo][ihomo])
+        # correction
+        valence_hubbus[ihomo][ihomo] = corr_hubb
+
+        return valence_hubbus
+
+
+    def _correct_hubbard(self, ll, hubbu):
+        '''Hubbard correction for range-separated hybrid functionals'''
+
+        tau2hub = 3.2
+        convtol = 1.0e-8
+        maxiter = 50
+        degeneracy = 0.5 / (2 * ll + 1)
+        uu = hubbu * tau2hub / self._xcf.omega
+        xxmin = uu
+        xxmax = uu + tau2hub * degeneracy
+        xx = 0.5 * (xxmin + xxmax)
+        err = xxmax - xxmin
+        iteration = 0
+        while True:
+            yymin = (xxmin * degeneracy * (1.0 - self.funcP(xxmin)))
+            yymax = (xxmax * degeneracy * (1.0 - self.funcP(xxmax)))
+            xxmin = uu + yymin
+            xxmax = uu + yymax
+            err = xxmax-xxmin
+            xx = (xxmin + xxmax) * 0.5
+            iteration = iteration + 1
+            if (abs(err) < convtol) or iteration > maxiter:
+                break
+        tau = xx * self._xcf.omega
+
+        return tau / tau2hub
+
+
+    @staticmethod
+    def funcP(xx):
+        tmp = xx * xx * (xx * xx + 0.8 * xx + 0.2) / (xx + 1.0)**4
+        return tmp
+
+
     def _get_shells_and_energies_for_deriv_calc(self, result_spinavg,
                                                 replace_empty_with_homo):
         spin = 0
@@ -208,14 +277,14 @@ class SkgenAtomCalculation:
         if (homoshell not in self._atomconfig.valenceshells and
                 replace_empty_with_homo):
             homoshell_n, homoshell_l = homoshell
-            shells_to_calculate = [( homoshell_n, homoshell_l )]
+            shells_to_calculate = [(homoshell_n, homoshell_l)]
             reference_energies = [result_spinavg.homo_eigval[spin]]
             ihomo = 0
         else:
             shells_to_calculate = []
             reference_energies = []
             ihomo = self._atomconfig.valenceshells.index(homoshell)
-        shells_to_calculate += [( nn, ll )
+        shells_to_calculate += [(nn, ll)
                                 for nn, ll in self._atomconfig.valenceshells]
         reference_energies += [eigval[spin]
                                for eigval in result_spinavg.valence_eigvals]
@@ -225,11 +294,11 @@ class SkgenAtomCalculation:
     def _calc_deriv_matrix(self, workdir, shells_to_calculate,
                            reference_energies, spin_averaged):
         ncalcshells = len(shells_to_calculate)
-        tmp = np.zeros(( ncalcshells, ncalcshells ), dtype=float)
+        tmp = np.zeros((ncalcshells, ncalcshells), dtype=float)
         if spin_averaged:
             deriv_matrix = tmp
         else:
-            deriv_matrix = ( tmp, np.array(tmp) )
+            deriv_matrix = (tmp, np.array(tmp))
         for ishell, shell_to_variate in enumerate(shells_to_calculate):
             deriv = self._calc_de_shells_docc(
                 workdir, shells_to_calculate, reference_energies,
@@ -316,7 +385,7 @@ class SkgenAtomCalculation:
                          occs[1] + delta_occ_prefacs[ii] * delta_occ[1] )
             atomconfig.occupations[lvar][nvar - lvar - 1] = new_occs
             result = self._oncenter_calculator.do_calculation(
-                atomconfig, self._xcfunc, None, self._binary, localworkdir)
+                atomconfig, self._xcf, None, self._binary, localworkdir)
             for ss in range(len(de_shells_docc)):
                 e_shells = [ result.get_eigenvalue(ss, nn, ll)
                              for nn, ll in derived_shells]
