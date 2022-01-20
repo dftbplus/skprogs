@@ -2,8 +2,16 @@ cmake_minimum_required(VERSION 3.16)
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake
   ${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules)
+include(SkProgsUtils)
+
+skprogs_ensure_out_of_source_build()
+skprogs_load_build_settings()
 
 project(SkProgs VERSION 0.1 LANGUAGES Fortran)
+
+skprogs_setup_build_type()
+skprogs_load_toolchain_settings()
+skprogs_setup_global_compiler_flags()
 
 include(GNUInstallDirs)
 

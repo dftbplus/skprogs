@@ -308,6 +308,7 @@ class AtomConfig(sc.ClassDict):
                         msg="Invalid number of occupation numbers",
                         node=shelloccnode)
                 occ_l.append((tmp[0], tmp[1]))
+                occshellnames.append((txt, (tmp[0] + tmp[1])))
             if len(occ_l):
                 occupations.append(occ_l)
 
@@ -342,7 +343,7 @@ class AtomConfig(sc.ClassDict):
         if not isinstance(other, AtomConfig):
             return False
         if (abs(self.atomicnumber - other.atomicnumber)
-            > sc.INPUT_FLOAT_TOLERANCE):
+                > sc.INPUT_FLOAT_TOLERANCE):
             return False
         if abs(self.mass - other.mass) > sc.INPUT_FLOAT_TOLERANCE:
             return False

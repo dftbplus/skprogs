@@ -9,11 +9,13 @@ from sktools import twocenter_grids
 from sktools import radial_grid
 
 
-# AVAILABLE_FUNCTIONALS = [sc.XC_FUNCTIONAL_LDA, sc.XC_FUNCTIONAL_PBE,
-#                          sc.XC_FUNCTIONAL_BLYP, sc.XC_FUNCTIONAL_LCPBE,
-#                          sc.XC_FUNCTIONAL_LCBNL]
-# SUPPORTED_FUNCTIONALS = {'xcpbe' : 'density_pbe', 'xclda' : 'density_lda'}
-SUPPORTED_FUNCTIONALS = {'xclda' : 2, 'xcpbe' : 3, 'xclcbnl' : 4, 'xcblyp' : 7, 'xclcpbe' : 8}
+# uses in-house codes for LDA/PBE
+# SUPPORTED_FUNCTIONALS = {'xclda' : 2, 'xcpbe' : 3, 'xclcbnl' : 4, 'xcblyp' : 7,
+#                          'xclcpbe' : 8}
+
+# uses libxc codes for LDA/PBE
+SUPPORTED_FUNCTIONALS = {'xclcbnl' : 4, 'xclda' : 5, 'xcpbe' : 6, 'xcblyp' : 7,
+                         'xclcpbe' : 8}
 
 INPUT_FILE = "sktwocnt.in"
 STDOUT_FILE = "output"
@@ -80,11 +82,6 @@ class SktwocntInput:
         2: "hetero",
     }
 
-    _DENSITY_SUPERPOS_FROM_FUNCTIONAL = {
-        sc.XC_FUNCTIONAL_LDA: "density_lda",
-        sc.XC_FUNCTIONAL_PBE: "density_pbe",
-    }
-
     _POTENTIAL_SUPERPOS = "potential"
 
     def __init__(self, settings, superpos, functional, grid, atom1data,
@@ -138,8 +135,10 @@ class SktwocntInput:
                                                      atomdata.potentials, iatom)
         atomfiles.density = self._store_density(workdir, atomdata.density,
                                                 iatom)
-        atomfiles.dens_wavefuncs = self._store_dens_wavefuncs(
-            workdir, atomdata.dens_wavefuncs, iatom)
+        xcn = self._functional.classnamelower()
+        if xcn in ('xclcbnl', 'xclcpbe'):
+            atomfiles.dens_wavefuncs = self._store_dens_wavefuncs(
+                workdir, atomdata.dens_wavefuncs, iatom)
         atomfiles.occshells = atomdata.occshells
         return atomfiles
 
@@ -230,18 +229,23 @@ class SktwocntInput:
         fp.write("{:d} {:d}\n".format(*self._settings.integrationpoints))
 
     def _write_twocnt_atom_block(self, fp, atomfiles):
-        fp.write("{:d} {:d}\n".format(len(atomfiles.wavefuncs),
-                                      len(atomfiles.dens_wavefuncs)))
+        if self._functional.type in ('lc-bnl', 'lc-pbe'):
+            fp.write("{:d} {:d}\n".format(len(atomfiles.wavefuncs),
+                                          len(atomfiles.dens_wavefuncs)))
+        else:
+            fp.write("{:d}\n".format(len(atomfiles.wavefuncs)))
+
         for nn, ll, wavefuncfile in atomfiles.wavefuncs:
             fp.write("'{}' {:d}\n".format(wavefuncfile, ll))
 
-        occdict = {}
-        for xx in atomfiles.occshells:
-            occdict[xx[0]] = xx[1]
+        if self._functional.type in ('lc-bnl', 'lc-pbe'):
+            occdict = {}
+            for xx in atomfiles.occshells:
+                occdict[xx[0]] = xx[1]
 
-        for nn, ll, dens_wavefuncfile in atomfiles.dens_wavefuncs:
-            fp.write("'{}' {:d} {:f}\n"
-                     .format(dens_wavefuncfile, ll, occdict[(nn, ll)]))
+            for nn, ll, dens_wavefuncfile in atomfiles.dens_wavefuncs:
+                fp.write("'{}' {:d} {:f}\n"
+                         .format(dens_wavefuncfile, ll, occdict[(nn, ll)]))
 
         fp.write("'{}'\n".format(atomfiles.potential))
         if self._densitysuperpos:

@@ -133,9 +133,11 @@ contains
     end if
     tReadRadDerivs = .not. inp%tHetero
 
-    call readatom_(fname, fp, iLine, potcomps, inp%tDensitySuperpos, tReadRadDerivs, inp%atom1)
+    call readatom_(fname, fp, iLine, potcomps, inp%tDensitySuperpos, tReadRadDerivs, inp%tXchyb,&
+        & inp%atom1)
     if (inp%tHetero) then
-      call readatom_(fname, fp, iLine, potcomps, inp%tDensitySuperpos, .true., inp%atom2)
+      call readatom_(fname, fp, iLine, potcomps, inp%tDensitySuperpos, .true., inp%tXchyb,&
+          & inp%atom2)
     end if
 
     close(fp)
@@ -144,7 +146,7 @@ contains
 
 
   !> Fills TAtomdata instance based on slateratom's output.
-  subroutine readatom_(fname, fp, iLine, potcomps, tDensitySuperpos, tReadRadDerivs, atom)
+  subroutine readatom_(fname, fp, iLine, potcomps, tDensitySuperpos, tReadRadDerivs, tXchyb, atom)
 
     !> filename
     character(len=*), intent(in) :: fname
@@ -163,6 +165,9 @@ contains
 
     !> true, if radial grid-orbital 1st/2nd derivative shall be read
     logical, intent(in) :: tReadRadDerivs
+
+    !> true, if a hybrid functional is requested
+    logical, intent(in) :: tXchyb
 
     !> atomic properties instance
     type(TAtomdata), intent(out) :: atom
@@ -183,7 +188,11 @@ contains
     integer :: ii, imax
 
     call nextline_(fp, iLine, line)
-    read(line, *, iostat=iErr) atom%nBasis, atom%nCore
+    if (tXchyb) then
+      read(line, *, iostat=iErr) atom%nBasis, atom%nCore
+    else
+      read(line, *, iostat=iErr) atom%nBasis
+    end if
     call checkerror_(fname, line, iLine, iErr)
 
     allocate(atom%angmoms(atom%nBasis))
@@ -219,22 +228,25 @@ contains
     end do
     call checkangmoms_(atom%angmoms)
 
-    ! read core orbitals
-    allocate(atom%coreAngmoms(atom%nCore))
-    allocate(atom%coreOcc(atom%nCore))
-    allocate(atom%coreRad(atom%nCore))
+    ! read core orbitals, LC functionals only
+    if (tXchyb) then
+      allocate(atom%coreAngmoms(atom%nCore))
+      allocate(atom%coreOcc(atom%nCore))
+      allocate(atom%coreRad(atom%nCore))
 
-    do ii = 1, atom%nCore
-      call nextline_(fp, iLine, line)
-      read(line, *, iostat=iErr) buffer, atom%coreAngmoms(ii), atom%coreOcc(ii)
-      call checkerror_(fname, line, iLine, iErr)
-      call readdata_(buffer, [1, 3], data)
-      call TGridorb2_init(atom%coreRad(ii), data(:, 1), data(:, 2))
-      vals = atom%coreRad(ii)%getValue([0.01_dp, 0.02_dp])
-      if ((vals(2) - vals(1)) < 0.0_dp) then
-        call atom%coreRad(ii)%rescale(-1.0_dp)
-      end if
-    end do
+      do ii = 1, atom%nCore
+        call nextline_(fp, iLine, line)
+        read(line, *, iostat=iErr) buffer, atom%coreAngmoms(ii), atom%coreOcc(ii)
+        call checkerror_(fname, line, iLine, iErr)
+        call readdata_(buffer, [1, 3], data)
+        call TGridorb2_init(atom%coreRad(ii), data(:, 1), data(:, 2))
+        vals = atom%coreRad(ii)%getValue([0.01_dp, 0.02_dp])
+        if ((vals(2) - vals(1)) < 0.0_dp) then
+          call atom%coreRad(ii)%rescale(-1.0_dp)
+        end if
+      end do
+
+    end if
 
     call nextline_(fp, iLine, line)
     read(line, *, iostat=iErr) buffer

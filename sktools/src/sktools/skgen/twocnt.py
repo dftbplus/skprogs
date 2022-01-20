@@ -265,7 +265,6 @@ class SkgenTwocntCalculation:
     @staticmethod
     def _get_standardized_compressed_dens_wfcs(atomconfig, wavecomp_result):
         wavefuncs = []
-        #waves_found_for_shell = {}
 
         for qn, _ in atomconfig.occshells:
             nn = qn[0]

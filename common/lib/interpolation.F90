@@ -291,10 +291,10 @@ contains
     alpha(1) = step
 
     do ii = 2, nn - 1
-       gama(ii) = fct(ii + 1) - 2.0_dp * fct(ii) + fct(ii - 1)
-       beta(ii) = fac
-       alpha(ii) = step
-     end do
+      gama(ii) = fct(ii + 1) - 2.0_dp * fct(ii) + fct(ii - 1)
+      beta(ii) = fac
+      alpha(ii) = step
+    end do
 
     ! set up lapack variables
     allocate(DLF(nn - 1))
@@ -307,8 +307,8 @@ contains
     allocate(SOL(nn))
 
     ! solve the equation
-    ! call DGTSVX ('N', 'N', nn, 1, alpha, beta, alpha, DLF, DF, DUF, DU2, IPIV, gama,&
-    !     & nn, SOL, nn, RCOND, FERR, BERR, WORK, IWORK, INFO)
+    call DGTSVX('N', 'N', nn, 1, alpha, beta, alpha, DLF, DF, DUF, DU2, IPIV, gama,&
+        & nn, SOL, nn, RCOND, FERR, BERR, WORK, IWORK, INFO)
 
     gama = SOL
 

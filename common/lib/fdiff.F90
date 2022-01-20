@@ -38,7 +38,7 @@ real(dp), intent(in) :: f0
 real(dp), intent(in) :: fNp1
 
 integer :: ii
-real(dp) :: step, step_2, zi, zi_q
+real(dp) :: step, step_2
 
 step = 1.0_dp/real(N+1, dp)
 step_2 = step*step
@@ -184,7 +184,7 @@ end subroutine makeFDMatrix
    real(dp), intent(in) :: f0
    real(dp), intent(in) :: fNp1
 
-   integer :: ii, jj
+   integer :: ii
    real(dp) :: step, step_2, tmp1
 
    step = 1.0_dp/real(N+1, dp)
@@ -304,7 +304,7 @@ end subroutine makeFDMatrix
 
 
    integer :: ii
-   real(dp) :: step, step_2, tmp1, llp1_pi_2_rm_4, f0
+   real(dp) :: step, step_2, llp1_pi_2_rm_4, f0
    real(dp) :: beta, gama, sin_pi, sin_pi_hlf, cos_pi_hlf
 
    step = 1.0_dp/real(N+1, dp)
@@ -463,7 +463,7 @@ end subroutine makeFDMatrix
    real(dp), intent(in) :: rm
    !
    integer :: ii
-   real(dp) :: step, step_2, tmp1, llp1_pi_2_rm_4, f0
+   real(dp) :: step, step_2, llp1_pi_2_rm_4, f0
    real(dp) :: beta, gama, sin_pi, sin_pi_hlf, cos_pi_hlf,a2c
 
    step = 1.0_dp/real(N+1, dp)
@@ -634,7 +634,7 @@ end subroutine makeFDMatrix
 
 
    integer :: ii
-   real(dp) :: step, step_2, tmp1, llp1_pi_2_rm_4, f0
+   real(dp) :: step, step_2, llp1_pi_2_rm_4, f0
    real(dp) :: beta, gama, sin_pi, sin_pi_hlf, cos_pi_hlf
 
    step = 1.0_dp/real(N+1, dp)

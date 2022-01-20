@@ -8,8 +8,8 @@ module dft
       & density_at_point_2nd
   use xc_f03_lib_m, only : xc_f03_func_t, xc_f03_func_info_t, xc_f03_func_init, xc_f03_func_end,&
       & xc_f03_func_get_info, xc_f03_lda_exc_vxc, xc_f03_gga_exc_vxc, xc_f03_gga_fxc,&
-      & xc_f03_func_set_ext_params_name, XC_LDA_X, XC_LDA_C_PW, XC_GGA_X_PBE, XC_GGA_X_B88,&
-      & XC_GGA_X_SFAT, XC_GGA_C_PBE, XC_GGA_C_LYP, XC_POLARIZED
+      & xc_f03_func_set_ext_params, XC_LDA_X, XC_LDA_C_PW, XC_GGA_X_PBE, XC_GGA_X_B88,&
+      & XC_GGA_X_SFAT_PBE, XC_GGA_C_PBE, XC_GGA_C_LYP, XC_POLARIZED
 
   implicit none
   private
@@ -201,8 +201,8 @@ contains
       xcinfo = xc_f03_func_get_info(xcfunc_c)
     elseif (xcnr == 5) then
       tLC = .true.
-      call xc_f03_func_init(xcfunc_x, XC_GGA_X_SFAT, XC_POLARIZED)
-      call xc_f03_func_set_ext_params_name(xcfunc_x, 'omega', kappa)
+      call xc_f03_func_init(xcfunc_x, XC_GGA_X_SFAT_PBE, XC_POLARIZED)
+      call xc_f03_func_set_ext_params(xcfunc_x, [kappa])
       xcinfo = xc_f03_func_get_info(xcfunc_x)
       call xc_f03_func_init(xcfunc_c, XC_GGA_C_PBE, XC_POLARIZED)
       xcinfo = xc_f03_func_get_info(xcfunc_c)

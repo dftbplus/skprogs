@@ -22,9 +22,9 @@ module twocnt
   use, intrinsic :: iso_c_binding, only : c_size_t
 
   use xc_f03_lib_m, only : xc_f03_func_t, xc_f03_func_info_t, xc_f03_func_init, xc_f03_func_end,&
-      & xc_f03_func_get_info, xc_f03_func_set_ext_params_name, xc_f03_lda_vxc, xc_f03_gga_vxc,&
-      & XC_LDA_X, XC_LDA_C_VWN, XC_GGA_X_PBE, XC_GGA_C_PBE, XC_GGA_X_B88, XC_GGA_C_LYP,&
-      & XC_GGA_X_SFAT, XC_UNPOLARIZED
+      & xc_f03_func_get_info, xc_f03_lda_vxc, xc_f03_gga_vxc, XC_LDA_X, XC_LDA_C_PW, XC_GGA_X_PBE,&
+      & XC_GGA_C_PBE, XC_GGA_X_B88, XC_GGA_C_LYP, XC_GGA_X_SFAT_PBE, XC_UNPOLARIZED,&
+      & xc_f03_func_set_ext_params
 
   implicit none
   private
@@ -163,7 +163,7 @@ contains
     type(TFiFoReal2) :: hamfifo, overfifo
 
     !! integration grids of dimer atoms, holding spherical coordinates (r, theta)
-    real(dp), allocatable :: grid1(:,:), grid2(:,:)
+    real(dp), allocatable, target :: grid1(:,:), grid2(:,:)
 
     !! dot product of unit distance vectors and integration weights
     real(dp), allocatable :: dots(:), weights(:)
@@ -220,7 +220,7 @@ contains
     if (inp%iXC == 5) then
       call xc_f03_func_init(xcfunc_x, XC_LDA_X, XC_UNPOLARIZED)
       xcinfo = xc_f03_func_get_info(xcfunc_x)
-      call xc_f03_func_init(xcfunc_c, XC_LDA_C_VWN, XC_UNPOLARIZED)
+      call xc_f03_func_init(xcfunc_c, XC_LDA_C_PW, XC_UNPOLARIZED)
       xcinfo = xc_f03_func_get_info(xcfunc_c)
     elseif (inp%iXC == 6) then
       call xc_f03_func_init(xcfunc_x, XC_GGA_X_PBE, XC_UNPOLARIZED)
@@ -233,8 +233,8 @@ contains
       call xc_f03_func_init(xcfunc_c, XC_GGA_C_LYP, XC_UNPOLARIZED)
       xcinfo = xc_f03_func_get_info(xcfunc_c)
     elseif (inp%iXC == 8) then
-      call xc_f03_func_init(xcfunc_x, XC_GGA_X_SFAT, XC_UNPOLARIZED)
-      call xc_f03_func_set_ext_params_name(xcfunc_x, 'omega', inp%kappa)
+      call xc_f03_func_init(xcfunc_x, XC_GGA_X_SFAT_PBE, XC_UNPOLARIZED)
+      call xc_f03_func_set_ext_params(xcfunc_x, [inp%kappa])
       xcinfo = xc_f03_func_get_info(xcfunc_x)
       call xc_f03_func_init(xcfunc_c, XC_GGA_C_PBE, XC_UNPOLARIZED)
       xcinfo = xc_f03_func_get_info(xcfunc_c)
@@ -351,7 +351,7 @@ contains
     integer, intent(in) :: nRad, nAng
 
     !> atomic property instances of dimer atoms
-    type(TAtomdata), intent(in) :: atom1, atom2
+    type(TAtomdata), intent(in), pointer :: atom1, atom2
 
     !> integration grids of dimer atoms, holding spherical coordinates (r, theta)
     real(dp), intent(in), target :: grid1(:,:), grid2(:,:)
@@ -881,7 +881,7 @@ contains
     real(dp), intent(in) :: kappa
 
     !! spherical coordinates (r, theta) of atom 1 and atom 2 on grid
-    real(dp), intent(in), pointer :: rr1(:), rr2(:), theta1(:), theta2(:)
+    real(dp), intent(in) :: rr1(:), rr2(:), theta1(:), theta2(:)
 
     !> integration weights
     real(dp), intent(in) :: weights(:)
@@ -892,10 +892,9 @@ contains
     !!
     real(dp), pointer :: rr3(:), theta3(:), phi3(:)
     integer :: nGrid, ii, kk
-    real(dp), allocatable, target :: center1(:), center2(:), center3(:), center1_1(:)
     real(dp) :: tmp, yy2, tsymb
-    real(dp), allocatable :: VV(:), V(:), tmp22(:), tmp11(:), AA(:), AA2(:), rrin(:), rrin2(:)&
-        &,BBB(:),CCC(:)
+    real(dp), allocatable :: VV(:), V(:), tmp22(:), tmp11(:), AA(:), AA2(:), rrin(:), rrin2(:)
+    real(dp), allocatable :: BBB(:), CCC(:)
     real(dp), allocatable :: zi(:), V_l(:,:,:),rho_lm(:),res(:),rho_lm2(:),rho_lm3(:)
     integer :: ll1,mm1,ll2,mm2,N_radial,ll_nu,mm_nu,ll_mu,mm_mu,ll_s,ll,ll_max
     real(dp) :: charge
@@ -914,8 +913,8 @@ contains
     allocate(AA2(nGrid))
     allocate(tmp22(nGrid))
     allocate(tmp11(nGrid))
-    tmp22 = acos((rr2 - 1.0_dp) / (rr2 + 1.0_dp)) / pi
-    tmp11 = acos((rr1 - 1.0_dp) / (rr1 + 1.0_dp)) / pi
+    tmp22(:) = acos((rr2 - 1.0_dp) / (rr2 + 1.0_dp)) / pi
+    tmp11(:) = acos((rr1 - 1.0_dp) / (rr1 + 1.0_dp)) / pi
 
     N_radial = size(rr3)
     allocate(rrin(N_radial))
@@ -970,7 +969,7 @@ contains
       end if
 
       ! solve the inner integral
-      V = 0.0_dp
+      V(:) = 0.0_dp
       do ll = 0, ll_max-1
         tsymb = getTsymbol(ll_s, ll, ll_nu, mm_nu) * atom1%coreOcc(kk)
         if (tsymb >= 1.0e-16_dp) then

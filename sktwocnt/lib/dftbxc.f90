@@ -104,12 +104,21 @@ contains
     real(dp) :: ec, vcup, vcdn, ex, vx
     integer :: ii
 
+    ! real(dp) :: epsrho4pi(size(rho4pi))
+
     nn = size(rho4pi)
     allocate(rho(nn), absgr(nn), laplace(nn), gr_grabsgr(nn))
     allocate(rs(nn), fac(nn), tt(nn), uu(nn), vv(nn), ss(nn), u2(nn), v2(nn))
 
     ! renorm rho and derivatives (incoming quantities are 4pi normed)
     rho = rho4pi * rec4pi
+    ! if (all(ieee_is_normal(absgr4pi))) print *, 'ieee_is_normal(absgr4pi)'
+    ! if (all(ieee_is_normal(rho4pi))) print *, 'ieee_is_normal(rho4pi)', minval(abs(rho4pi)), maxval(abs(rho4pi))
+    ! where (abs(rho4pi) < epsilon(1.0_dp))
+    !   epsrho4pi = epsilon(1.0_dp)
+    ! elsewhere
+    !   epsrho4pi = rho4pi
+    ! end where
     absgr = absgr4pi / rho4pi
     laplace = laplace4pi / rho4pi
     gr_grabsgr = gr_grabsgr4pi / rho4pi**2

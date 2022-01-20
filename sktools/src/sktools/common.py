@@ -326,6 +326,10 @@ class ClassDict:
         '''Returns view that contains the keys of the dictionary.'''
         return self._dict.keys()
 
+    def classnamelower(self):
+        '''Returns lower-case class name of instance.'''
+        return self.__class__.__name__.lower()
+
 
 def fatalerror(msg, errorcode=-1):
     '''Issue error message and exit.

@@ -96,7 +96,7 @@ class SkgenDenscomp:
             'potentials': output.get_potentials(),
             'density': output.get_density012()
         }
-        for qn, occ in occshells:
+        for qn, _ in occshells:
             nn = qn[0]
             ll = qn[1]
             # needs name as shelf allows only strings as keys
