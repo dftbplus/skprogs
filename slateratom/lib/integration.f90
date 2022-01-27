@@ -34,7 +34,7 @@ contains
     allocate(x(N)) 
     allocate(fak(N)) 
     !
-    temp=pi/float(N+1)
+    temp=pi/real(N+1,dp)
     dz = temp
     !    
     do ii=1,N
@@ -52,7 +52,7 @@ contains
           &/ (4.0_dp * bragg(nuc)**2 * (-1.0_dp + cosz) * sinz)
 
       ! r**2 times first derivative of x -> r mapping function
-      w(ii)=temp*(sin(float(ii)*temp))
+      w(ii)=temp*(sin(real(ii,dp)*temp))
       !      fak(ii)=2.0_dp*r(ii)**2*bragg(nuc)/(1.0_dp-x(ii))**2
       fak(ii)=2.0_dp*bragg(nuc)/(1.0_dp-x(ii))**2
 
@@ -79,12 +79,12 @@ contains
 
     allocate(x(N)) 
 
-    step=pi/float(N+1)
+    step=pi/real(N+1,dp)
 
     do ii=1,N
 
       ! NOTE prefactor 
-      x(ii)=(-1.0_dp)*cos(step*float(ii)) ! gauss-chebyshev abcissas
+      x(ii)=(-1.0_dp)*cos(step*real(ii,dp)) ! gauss-chebyshev abcissas
       r(ii)=(1.0_dp+x(ii))/(1.0_dp-x(ii))*bragg(nuc)
 
     end do
@@ -103,12 +103,12 @@ contains
     integer, intent(out) :: step ! generator step size
     integer :: ii
 
-    step=pi/float(N+1)
+    step=pi/real(N+1,dp)
 
     do ii=1,N
 
-      dr(ii)=2.0d0*bragg(nuc)*pi*sin(step*float(ii))/&
-          &(1.0d0+2.0d0*cos(step*float(ii))+cos(step*float(ii))**2)
+      dr(ii)=2.0d0*bragg(nuc)*pi*sin(step*real(ii,dp))/&
+          &(1.0d0+2.0d0*cos(step*real(ii,dp))+cos(step*real(ii,dp))**2)
 
     end do
 
@@ -124,12 +124,12 @@ contains
     integer, intent(out) :: step ! generator step size
     integer :: ii
 
-    step=pi/float(N+1)
+    step=pi/real(N+1,dp)
 
     do ii=1,N
 
-      ddr(ii)=(-2.0d0*bragg(nuc)*pi**2)*(cos(step*float(ii))-2.0d0)/&
-          &(1.0d0+2.0d0*cos(step*float(ii))+cos(step*float(ii))**2)
+      ddr(ii)=(-2.0d0*bragg(nuc)*pi**2)*(cos(step*real(ii,dp))-2.0d0)/&
+          &(1.0d0+2.0d0*cos(step*real(ii,dp))+cos(step*real(ii,dp))**2)
 
     end do
 
@@ -240,7 +240,7 @@ contains
     exp_int=1.0d0/alpha*exp(alpha*r)
 
     do ii=1,power
-      exp_int=1.0d0/alpha*r**ii*exp(alpha*r)-float(ii)/alpha*exp_int
+      exp_int=1.0d0/alpha*r**ii*exp(alpha*r)-real(ii,dp)/alpha*exp_int
     end do
 
   end function exp_int

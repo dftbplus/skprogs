@@ -71,9 +71,9 @@ contains
 
               ! add normalization of basis functions
               ! watch out for 2**(nlp+nlq+1) needed because variable integration ranges
-              help1(:,ii,ll,oo)=help1(:,ii,ll,oo)*float(2**(nlp+nlq+1))/&
+              help1(:,ii,ll,oo)=help1(:,ii,ll,oo)*real(2**(nlp+nlq+1),dp)/&
                   &sqrt(v(alpha(ii,jj),2*nlp)*v(alpha(ii,mm),2*nlq))
-              help2(:,ii,ll,oo)=help2(:,ii,ll,oo)*float(2**(nlp+nlq+1))/&
+              help2(:,ii,ll,oo)=help2(:,ii,ll,oo)*real(2**(nlp+nlq+1),dp)/&
                   &sqrt(v(alpha(ii,jj),2*nlp)*v(alpha(ii,mm),2*nlq))
 
             end do

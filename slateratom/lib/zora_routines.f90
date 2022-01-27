@@ -62,13 +62,13 @@ contains
                     &kappa(1,:),alpha(ii,jj),ll,alpha(ii,kk),&
                     &mm,ii)+kinetic_part_2(num_mesh_points,weight,abcissa,&
                     &kappa(1,:),alpha(ii,jj),ll,alpha(ii,kk),&
-                    &mm,ii)*dfloat(ii*(ii+1))
+                    &mm,ii)*real(ii*(ii+1),dp)
 
                 t(2,ii,nn,oo)=kinetic_part_1(num_mesh_points,weight,abcissa,&
                     &kappa(2,:),alpha(ii,jj),ll,alpha(ii,kk),&
                     &mm,ii)+kinetic_part_2(num_mesh_points,weight,abcissa,&
                     &kappa(2,:),alpha(ii,jj),ll,alpha(ii,kk),&
-                    &mm,ii)*dfloat(ii*(ii+1))
+                    &mm,ii)*real(ii*(ii+1),dp)
 
               end if
 
@@ -82,13 +82,13 @@ contains
                     &kappa2(1,:),alpha(ii,jj),ll,alpha(ii,kk),&
                     &mm,ii)+kinetic_part_2(num_mesh_points,weight,abcissa,&
                     &kappa2(1,:),alpha(ii,jj),ll,alpha(ii,kk),&
-                    &mm,ii)*dfloat(ii*(ii+1))
+                    &mm,ii)*real(ii*(ii+1),dp)
 
                 t(2,ii,nn,oo)=kinetic_part_1(num_mesh_points,weight,abcissa,&
                     &kappa2(2,:),alpha(ii,jj),ll,alpha(ii,kk),&
                     &mm,ii)+kinetic_part_2(num_mesh_points,weight,abcissa,&
                     &kappa2(2,:),alpha(ii,jj),ll,alpha(ii,kk),&
-                    &mm,ii)*dfloat(ii*(ii+1))
+                    &mm,ii)*real(ii*(ii+1),dp)
 
               end if
 
@@ -325,8 +325,8 @@ contains
 
     do ii=1,num_mesh_points
 
-      vtot(1,ii)=-float(nuc)/abcissa(ii)+cpot(ii)+vxc(ii,1)
-      vtot(2,ii)=-float(nuc)/abcissa(ii)+cpot(ii)+vxc(ii,2)
+      vtot(1,ii)=-real(nuc,dp)/abcissa(ii)+cpot(ii)+vxc(ii,1)
+      vtot(2,ii)=-real(nuc,dp)/abcissa(ii)+cpot(ii)+vxc(ii,2)
 
     end do
 

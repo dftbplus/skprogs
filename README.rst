@@ -23,7 +23,7 @@ Prerequisites
 
 * Python3
 
-* LibXC library with f90 interface (tested with version 5.1.6, version 4.x does
+* LibXC library with f90 interface (tested with version 4.3.4, version 5.x does
   not work due to inteface changes in LibXC)
 
   
@@ -32,15 +32,11 @@ Building the code
 
 Follow the usual CMake build workflow:
 
-* Configure the project, specify your compiler (e.g. ``gfortran``, ``ifort``, etc), the install
+* Configure the project, specify your compiler (e.g. ``gfortran``), the install
   location (e.g. ``$HOME/opt/skprogs``) and the build directory
   (e.g. ``_build``)::
 
-    FC=gfortran cmake -DCMAKE_INSTALL_PREFIX=$HOME/opt/skprogs -DCMAKE_Fortran_FLAGS=-fopenmp -B _build .
-
-  or::
-
-    FC=ifort cmake -DCMAKE_INSTALL_PREFIX=$HOME/opt/skprogs -DCMAKE_Fortran_FLAGS=-qopenmp -B _build .
+    FC=gfortran cmake -DCMAKE_INSTALL_PREFIX=$HOME/opt/skprogs -B _build .
 
   If libXC is installed in a non-standard location, you may need to specify
   either the ``CMAKE_PREFIX_PATH`` environment variable (if libXC was built with
@@ -51,17 +47,9 @@ Follow the usual CMake build workflow:
     
     PKG_CONFIG_PATH=FOLDER_WITH_LIBXC_PC_FILES FC=gfortran cmake [...]
 
-  or::
-
-    CMAKE_PREFIX_PATH=YOUR_LIBXC_INSTALL_FOLDER FC=ifort cmake [...]
-    
-    PKG_CONFIG_PATH=FOLDER_WITH_LIBXC_PC_FILES FC=ifort cmake [...]
-
-
 * If the configuration was successful, build the code ::
 
     cmake --build _build -- -j
-
 
 * If the build was successful, install the code ::
 
