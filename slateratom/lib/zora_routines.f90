@@ -476,7 +476,7 @@ contains
     cpot(:) = 0.0_dp
     vtot(:,:) = 0.0_dp
 
-    ptot(:,:,:) = pp(1, :,:,:) + pp(2, :,:,:)
+    ptot = pp(1, :,:,:) + pp(2, :,:,:)
 
     call cou_pot(ptot, max_l, num_alpha, poly_order, alpha, problemsize, num_mesh_points, abcissa,&
         & cpot)

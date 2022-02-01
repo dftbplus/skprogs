@@ -184,12 +184,12 @@ program HFAtom
     call write_eigval(max_l, num_alpha, poly_order, eigval_scaled)
   end if
 
-  ! if (tZora) then
-  !   call zora_total_energy(tt, uu, nuc, vconf, jj, kk, pp, max_l, num_alpha, poly_order,&
-  !       & problemsize, xcnr, num_mesh_points, weight, abcissa, rho, exc, vxc, eigval_scaled, occ,&
-  !       & kinetic_energy, nuclear_energy, coulomb_energy, exchange_energy, x_en_2, conf_energy,&
-  !       & total_ene)
-  ! end if
+  if (tZora) then
+    call zora_total_energy(tt, uu, nuc, vconf, jj, kk, pp, max_l, num_alpha, poly_order,&
+        & problemsize, xcnr, num_mesh_points, weight, abcissa, rho, exc, vxc, eigval_scaled, occ,&
+        & zora_ekin, nuclear_energy, coulomb_energy, exchange_energy, x_en_2, conf_energy,&
+        & total_ene)
+  end if
 
   write(*, '(A,E20.12)') 'Potential Matrix Elements converged to ', change_max
   write(*, '(A)') ' '

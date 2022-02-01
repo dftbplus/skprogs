@@ -152,7 +152,7 @@ contains
 
     ! Not sure: before or after mixer .... ? Potential .ne. Matrix elements
     ! Should be irrelevant once self-consistency is reached
-    if (tZora) then
+    if (tZora .and. (iScf /= 0)) then
       call zora_t_correction(1, t_zora, max_l, num_alpha, alpha, poly_order, num_mesh_points,&
           & weight, abcissa, vxc, nuc, pp, problemsize)
     end if
