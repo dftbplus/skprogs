@@ -8,8 +8,8 @@ import sktools.compressions
 import sktools.radial_grid as oc
 
 
-SUPPORTED_FUNCTIONALS = {'xclda' : 2, 'xcpbe' : 3, 'xcblyp' : 4, 'xclcpbe' : 5,
-                         'xclcbnl' : 6}
+SUPPORTED_FUNCTIONALS = {'lda' : 2, 'pbe' : 3, 'blyp' : 4, 'lc-pbe' : 5,
+                         'lc-bnl' : 6}
 
 INPUT_FILE = "slateratom.in"
 STDOUT_FILE = "output"
@@ -126,7 +126,7 @@ class SlateratomInput:
             raise sc.SkgenException(msg)
 
         if self.isXCFunctionalSupported(functional):
-            xcfkey = functional.__class__.__name__.lower()
+            xcfkey = functional.type
             self._functional = SUPPORTED_FUNCTIONALS[xcfkey]
 
             if self._functional >= 5:

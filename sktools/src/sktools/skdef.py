@@ -103,11 +103,6 @@ class Globals(sc.ClassDict):
     def fromhsd(cls, root, query):
         """Creates instance from a HSD-node and with given query object."""
 
-        # xcfunctional, child = query.getvalue(root, "xcfunctional", conv.str0,
-        #                                      returnchild=True)
-        # if xcfunctional not in sc.XC_FUNCTIONAL_TYPES:
-        #     raise hsd.HSDInvalidTagValueException(
-        #         "Invalid functional type '{}'".format(xcfunctional), child)
         superpos, child = query.getvalue(root, "superposition", conv.str0,
                                          returnchild=True)
         if superpos not in sc.SUPERPOSITION_TYPES:
@@ -116,7 +111,7 @@ class Globals(sc.ClassDict):
 
         # read the functional
         xcf = sc.hsd_node_factory('xc', xcfunctionals.XCFUNCTIONALS,
-                                  query.getvaluenode(root, "func"),
+                                  query.getvaluenode(root, 'xcfunctional'),
                                   query)
         if xcf.__class__ not in xcfunctionals.XCFUNCTIONALS.values():
             raise hsd.HSDInvalidTagValueException(

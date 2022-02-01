@@ -149,8 +149,8 @@ class SkgenSktableAssembly:
 
         # if range-separated hybrid is used, add the RangeSep tag
         extra_tag = None
-        xcn = myinput.xcf.__class__.__name__.lower()
-        if xcn in ('xclcbnl', 'xclcpbe'):
+        xcn = myinput.xcf.type
+        if xcn in ('lc-bnl', 'lc-pbe'):
             rsh_tag = "RangeSep\nLC {:f}".format(myinput.xcf.omega)
             extra_tag = [rsh_tag]
 

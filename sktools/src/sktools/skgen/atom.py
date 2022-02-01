@@ -121,10 +121,10 @@ class SkgenAtomCalculation:
         if eigenonly or eigenspinonly:
             return
 
-        xcn = self._xcf.__class__.__name__.lower()
-        if xcn in ('xclcpbe', 'xclcbnl'):
-            hubbus = self._calculate_hubbus_corrected(result_spinavg_atom,
-                                            replace_empty_with_homo=True)
+        xcn = self._xcf.type
+        if xcn in ('lc-pbe', 'lc-bnl'):
+            hubbus = self._calculate_hubbus_corrected(
+                result_spinavg_atom, replace_empty_with_homo=True)
         else:
             hubbus = self._calculate_hubbus(result_spinavg_atom,
                                             replace_empty_with_homo=True)

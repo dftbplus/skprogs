@@ -98,12 +98,12 @@ class XCLDA(sc.ClassDict):
         return myself
 
 
-# Registered xc-functionals with corresponing hsd name as key
+# Registered xc-functionals with corresponding HSD name as key:
 XCFUNCTIONALS = {
-    "xclcbnl": XCLCBNL,
-    "xclcpbe": XCLCPBE,
-    "xclocal": XCLocal,
-    "xcpbe": XCPBE,
-    "xclda": XCLDA,
-    "xcblyp": XCBLYP,
+    'lc-bnl': XCLCBNL,
+    'lc-pbe': XCLCPBE,
+    'local': XCLocal,
+    'pbe': XCPBE,
+    'lda': XCLDA,
+    'blyp': XCBLYP,
 }

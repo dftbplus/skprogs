@@ -10,12 +10,12 @@ from sktools import radial_grid
 
 
 # uses in-house codes for LDA/PBE
-# SUPPORTED_FUNCTIONALS = {'xclda' : 2, 'xcpbe' : 3, 'xclcbnl' : 4, 'xcblyp' : 7,
-#                          'xclcpbe' : 8}
+# SUPPORTED_FUNCTIONALS = {'lda' : 2, 'pbe' : 3, 'lc-bnl' : 4, 'blyp' : 7,
+#                          'lc-pbe' : 8}
 
 # uses libxc codes for LDA/PBE
-SUPPORTED_FUNCTIONALS = {'xclcbnl' : 4, 'xclda' : 5, 'xcpbe' : 6, 'xcblyp' : 7,
-                         'xclcpbe' : 8}
+SUPPORTED_FUNCTIONALS = {'lc-bnl' : 4, 'lda' : 5, 'pbe' : 6, 'blyp' : 7,
+                         'lc-pbe' : 8}
 
 INPUT_FILE = "sktwocnt.in"
 STDOUT_FILE = "output"
@@ -95,7 +95,7 @@ class SktwocntInput:
             self._atom2data = self._atom1data
         self._check_superposition(superpos)
         self._densitysuperpos = (superpos == sc.SUPERPOSITION_DENSITY)
-        self._check_functional(functional.__class__.__name__.lower())
+        self._check_functional(functional.type)
         self._functional = functional
         self._check_grid(grid)
         self._grid = grid
@@ -135,8 +135,8 @@ class SktwocntInput:
                                                      atomdata.potentials, iatom)
         atomfiles.density = self._store_density(workdir, atomdata.density,
                                                 iatom)
-        xcn = self._functional.classnamelower()
-        if xcn in ('xclcbnl', 'xclcpbe'):
+        xcn = self._functional.type
+        if xcn in ('lc-bnl', 'lc-pbe'):
             atomfiles.dens_wavefuncs = self._store_dens_wavefuncs(
                 workdir, atomdata.dens_wavefuncs, iatom)
         atomfiles.occshells = atomdata.occshells
@@ -203,7 +203,7 @@ class SktwocntInput:
         else:
             superposname = 'potential'
 
-        xcfkey = self._functional.__class__.__name__.lower()
+        xcfkey = self._functional.type
         ixc = SUPPORTED_FUNCTIONALS[xcfkey]
         fp.write('{} {} {}\n'.format('hetero' if self._hetero else 'homo',
                                      superposname, ixc))
