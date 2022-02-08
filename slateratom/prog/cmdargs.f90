@@ -2,7 +2,7 @@ module cmdargs
   implicit none
 
   character(*), parameter :: programName = 'slateratom'
-  character(*), parameter :: programVersion = '0.9'
+  character(*), parameter :: programVersion = '22.1'
 
 
 contains
