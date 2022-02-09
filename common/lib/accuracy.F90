@@ -18,11 +18,11 @@ module common_accuracy
 
   !> parameter for real with 8 byte
   !! (use those only for interfacing F77 routines)
-  integer, parameter :: r8 = 8
+  integer, parameter :: r8 = kind(1.0d0)
 
   !> parameter for real with 4 byte
   !! (use those only for interfacing F77 routines)
-  integer, parameter :: r4 = 4
+  integer, parameter :: r4 = kind(1.0)
 
   !> length of a short string
   integer, parameter :: sc = 10
