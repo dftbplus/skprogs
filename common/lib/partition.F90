@@ -1,5 +1,5 @@
 !> Module that provides (Becke's) space partitioning functions.
-module partition
+module common_partition
 
   use common_accuracy, only : dp
 
@@ -137,6 +137,7 @@ contains
     !! see A. D. Becke, J. Chem. Phys. 88, 2547 (1988), eqn. A6
     real(dp) :: uu
 
+    ! chi = r1 / r2
     chi = sqrt(r1 / r2)
 
     uu = (chi - 1.0_dp) / (chi + 1.0_dp)
@@ -149,4 +150,4 @@ contains
 
   end function beckepar
 
-end module partition
+end module common_partition

@@ -3,8 +3,8 @@ module gridorbital
 
   use common_accuracy, only : dp
   use common_constants, only : pi
+  use common_interpolation, only : polyinter, poly5zero
   use bisection, only : bisect
-  use interpolation, only : polyinter, poly5zero
 
   implicit none
   private

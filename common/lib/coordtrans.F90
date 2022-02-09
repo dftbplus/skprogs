@@ -1,5 +1,5 @@
 !> Module that provides several routines related to coordinate transformation.
-module coordtrans
+module common_coordtrans
 
   use common_accuracy, only : dp
   use common_constants, only : pi
@@ -7,15 +7,35 @@ module coordtrans
   implicit none
   private
 
-  public :: coordtransFunc, coordtrans_becke, coordtrans_becke_12, coordtrans_becke_23,&
-      & coordtrans_ahlrichs1, coordtrans_ahlrichs1_2d, coordtrans_ahlrichs2,&
-      & coordtrans_ahlrichs2_2d, coordtrans_identity
+  public :: coordtransFunc_0d, coordtransFunc_1d, coordtrans_becke, coordtrans_becke_12,&
+      & coordtrans_becke_23, coordtrans_ahlrichs1, coordtrans_ahlrichs1_2d, coordtrans_ahlrichs2,&
+      & coordtrans_ahlrichs2_2d, coordtrans_identity, coordtrans_radial_becke1,&
+      & coordtrans_radial_becke2
 
 
   abstract interface
 
-    !> General interface for (Bekce's) coordinate transformations.
-    pure subroutine coordtransFunc(oldc, newc, jacobi)
+    !> General interface for (Becke's) coordinate transformations.
+    pure subroutine coordtransFunc_0d(oldc, newc, jacobi)
+
+      use common_accuracy, only : dp
+
+      implicit none
+
+      !> old coordinate
+      real(dp), intent(in) :: oldc
+
+      !> new coordinate after transformation
+      real(dp), intent(out) :: newc
+
+      !> Jacobi determinant
+      real(dp), intent(out) :: jacobi
+
+    end subroutine coordtransFunc_0d
+
+
+    !> General interface for (Becke's) coordinate transformations.
+    pure subroutine coordtransFunc_1d(oldc, newc, jacobi)
 
       use common_accuracy, only : dp
 
@@ -30,12 +50,70 @@ module coordtrans
       !> Jacobi determinant
       real(dp), intent(out) :: jacobi
 
-    end subroutine coordtransFunc
+    end subroutine coordtransFunc_1d
 
   end interface
 
 
 contains
+
+  !> Transforms a 1 dimensional vector with coordinates in [-1,1] onto spherical coordinates, using
+  !! the Becke algorithm, see A. D. Becke, J. Chem. Phys. 88, 2547 (1988)
+  !! or  J. Chem. Phys. 100, 6520 (1994).
+  pure subroutine coordtrans_radial_becke1(c11, spheric, jacobi)
+
+    !> 1d coordinate vector, each coordinate in interval [-1,1]
+    real(dp), intent(in) :: c11
+
+    !> corresponding spherical coordinate
+    real(dp), intent(out) :: spheric
+
+    !> Jacobi determinant
+    real(dp), intent(out) :: jacobi
+
+    !! midpoint of the integration interval,
+    !! allows adjustment of the radial point distribution to a suitable physical scale
+    real(dp), parameter :: rm = 1.0_dp
+
+    !! recurring factors
+    real(dp) :: rtmp1, rtmp2
+
+    rtmp1 = 1.0_dp + c11
+    rtmp2 = 1.0_dp - c11
+    spheric = rm * (rtmp1 / rtmp2)
+    jacobi = 2.0_dp * rm**3 * rtmp1**2 / rtmp2**4
+
+  end subroutine coordtrans_radial_becke1
+
+
+  !> Transforms a 1 dimensional vector with coordinates in [-1,1] onto spherical coordinates, using
+  !! the Becke algorithm, see A. D. Becke, J. Chem. Phys. 88, 2547 (1988)
+  !! or  J. Chem. Phys. 100, 6520 (1994).
+  pure subroutine coordtrans_radial_becke2(c11, rm, spheric, jacobi)
+
+    !> 1d coordinate vector, each coordinate in interval [-1,1]
+    real(dp), intent(in) :: c11
+
+    !> midpoint of the integration interval,
+    !! allows adjustment of the radial point distribution to a suitable physical scale
+    real(dp), intent(in) :: rm
+
+    !> corresponding spherical coordinate
+    real(dp), intent(out) :: spheric
+
+    !> Jacobi determinant
+    real(dp), intent(out) :: jacobi
+
+    !! recurring factors
+    real(dp) :: rtmp1, rtmp2
+
+    rtmp1 = 1.0_dp + c11
+    rtmp2 = 1.0_dp - c11
+    spheric = rm * (rtmp1 / rtmp2)
+    jacobi = 2.0_dp * rm**3 * rtmp1**2 / rtmp2**4
+
+  end subroutine coordtrans_radial_becke2
+
 
   !> Transforms a 3 dimensional vector with coordinates in [-1,1] onto spherical coordinates, using
   !! the Becke algorithm, see A. D. Becke, J. Chem. Phys. 88, 2547 (1988)
@@ -265,4 +343,4 @@ contains
 
   end subroutine coordtrans_identity
 
-end module coordtrans
+end module common_coordtrans

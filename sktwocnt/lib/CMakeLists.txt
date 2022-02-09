@@ -1,21 +1,16 @@
 set(sources-f90
   bisection.f90
-  coordtrans.f90
   dftbxc.f90
-  gridgenerator.f90
   gridorbital.f90
-  interpolation.f90
-  partition.f90
   quadrature.f90
-  sphericalharmonics.f90
   twocnt.f90)
 
 add_library(skprogs-sktwocnt ${sources-f90})
 
 target_link_libraries(skprogs-sktwocnt skprogs-common)
 
-# for a potential libxc integration:
-# target_link_libraries(skprogs-sktwocnt skprogs-common Libxc::xcf90 Libxc::xc)
+target_link_libraries(skprogs-sktwocnt skprogs-common Libxc::xcf03 Libxc::xc)
+target_link_libraries(skprogs-sktwocnt skprogs-common LAPACK::LAPACK)
 
 set(moddir ${CMAKE_CURRENT_BINARY_DIR}/modfiles)
 set_target_properties(skprogs-sktwocnt PROPERTIES Fortran_MODULE_DIRECTORY ${moddir})

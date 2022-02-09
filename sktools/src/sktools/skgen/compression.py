@@ -9,27 +9,27 @@ import sktools.common as sc
 from . import common as ssc
 
 
-LOGGER = logging.getLogger('skgen.compression')
+logger = logging.getLogger('skgen.compression')
 
 
 def run_denscomp(skdefs, elem, builddir, searchdirs, onecnt_binary):
 
-    LOGGER.info('Started for {}'.format(sc.capitalize_elem_name(elem)))
+    logger.info('Started for {}'.format(sc.capitalize_elem_name(elem)))
     calculator = SkgenDenscomp(builddir, searchdirs, onecnt_binary)
     calculator.set_input(skdefs, elem)
     calculator.find_or_run_calculation()
-    LOGGER.info('Finished')
+    logger.info('Finished')
 
     return calculator
 
 
 def run_wavecomp(skdefs, elem, builddir, searchdirs, onecnt_binary):
 
-    LOGGER.info('Started for {}'.format(sc.capitalize_elem_name(elem)))
+    logger.info('Started for {}'.format(sc.capitalize_elem_name(elem)))
     calculator = SkgenWavecomp(builddir, searchdirs, onecnt_binary)
     calculator.set_input(skdefs, elem)
     calculator.find_or_run_calculation()
-    LOGGER.info('Finished')
+    logger.info('Finished')
 
     return calculator
 
@@ -44,6 +44,7 @@ class SkgenDenscomp:
         self._input = None
         self._onecenter_searchdirs = None
         self._resultdir = None
+        self._occshells = []
 
 
     def set_input(self, skdefs, elem):
@@ -53,7 +54,8 @@ class SkgenDenscomp:
         atomconfig = atomparams.atomconfig
         compression = atomparams.dftbatom.densitycompression
         compressions = [compression,] * (atomconfig.maxang + 1)
-        xcfunc = skdefs.globals.xcfunctional
+        xcfunc = skdefs.globals.xcf
+        self._occshells = atomconfig.occshells
         calculator = skdefs.onecenterparameters[elemlow].calculator
         self._input = AtomCompressionInput(elemlow, atomconfig, compressions,
                                            xcfunc, calculator)
@@ -71,19 +73,20 @@ class SkgenDenscomp:
         if recalculation_need:
             resultdir = ssc.create_onecenter_workdir(
                 self._builddir, ssc.COMPRESSION_WORKDIR_PREFIX, self._elem)
-            LOGGER.info('Calculating compressed atom ' + sc.log_path(resultdir))
+            logger.info('Calculating compressed atom ' + sc.log_path(resultdir))
             calculation = AtomCompressionCalculation(self._input)
             calculation.run(resultdir, self._onecenter_binary)
         else:
-            LOGGER.info('Matching calculation found ' + sc.log_path(resultdir))
-        self._extract_results_if_not_present(self._input, resultdir)
+            logger.info('Matching calculation found ' + sc.log_path(resultdir))
+        self._extract_results_if_not_present(self._input, self._occshells,
+                                             resultdir)
         if recalculation_need:
             self._input.store_signature(resultdir)
         self._resultdir = resultdir
 
 
     @staticmethod
-    def _extract_results_if_not_present(myinput, resultdir):
+    def _extract_results_if_not_present(myinput, occshells, resultdir):
         resultshelf = os.path.join(resultdir, ssc.DENSCOMP_RESULT_FILE)
         if sc.shelf_exists(resultshelf):
             return
@@ -93,6 +96,12 @@ class SkgenDenscomp:
             'potentials': output.get_potentials(),
             'density': output.get_density012()
         }
+        for qn, _ in occshells:
+            nn = qn[0]
+            ll = qn[1]
+            # needs name as shelf allows only strings as keys
+            shellname = sc.shell_ind_to_name(nn, ll)
+            result[shellname] = output.get_wavefunction012(0, nn, ll)
         sc.store_as_shelf(resultshelf, result)
 
 
@@ -118,6 +127,15 @@ class SkgenDenscompResult:
     def get_density(self):
         return self._results['density']
 
+    def get_dens_wavefunction(self, nn, ll):
+        shellname = sc.shell_ind_to_name(nn, ll)
+        try:
+            wfc = self._results[shellname]
+        except KeyError:
+            msg = 'Missing wavefunction {}'.format(shellname)
+            raise sc.SkgenException(msg)
+        return wfc
+
 
 class SkgenWavecomp:
 
@@ -136,7 +154,7 @@ class SkgenWavecomp:
         self._elem = elemlow
         atomparams = skdefs.atomparameters[elemlow]
         atomconfig = atomparams.atomconfig
-        xcfunc = skdefs.globals.xcfunctional
+        xcfunc = skdefs.globals.xcf
         calculator = skdefs.onecenterparameters[elemlow].calculator
         comprcontainer = atomparams.dftbatom.wavecompressions
         atomcompressions = comprcontainer.getatomcompressions(atomconfig)
@@ -157,7 +175,7 @@ class SkgenWavecomp:
             self._onecenter_searchdirs, ssc.COMPRESSION_WORKDIR_PREFIX)
         for shells, myinput in self._shells_and_inputs:
             shellnames = [sc.shell_ind_to_name(nn, ll) for nn, ll in shells]
-            LOGGER.info('Processing compression for shell(s) {}'.format(
+            logger.info('Processing compression for shell(s) {}'.format(
                 ' '.join(shellnames)))
             resultdir = myinput.get_first_dir_with_matching_signature(
                 previous_calc_dirs)
@@ -165,12 +183,12 @@ class SkgenWavecomp:
             if recalculation_needed:
                 resultdir = ssc.create_onecenter_workdir(
                     self._builddir, ssc.COMPRESSION_WORKDIR_PREFIX, self._elem)
-                LOGGER.info(
+                logger.info(
                     'Calculating compressed atom ' + sc.log_path(resultdir))
                 calculation = AtomCompressionCalculation(myinput)
                 calculation.run(resultdir, self._onecenter_binary)
             else:
-                LOGGER.info(
+                logger.info(
                     'Matching calculation found ' + sc.log_path(resultdir))
             self._extract_results_if_not_present(myinput, shells, resultdir)
             if recalculation_needed:
@@ -265,6 +283,7 @@ class AtomCompressionCalculation:
     def __init__(self, myinput):
         self._atomconfig = myinput.atomconfig
         self._atomconfig.make_spinaveraged()
+
         self._shell_compressions = myinput.shell_compressions
         calculator = myinput.calculator
         self._onecnt_calculator = ssc.OnecenterCalculatorWrapper(calculator)

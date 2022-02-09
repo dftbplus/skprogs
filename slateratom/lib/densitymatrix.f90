@@ -1,43 +1,52 @@
+!> Module that sets up the density matrix, based on occupations and wavefunction coefficients.
 module densitymatrix
 
   use common_accuracy, only : dp
-  use common_constants
-  use utilities
 
   implicit none
   private
 
   public :: densmatrix
-  
+
+
 contains
 
-  subroutine densmatrix(problemsize,max_l,occ,cof,p)
+  !> Get density matrix from wavefunction coefficients.
+  pure subroutine densmatrix(problemsize, max_l, occ, cof, pp)
 
-    ! Get density matrix from wavefunction coefficients.
+    !> maximum size of the eigenproblem
+    integer, intent(in) :: problemsize
 
-    real(dp), intent(in) :: cof(:,0:,:,:),occ(:,0:,:)
-    integer, intent(in) :: problemsize,max_l
-    real(dp), intent(out) :: p(:,0:,:,:)
-    integer :: ii,jj,kk,ll,mm
+    !> maximum angular momentum
+    integer, intent(in) :: max_l
 
-    p=0.0d0
+    !> occupation numbers
+    real(dp), intent(in) :: occ(:,0:,:)
 
-    do ii=1,2
-      do jj=0,max_l
-        do kk=1,problemsize
-          do ll=kk,problemsize
-            do mm=1,problemsize
-              p(ii,jj,kk,ll)=p(ii,jj,kk,ll)+occ(ii,jj,mm)*&
-                  &cof(ii,jj,kk,mm)*cof(ii,jj,ll,mm)
-              p(ii,jj,ll,kk)=p(ii,jj,kk,ll)
+    !> wavefunction coefficients
+    real(dp), intent(in) :: cof(:,0:,:,:)
+
+    !> density matrix supervector
+    real(dp), intent(out) :: pp(:,0:,:,:)
+
+    !> auxiliary variables
+    integer :: ii, jj, kk, ll, mm
+
+    pp(:,:,:,:) = 0.0_dp
+
+    do ii = 1, 2
+      do jj = 0, max_l
+        do kk = 1, problemsize
+          do ll = kk, problemsize
+            do mm = 1, problemsize
+              pp(ii, jj, kk, ll) = pp(ii, jj, kk, ll)&
+                  & + occ(ii, jj, mm) * cof(ii, jj, kk, mm) * cof(ii, jj, ll, mm)
+              pp(ii, jj, ll, kk) = pp(ii, jj, kk, ll)
             end do
           end do
         end do
       end do
     end do
-
-    !  write(*,*) 'DENSITY MATRIX'
-    !  write(*,*) p
 
   end subroutine densmatrix
 

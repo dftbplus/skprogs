@@ -37,7 +37,7 @@ class OldSKFile:
 
     def __init__(self, extended, dr, hamiltonian, overlap, onsites=None,
                  spinpolerror=None, hubbardus=None, occupations=None, mass=None,
-                 splinerep=None, polyrep=None):
+                 splinerep=None, polyrep=None, extratag=None):
         self.extended = extended
         self.dr = dr
         self.nr = hamiltonian.shape[0]
@@ -51,6 +51,7 @@ class OldSKFile:
         self.mass = mass
         self.splinerep = splinerep
         self.polyrep = polyrep
+        self.extratag = extratag
 
 
     @classmethod
@@ -125,6 +126,10 @@ class OldSKFile:
             fp.write("\n")
             fp.write(self.splinerep)
             fp.write("\n")
+        if self.extratag:
+            for xx in self.extratag:
+                fp.write(xx)
+                fp.write("\n")
         fp.close()
 
 
@@ -133,7 +138,8 @@ class OldSKFileSet:
 
     def __init__(self, grid, hamiltonian, overlap, basis1, basis2=None,
                  onsites=None, spinpolerror=None, hubbardus=None,
-                 occupations=None, mass=None, dummy_repulsive=False):
+                 occupations=None, mass=None, dummy_repulsive=False,
+                 extraTag=None):
 
         self._dr, self._nr0 = self._get_grid_parameters(grid)
         self._dummy_repulsive = dummy_repulsive
@@ -141,6 +147,7 @@ class OldSKFileSet:
         self._overlap = overlap
         self._basis1 = basis1
         self._homo = basis2 is None
+        self._extraTag = extraTag
 
         if self._homo:
             self._basis2 = self._basis1
@@ -226,10 +233,11 @@ class OldSKFileSet:
             skfile = OldSKFile(
                 extended, self._dr, oldsk_ham, oldsk_over, onsites=onsites,
                 spinpolerror=self._spinpolerror, hubbardus=hubbus,
-                occupations=occupations, mass=self._mass, splinerep=repulsive)
+                occupations=occupations, mass=self._mass, splinerep=repulsive,
+                extratag=self._extraTag)
         else:
             skfile = OldSKFile(extended, self._dr, oldsk_ham, oldsk_over,
-                               splinerep=repulsive)
+                               splinerep=repulsive, extratag=self._extraTag)
         return skfile
 
 
@@ -376,5 +384,5 @@ class OldSKFileSet:
 
     @staticmethod
     def _get_basis_indexed_dict(basis, values):
-        mydict = { shell: value for shell, value in zip(basis, values) }
+        mydict = {shell: value for shell, value in zip(basis, values)}
         return mydict

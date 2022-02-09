@@ -3,21 +3,12 @@ module dftxc
 
   use, intrinsic :: ieee_arithmetic
   use common_accuracy, only : dp
-  use common_constants, only : pi
-
-  !! vanderhe: proposed libxc integration
-  ! use, intrinsic :: iso_c_binding, only : c_size_t
-  ! use xc_f90_lib_m, only : xc_f90_func_t, xc_f90_func_info_t, xc_f90_func_init,&
-  !     & xc_f90_func_get_info, xc_f90_lda_vxc, xc_f90_gga_vxc, xc_f90_func_end, XC_LDA_X,&
-  !     & XC_LDA_C_PW, XC_GGA_X_PBE, XC_GGA_C_PBE, XC_UNPOLARIZED
+  use common_constants, only : pi, rec4pi
 
   implicit none
   private
 
   public :: getxcpot_ldapw91, getxcpot_ggapbe
-
-  !> pre-factor for re-normalization
-  real(dp), parameter :: rec4pi = 1.0_dp / (4.0_dp * pi)
 
 
 contains
@@ -66,45 +57,11 @@ contains
       end if
     end do
 
-    !! vanderhe: proposed libxc integration
-    !! --> but Hamiltonian matrix elements differ up to 1e-07 a.u. (something is wrong)!?
-
-    ! !! libxc related objects
-    ! type(xc_f90_func_t) :: xcfunc_x, xcfunc_c
-    ! type(xc_f90_func_info_t) :: xcinfo
-
-    ! !! density with libxc compatible normalization
-    ! real(dp), allocatable :: rho(:)
-
-    ! !! exchange and correlation potential on grid
-    ! real(dp), allocatable :: vx(:), vc(:)
-
-    ! !! number of density grid points
-    ! integer(c_size_t) :: nn
-
-    ! call xc_f90_func_init(xcfunc_x, XC_LDA_X, XC_UNPOLARIZED)
-    ! xcinfo = xc_f90_func_get_info(xcfunc_x)
-    ! call xc_f90_func_init(xcfunc_c, XC_LDA_C_PW, XC_UNPOLARIZED)
-    ! xcinfo = xc_f90_func_get_info(xcfunc_x)
-
-    ! nn = size(rho4pi)
-    ! allocate(vx(nn), vc(nn))
-
-    ! rho = rho4pi * rec4pi
-
-    ! call xc_f90_lda_vxc(xcfunc_x, nn, rho, vx)
-    ! call xc_f90_lda_vxc(xcfunc_c, nn, rho, vc)
-
-    ! xcpot(:) = vx + vc
-
-    ! call xc_f90_func_end(xcfunc_x)
-    ! call xc_f90_func_end(xcfunc_c)
-
   end subroutine getxcpot_ldapw91
 
 
-  !> Calculates xc-potential based on the GGA-PBE functional.
-  subroutine getxcpot_ggapbe(rho4pi, absgr4pi, laplace4pi, gr_grabsgr4pi, xcpot)
+  !> Calculates xc-potential based on the GGA-PBE functional, screened version if kappa is present.
+  subroutine getxcpot_ggapbe(rho4pi, absgr4pi, laplace4pi, gr_grabsgr4pi, xcpot, kappa)
 
     !> density times 4pi on grid
     real(dp), intent(in) :: rho4pi(:)
@@ -120,6 +77,9 @@ contains
 
     !> resulting xc-potential
     real(dp), intent(out) :: xcpot(:)
+
+    !> range-separation parameter
+    real(dp), intent(in), optional :: kappa
 
     !! density with libxc compatible normalization
     real(dp), allocatable :: rho(:)
@@ -144,12 +104,21 @@ contains
     real(dp) :: ec, vcup, vcdn, ex, vx
     integer :: ii
 
+    ! real(dp) :: epsrho4pi(size(rho4pi))
+
     nn = size(rho4pi)
     allocate(rho(nn), absgr(nn), laplace(nn), gr_grabsgr(nn))
     allocate(rs(nn), fac(nn), tt(nn), uu(nn), vv(nn), ss(nn), u2(nn), v2(nn))
 
     ! renorm rho and derivatives (incoming quantities are 4pi normed)
     rho = rho4pi * rec4pi
+    ! if (all(ieee_is_normal(absgr4pi))) print *, 'ieee_is_normal(absgr4pi)'
+    ! if (all(ieee_is_normal(rho4pi))) print *, 'ieee_is_normal(rho4pi)', minval(abs(rho4pi)), maxval(abs(rho4pi))
+    ! where (abs(rho4pi) < epsilon(1.0_dp))
+    !   epsrho4pi = epsilon(1.0_dp)
+    ! elsewhere
+    !   epsrho4pi = rho4pi
+    ! end where
     absgr = absgr4pi / rho4pi
     laplace = laplace4pi / rho4pi
     gr_grabsgr = gr_grabsgr4pi / rho4pi**2
@@ -177,8 +146,14 @@ contains
       if (rho(ii) < epsilon(1.0_dp)) then
         xcpot(ii) = 0.0_dp
       else
+        ! correlation is always the usual one
         call correlation_pbe(rs(ii), zeta, tt(ii), uu(ii), vv(ii), ww, 1, ec, vcup, vcdn)
-        call exchange_pbe(rho(ii), ss(ii), u2(ii), v2(ii), 1, ex, vx)
+        ! but exchange may be screened, depending on if kappa is supplied
+        if (present(kappa)) then
+          call exchange_pbe_sr(rho(ii), ss(ii), u2(ii), v2(ii), kappa, 0, ex, vx)
+        else
+          call exchange_pbe(rho(ii), ss(ii), u2(ii), v2(ii), 1, ex, vx)
+        end if
         if (ieee_is_nan(vcup)) then
           print *, "VCUP NAN", ii, rs(ii), tt(ii), uu(ii), vv(ii)
           print *, ":", absgr(ii), gr_grabsgr(ii), laplace(ii)
@@ -191,48 +166,142 @@ contains
       end if
     end do
 
-    !! vanderhe: proposed libxc integration
-    !! --> but Hamiltonian matrix elements differ up to 1e-02 a.u. (something is wrong)!?
-
-    ! !! libxc related objects
-    ! type(xc_f90_func_t) :: xcfunc_x, xcfunc_c
-    ! type(xc_f90_func_info_t) :: xcinfo
-
-    ! !! density with libxc compatible normalization
-    ! real(dp), allocatable :: rho(:)
-
-    ! !! contracted gradients of the density
-    ! real(dp), allocatable :: sigma(:)
-
-    ! !! exchange and correlation potential on grid
-    ! real(dp), allocatable :: vx(:), vc(:)
-
-    ! !! first partial derivative of the energy per unit volume in terms of sigma
-    ! real(dp), allocatable :: vxsigma(:), vcsigma(:)
-
-    ! !! number of density grid points
-    ! integer(c_size_t) :: nn
-
-    ! nn = size(rho4pi)
-    ! allocate(vx(nn), vc(nn), vxsigma(nn), vcsigma(nn))
-
-    ! rho = rho4pi * rec4pi
-    ! sigma = (absgr4pi * rec4pi)**2
-
-    ! call xc_f90_func_init(xcfunc_x, XC_GGA_X_PBE, XC_UNPOLARIZED)
-    ! xcinfo = xc_f90_func_get_info(xcfunc_x)
-    ! call xc_f90_func_init(xcfunc_c, XC_GGA_C_PBE, XC_UNPOLARIZED)
-    ! xcinfo = xc_f90_func_get_info(xcfunc_x)
-
-    ! call xc_f90_gga_vxc(xcfunc_x, nn, rho, sigma, vx, vxsigma)
-    ! call xc_f90_gga_vxc(xcfunc_c, nn, rho, sigma, vc, vcsigma)
-
-    ! xcpot(:) = vx + vc
-
-    ! call xc_f90_func_end(xcfunc_x)
-    ! call xc_f90_func_end(xcfunc_c)
-
   end subroutine getxcpot_ggapbe
+
+
+  !> Oh man...
+  subroutine exchange_pbe_sr(rho,s,u,t,kappa,igga,EX,VX)
+    real(dp), intent(in) :: rho, s, u, t, kappa
+    integer, intent(in) :: igga
+    real(dp), intent(out) :: EX, VX
+    !__________________________________________________
+
+    real(dp), parameter :: thrd = 1.0_dp/3.0_dp
+    real(dp), parameter :: thrd4 = 4.0_dp/3.0_dp
+    real(dp), parameter :: thrd2 = 2.0_dp/3.0_dp
+    real(dp), parameter :: pi = 3.14159265358979323846264338327950_dp
+    real(dp), parameter :: ax = -0.738558766382022405884230032680836_dp
+    real(dp), parameter :: um=0.21951_dp, uk=0.8040_dp, ul=um/uk
+    real(dp), parameter :: eps=1.0e-15_dp
+
+    real(dp) :: aa, EXL,EXN, exunif,alpha
+    real(dp) :: P, Pa, Paa, p0
+    real(dp) :: f, fs, fss, fsqrt
+    real(dp) :: tmp, v, aarec, g, gs, aasq, aasqp1, loga
+
+    !----------------------------------------------------------------------
+    !  GGA EXCHANGE FOR A SPIN-UNPOLARIZED ELECTRONIC SYSTEM
+    !----------------------------------------------------------------------
+    !  INPUT rho : DENSITY
+    !  INPUT S:  ABS(GRAD rho)/(2*KF*rho), where kf=(3 pi^2 rho)^(1/3)
+    !  INPUT U:  (GRAD rho)*GRAD(ABS(GRAD rho))/(rho**2 * (2*KF)**3)
+    !  INPUT V: (LAPLACIAN rho)/(rho*(2*KF)**2)  (for U,V, see PW86(24))
+    !  input igga:  (=0=>don't put in gradient corrections, just LDA)
+    !  OUTPUT:  EXCHANGE ENERGY PER ELECTRON (LOCAL: EXL, NONLOCAL: EXN,
+    !           TOTAL: EX) AND POTENTIAL (VX)
+    !----------------------------------------------------------------------
+    ! References:
+    ! [a]J.P.~Perdew, K.~Burke, and M.~Ernzerhof, submiited to PRL, May96
+    ! [b]J.P. Perdew and Y. Wang, Phys. Rev.  B {\bf 33},  8800  (1986);
+    !     {\bf 40},  3399  (1989) (E).
+    !----------------------------------------------------------------------
+    ! Formulas: e_x[unif]=ax*rho^(4/3)  [LDA]
+    !           ax = -0.75*(3/pi)^(1/3)
+    !	    e_x[PBE]=e_x[unif]*FxPBE(s)
+    !	    FxPBE(s)=1+uk-uk/(1+ul*s*s)                 [a](13)
+    !           uk, ul defined after [a](13)
+    !----------------------------------------------------------------------
+    !----------------------------------------------------------------------
+    !     construct LDA exchange energy density
+
+    alpha=kappa/(2.0_dp*(3.0_dp*pi*pi)**thrd)!(6.0_dp*sqrt(pi))
+
+    exunif = ax*rho**thrd
+    if((igga.eq.0).or.(s.lt.eps))then
+      aa = alpha/(rho**thrd)
+      aarec = 1.0_dp/aa
+      if(aa > 900.0_dp) then
+        P = 1.0_dp/9.0_dp * aarec*aarec - 1.0_dp/30.0_dp * aarec**4
+        Pa = -2.0_dp/9.0_dp * aarec**3 + 4.0_dp/30.0_dp * aarec**5
+      else
+        aasq=aa*aa
+        aasqp1 = aasq + 1.0_dp
+        loga = dlog(1+aarec*aarec)
+        P = 1.0_dp  + 4.0_dp*aarec*datan(aarec)
+        P = thrd2*aa*(P - (aasqp1 + 2.0_dp)* loga)
+        Pa = P
+        P = 1.0_dp - P*aa
+        Pa = Pa + 2.0_dp*aa*(1.0_dp - aasqp1*loga)
+      end if
+
+      if (abs(P) > 2.0_dp) print*, "WARNING!!!!"
+      EXL=exunif*P
+      EXN=0.0_dp
+      EX=EXL+EXN
+      VX= exunif*thrd4*P + alpha*ax/3.0_dp*Pa
+      return
+    end if
+
+    !----------------------------------------------------------------------
+    !     construct GGA enhancement factor
+    !     find first and second derivatives of f and:
+    !     fs=(1/s)*df/ds  and  fss=dfs/ds = (d2f/ds2 - (1/s)*df/ds)/s
+
+    !
+    ! PBE enhancement factors checked against NRLMOL
+    !
+    if (igga.eq.1)then
+      p0 =1.d0+ul*s**2
+      f  = (1.d0+uk)
+      f = f - uk/p0
+      fs =2.d0*uk*ul/p0**2
+      fss=-4.d0*ul*s*fs/p0
+
+      fsqrt = sqrt(f)
+      G=fs/s
+      Gs = (fss-G)/s
+
+      !============================================
+      ! construct the screening factor P(a) as well as first
+      ! and secod derifvatives Pa=dP/da, Paa=d^2P/da^2
+      aa = alpha*fsqrt/(rho**thrd)
+      aarec = 1.0_dp/aa
+      if(aa > 600.0_dp) then
+        P = 1.0_dp/9.0_dp * aarec*aarec - 1.0_dp/30.0_dp*aarec**4
+        Pa = -2.0_dp/9.0_dp * aarec**3 + 4.0_dp/30.0_dp * aarec**5
+        Paa = 2.0_dp/3.0_dp*aarec**4
+      else
+        aasq=aa*aa
+        aasqp1 = aasq + 1.0_dp
+        loga = dlog(1+aarec*aarec)
+        P = 1.0_dp + 4.0_dp*aarec*datan(aarec)
+        P = thrd2*aa*(P - (aasqp1 + 2.0_dp)* loga)
+        Pa = -P
+        P = 1.0_dp - P*aa
+        Pa = Pa - 2.0_dp*aa*(1.0_dp - aasqp1*loga)
+        Paa = 8.0_dp*((aasqp1-0.5_dp)*loga - 1.0_dp)
+      end if
+      !============================================
+
+      EX = exunif*f*P
+
+      !
+      !     energy done. calculate potential from [b](24)
+      !
+      ! K_3
+      VX = (0.25_dp*u*s - thrd*s**4)*G*G - s*s*G*f / 6.0_dp
+      VX = -alpha*alpha*Paa*VX/rho**thrd
+
+      ! K_2
+      tmp = (v*rho**thrd*0.5_dp - s*s/6.0_dp)*fsqrt*G
+      tmp=tmp+(u*s*0.25_dp - thrd*s**4)*G*G/fsqrt
+      tmp=tmp + 0.5_dp*(u - thrd4*s*s)*fsqrt*Gs + f*fsqrt*thrd
+      VX=VX - alpha*tmp*Pa
+      ! K_1
+      VX = exunif*(thrd4*f-(u-thrd4*s**3)*fss-t*fs )*P + VX*ax
+    end if
+
+  end subroutine exchange_pbe_sr
 
 
   SUBROUTINE CORRELATION_PBE(RS, ZET, T, UU, VV, WW, igga, ec, vc1, vc2)

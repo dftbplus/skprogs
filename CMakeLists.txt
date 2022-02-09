@@ -1,6 +1,15 @@
 cmake_minimum_required(VERSION 3.16)
 
 project(SkProgs VERSION 22.1 LANGUAGES Fortran)
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake
+  ${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules)
+include(SkProgsUtils)
+
+skprogs_ensure_out_of_source_build()
+skprogs_load_build_settings()
+skprogs_setup_build_type()
+skprogs_load_toolchain_settings()
+skprogs_setup_global_compiler_flags()
 
 include(GNUInstallDirs)
 
@@ -39,6 +48,10 @@ endif()
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
 set(PYTHON_INTERPRETER "${Python3_EXECUTABLE}")
 set(PYTHON_VERSION_MAJOR_MINOR "${Python3_VERSION_MAJOR}.${Python3_VERSION_MINOR}")
+
+find_package(CustomBlas REQUIRED)
+find_package(CustomLapack REQUIRED)
+
 #################### Add source components ####################
 
 add_subdirectory(common/lib)
@@ -56,4 +69,3 @@ configure_file(
 install(
   PROGRAMS "${CMAKE_CURRENT_BINARY_DIR}/skprogs-activate.sh"
   DESTINATION "${CMAKE_INSTALL_BINDIR}/")
-

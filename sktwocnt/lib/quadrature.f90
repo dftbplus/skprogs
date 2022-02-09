@@ -20,6 +20,9 @@ module quadratures
     !> weights
     real(dp), allocatable :: ww(:)
 
+    !>
+    real(dp), allocatable :: zz(:)
+
   end type TQuadrature
 
   !> relative quadrature precision
