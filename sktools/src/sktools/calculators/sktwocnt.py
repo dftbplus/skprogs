@@ -9,13 +9,8 @@ from sktools import twocenter_grids
 from sktools import radial_grid
 
 
-# uses in-house codes for LDA/PBE
-# SUPPORTED_FUNCTIONALS = {'lda' : 2, 'pbe' : 3, 'lc-bnl' : 4, 'blyp' : 7,
-#                          'lc-pbe' : 8}
-
-# uses libxc codes for LDA/PBE
-SUPPORTED_FUNCTIONALS = {'lc-bnl' : 4, 'lda' : 5, 'pbe' : 6, 'blyp' : 7,
-                         'lc-pbe' : 8}
+SUPPORTED_FUNCTIONALS = {'lda' : 1, 'pbe' : 2, 'blyp' : 3, 'lc-pbe' : 4,
+                         'lc-bnl' : 5}
 
 INPUT_FILE = "sktwocnt.in"
 STDOUT_FILE = "output"
@@ -209,18 +204,15 @@ class SktwocntInput:
                                      superposname, ixc))
 
     def _write_twocnt_gridinfo(self, fp):
-        # omega, grid info
-        # hardcoded parameters for the Becke integration,
-        # -> should probably be moved to to skdef.hsd
-        becke = ' 2000 194 11 1.0  0'
+        '''Writes integration grid info.'''
 
-        # sktwocnt expects omega even for local functionals, dummy in that case.
         if self._functional.type in ('lc-bnl', 'lc-pbe'):
-            omega = self._functional.omega
-        else:
-            omega = 0.0
+            # omega, grid info
+            # hardcoded parameters for the Becke integration,
+            # -> should probably be moved to skdef.hsd
+            becke = '2000 194 11 1.0'
+            fp.write("{:f} {:s}\n".format(self._functional.omega, becke))
 
-        fp.write("{:f} {:s}\n".format(omega, becke))
         fp.write("{:f} {:f} {:e} {:f}\n".format(
             self._grid.gridstart, self._grid.gridseparation,
             self._grid.tolerance, self._grid.maxdistance))

@@ -93,7 +93,6 @@ program HFAtom
 
   ! dft start potential for range-separated functionals
   if (xcnr >= 5) then
-     write(*, '(A,E12.4)') 'RS-DFT, range-separation parameter kappa=', kappa
      call hfex_lr(kk, max_l, num_alpha, alpha, poly_order, problemsize, kappa, grid_params)
   end if
   call dft_start_pot(abcissa, num_mesh_points, nuc, vxc)

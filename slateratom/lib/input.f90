@@ -86,18 +86,27 @@ contains
     !> holds parameters, defining a Becke integration grid
     type(becke_grid_params), intent(out) :: grid_params
 
+    !! true, if a range-separated hybrid functional is requested
+    logical :: tRangeSep
+
     !> auxiliary variables
     integer :: ii, jj
 
     write(*, '(A)') 'Enter nuclear charge, maximal angular momentum (s=0), max. SCF, ZORA'
     read(*,*) nuc, max_l, maxiter, tZora
 
-    write(*, '(A)') 'NRadial NAngular ll_max rm'
-    read(*,*) grid_params%N_radial, grid_params%N_angular, grid_params%ll_max, grid_params%rm
-
     write(*, '(A)') 'Enter XC functional:&
-        & 0=HF, 1=X-Alpha, 2=PW-LDA, 3=PBE, 4=BLYP, 5=LCY-PBE, 6=BNL'
-    read(*,*) xcnr, kappa
+        & 0: HF, 1: X-Alpha, 2: LDA-PW91, 3: GGA-PBE, 4: GGA-BLYP, 5: LCY-PBE, 6: LCY-BNL'
+    read(*,*) xcnr
+
+    tRangeSep = ((xcnr == 5) .or. (xcnr == 6))
+
+    if (tRangeSep) then
+      write(*, '(A)') 'Enter range-separation parameter:'
+      read(*,*) kappa
+      write(*, '(A)') 'NRadial NAngular ll_max rm'
+      read(*,*) grid_params%N_radial, grid_params%N_angular, grid_params%ll_max, grid_params%rm
+    end if
 
     if (xcnr == 0) write(*, '(A)') 'WARNING: ONLY CORRECT FOR CLOSED SHELL 1S !'
     if ((xcnr == 0) .and. tZora) then
