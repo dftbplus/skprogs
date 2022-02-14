@@ -3,6 +3,7 @@ set(sources-f90
   anglib.F90
   constants.F90
   coordtrans.F90
+  eigensolver.F90
   fdiff.F90
   fifo.F90
   fifobase.F90
@@ -10,6 +11,7 @@ set(sources-f90
   fifo_real2.F90
   gridgenerator.F90
   interpolation.F90
+  lapack.F90
   lebedev_laikov.F90
   lebedev_laikov_f77.f
   partition.F90
