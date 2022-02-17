@@ -15,7 +15,8 @@ contains
   !> Reads in all properties, except for occupation numbers.
   subroutine read_input_1(nuc, max_l, occ_shells, maxiter, poly_order, min_alpha, max_alpha,&
       & num_alpha, tAutoAlphas, alpha, conf_r0, conf_power, num_occ, num_power, num_alphas,&
-      & xcnr, tPrintEigvecs, tZora, tBroyden, mixing_factor, xalpha_const, kappa, grid_params)
+      & xcnr, tPrintEigvecs, tZora, tBroyden, mixing_factor, xalpha_const, kappa, camAlpha,&
+      & camBeta, grid_params)
 
     !> nuclear charge, i.e. atomic number
     integer, intent(out) :: nuc
@@ -83,27 +84,53 @@ contains
     !> range-separation parameter
     real(dp), intent(out) :: kappa
 
+    !> CAM alpha parameter
+    real(dp), intent(out) :: camAlpha
+
+    !> CAM beta parameter
+    real(dp), intent(out) :: camBeta
+
     !> holds parameters, defining a Becke integration grid
     type(becke_grid_params), intent(out) :: grid_params
 
-    !! true, if a range-separated hybrid functional is requested
-    logical :: tRangeSep
+    !! true, if a (long-range corrected) range-separated hybrid functional is requested
+    logical :: tLC
 
-    !> auxiliary variables
+    !! true, if a CAM functional is requested
+    logical :: tCam
+
+    !! true, if a global hybrid functional is requested
+    logical :: tGlobalHybrid
+
+    !! auxiliary variables
     integer :: ii, jj
 
     write(*, '(A)') 'Enter nuclear charge, maximal angular momentum (s=0), max. SCF, ZORA'
     read(*,*) nuc, max_l, maxiter, tZora
 
     write(*, '(A)') 'Enter XC functional:&
-        & 0: HF, 1: X-Alpha, 2: LDA-PW91, 3: GGA-PBE, 4: GGA-BLYP, 5: LCY-PBE, 6: LCY-BNL'
+        & 0: HF, 1: X-Alpha, 2: LDA-PW91, 3: GGA-PBE, 4: GGA-BLYP, 5: LCY-PBE, 6: LCY-BNL, 7: PBE0,&
+        & 8: B3LYP, 9: CAMY-B3LYP'
     read(*,*) xcnr
 
-    tRangeSep = ((xcnr == 5) .or. (xcnr == 6))
+    if ((xcnr < 0) .or. (xcnr > 9)) then
+      write(*, '(A,I2,A)') 'XCNR=', xcnr, ' not implemented!'
+      stop
+    end if
 
-    if (tRangeSep) then
+    tLC = ((xcnr == 5) .or. (xcnr == 6))
+    tCam = (xcnr == 9)
+    tGlobalHybrid = ((xcnr == 7) .or. (xcnr == 8))
+
+    if (tLC) then
       write(*, '(A)') 'Enter range-separation parameter:'
       read(*,*) kappa
+    elseif (tCam) then
+      write(*, '(A)') 'Enter range-separation parameter, CAM alpha, CAM beta:'
+      read(*,*) kappa, camAlpha, camBeta
+    end if
+
+    if (tLC .or. tCam .or. tGlobalHybrid) then
       write(*, '(A)') 'NRadial NAngular ll_max rm'
       read(*,*) grid_params%N_radial, grid_params%N_angular, grid_params%ll_max, grid_params%rm
     end if
@@ -301,13 +328,16 @@ contains
 
     write(*, '(A,I3)') 'Nuclear Charge: ', nuc
 
-    if (xcnr == 0) write(*, '(A,I3)') 'HF Exchange, only correct for closed shell !'
+    if (xcnr == 0) write(*, '(A)') 'Hartree-Fock exchange'
     if (xcnr == 1) write(*, '(A,F12.8)') 'X-Alpha, alpha= ', xalpha_const
-    if (xcnr == 2) write(*, '(A,I3)') 'LDA, Perdew-Wang Parametrization'
-    if (xcnr == 3) write(*, '(A,I3)') 'PBE'
-    if (xcnr == 4) write(*, '(A,I3)') 'BLYP'
-    if (xcnr == 5) write(*, '(A,I3)') 'Range-separated: LCY-PBE'
-    if (xcnr == 6) write(*, '(A,I3)') 'Range-separated: BNL, LCY-LDA for exchange + PBE correlation'
+    if (xcnr == 2) write(*, '(A)') 'LDA, Perdew-Wang Parametrization'
+    if (xcnr == 3) write(*, '(A)') 'PBE'
+    if (xcnr == 4) write(*, '(A)') 'BLYP'
+    if (xcnr == 5) write(*, '(A)') 'Range-separated: LCY-PBE'
+    if (xcnr == 6) write(*, '(A)') 'Range-separated: BNL, LCY-LDA for exchange + PBE correlation'
+    if (xcnr == 7) write(*, '(A)') 'Global hybrid: PBE0'
+    if (xcnr == 8) write(*, '(A)') 'Global hybrid: B3LYP'
+    if (xcnr == 9) write(*, '(A)') 'CAM: CAMY-B3LYP'
 
     write(*, '(A,I1)') 'Max. angular momentum: ', max_l
     write(*, '(A,I5)') 'Number of points for numerical radial integration: ', num_mesh_points
@@ -323,8 +353,8 @@ contains
     end do
 
     do ii = 1, max_l
-      if ((poly_order(ii) /= poly_order(0)) .and. (xcnr >= 5)) then
-        write(*,*) 'LC functionals: polynomial orders need to be same for all shells.'
+      if ((poly_order(ii) /= poly_order(0)) .and. ((xcnr == 5) .or. (xcnr == 6))) then
+        write(*,*) 'LC functionals: polynomial orders need to be the same for all shells.'
         stop
       end if
     end do

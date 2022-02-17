@@ -9,7 +9,8 @@ module dft
   use xc_f03_lib_m, only : xc_f03_func_t, xc_f03_func_info_t, xc_f03_func_init, xc_f03_func_end,&
       & xc_f03_func_get_info, xc_f03_lda_exc_vxc, xc_f03_gga_exc_vxc, xc_f03_gga_fxc,&
       & xc_f03_func_set_ext_params, XC_LDA_X, XC_LDA_X_YUKAWA, XC_LDA_C_PW, XC_GGA_X_PBE,&
-      & XC_GGA_X_B88, XC_GGA_X_SFAT_PBE, XC_GGA_C_PBE, XC_GGA_C_LYP, XC_POLARIZED
+      & XC_GGA_X_B88, XC_GGA_X_SFAT_PBE, XC_HYB_GGA_XC_PBEH, XC_HYB_GGA_XC_B3LYP,&
+      & XC_HYB_GGA_XC_CAM_B3LYP, XC_GGA_C_PBE, XC_GGA_C_LYP, XC_POLARIZED
 
   implicit none
   private
@@ -67,7 +68,7 @@ contains
   !> Calculate and store density and density derivatives on radial grid.
   !! Further calculates and stores exchange-correlation potential and energy density on grid.
   subroutine density_grid(pp, max_l, num_alpha, poly_order, alpha, num_mesh_points, abcissa, dzdr,&
-      & d2zdr2, dz, xcnr, kappa, rho, drho, ddrho, vxc, exc, xalpha_const)
+      & d2zdr2, dz, xcnr, kappa, camAlpha, camBeta, rho, drho, ddrho, vxc, exc, xalpha_const)
 
     !> density matrix supervector
     real(dp), intent(in) :: pp(:, 0:,:,:)
@@ -105,6 +106,12 @@ contains
     !> range-separation parameter
     real(dp), intent(in) :: kappa
 
+    !> CAM alpha parameter
+    real(dp), intent(in) :: camAlpha
+
+    !> CAM beta parameter
+    real(dp), intent(in) :: camBeta
+
     !> density on grid
     real(dp), intent(out) :: rho(:,:)
 
@@ -123,29 +130,29 @@ contains
     !> exchange parameter for X-Alpha exchange
     real(dp), intent(in) :: xalpha_const
 
-    !> total density on grid (spins summed up)
+    !! total density on grid (spins summed up)
     real(dp) :: rhotot, rho4pitot
 
-    !> difference between spin densities
+    !! difference between spin densities
     real(dp) :: rhodiff
 
-    !> libxc related objects
-    type(xc_f03_func_t) :: xcfunc_x, xcfunc_c
+    !! libxc related objects
+    type(xc_f03_func_t) :: xcfunc_xc, xcfunc_x, xcfunc_c
     type(xc_f03_func_info_t) :: xcinfo
 
-    !> number of density grid points
+    !! number of density grid points
     integer(c_size_t) :: nn
 
     !! spin-polarized LDA exchange energy and potential
     real(dp) :: exlda(2), vxlda(2)
 
-    !> exchange and correlation energy on grid
+    !! exchange and correlation energy on grid
     real(dp), allocatable :: ex(:), ec(:)
 
-    !> exchange and correlation potential on grid
+    !! exchange and correlation potential on grid
     real(dp), allocatable :: vx(:,:), vc(:,:)
 
-    !> density in libxc compatible format, i.e. rho/(4pi)
+    !! density in libxc compatible format, i.e. rho/(4pi)
     real(dp), allocatable :: rhor(:,:)
 
     !! true, if LDA functional is desired
@@ -157,11 +164,15 @@ contains
     !! true, if long-range corrected functional is desired
     logical :: tLC
 
+    !! true, if a global hybrid functional is requested
+    logical :: tGlobalHybrid
+
+    !! true, if a CAM functional is requested
+    logical :: tCam
+
     !! temporary storage
-    real(dp), allocatable :: tmpv(:), tmpv2(:)
-    real(dp), allocatable :: fxc(:,:), sigma(:,:), vxsigma(:,:), vcsigma(:,:)
-    real(dp), allocatable :: vx2rho2(:,:), vx2rhosigma(:,:), vx2sigma2(:,:)
-    real(dp), allocatable :: vc2rho2(:,:), vc2rhosigma(:,:), vc2sigma2(:,:)
+    real(dp), allocatable :: tmpv1(:), tmpv2(:), exc_tmp(:), vxc_tmp(:,:)
+    real(dp), allocatable :: sigma(:,:), vxsigma(:,:), vcsigma(:,:), vxcsigma(:,:)
 
     !! auxiliary variables
     integer :: ii, iSpin, iSpin2, iSigma
@@ -175,6 +186,8 @@ contains
     tLDA = .false.
     tGGA = .false.
     tLC = .false.
+    tGlobalHybrid = .false.
+    tCam = .false.
 
     exc(:) = 0.0_dp
     vxc(:,:) = 0.0_dp
@@ -213,31 +226,50 @@ contains
       xcinfo = xc_f03_func_get_info(xcfunc_x)
       call xc_f03_func_init(xcfunc_c, XC_GGA_C_PBE, XC_POLARIZED)
       xcinfo = xc_f03_func_get_info(xcfunc_c)
-    elseif (xcnr > 6) then
-      write(*, '(A,I2,A)') 'XCNR=', xcnr, ' not implemented!'
-      stop
+    elseif (xcnr == 7) then
+      tGlobalHybrid = .true.
+      call xc_f03_func_init(xcfunc_xc, XC_HYB_GGA_XC_PBEH, XC_POLARIZED)
+      xcinfo = xc_f03_func_get_info(xcfunc_xc)
+    elseif (xcnr == 8) then
+      tGlobalHybrid = .true.
+      call xc_f03_func_init(xcfunc_xc, XC_HYB_GGA_XC_B3LYP, XC_POLARIZED)
+      call xc_f03_func_set_ext_params(xcfunc_xc, [0.20_dp, 0.72_dp, 0.81_dp])
+      xcinfo = xc_f03_func_get_info(xcfunc_xc)
+    elseif (xcnr == 9) then
+      tCam = .true.
+      call xc_f03_func_init(xcfunc_xc, XC_HYB_GGA_XC_CAM_B3LYP, XC_POLARIZED)
+      call xc_f03_func_set_ext_params(xcfunc_xc, [camAlpha, camBeta, kappa, 0.81_dp])
+      xcinfo = xc_f03_func_get_info(xcfunc_xc)
     end if
 
     nn = size(rho, dim=1)
     allocate(rhor(2, nn))
-    allocate(ex(nn))
-    allocate(ec(nn))
-    allocate(vx(2, nn))
-    allocate(vc(2, nn))
+
+    if (tLDA .or. tGGA .or. tLC) then
+      allocate(ex(nn))
+      allocate(ec(nn))
+      allocate(vx(2, nn))
+      allocate(vc(2, nn))
+    elseif (tGlobalHybrid .or. tCam) then
+      allocate(vxc_tmp(2, nn))
+      allocate(exc_tmp(nn))
+    end if
+
     if (tGGA .or. tLC) then
        allocate(sigma(3, nn))
        allocate(vxsigma(3, nn))
+       vxsigma(:,:) = 0.0_dp
        allocate(vcsigma(3, nn))
-       allocate(vx2rho2(3, nn))
-       allocate(vx2rhosigma(6, nn))
-       allocate(vx2sigma2(6, nn))
-       allocate(vc2rho2(3, nn))
-       allocate(vc2rhosigma(6, nn))
-       allocate(vc2sigma2(6, nn))
-       allocate(fxc(3, nn))
-       allocate(tmpv(nn))
+       vcsigma(:,:) = 0.0_dp
+       allocate(tmpv1(nn))
        allocate(tmpv2(nn))
-    end if
+     elseif (tGlobalHybrid .or. tCam) then
+       allocate(sigma(3, nn))
+       allocate(vxcsigma(3, nn))
+       vxcsigma(:,:) = 0.0_dp
+       allocate(tmpv1(nn))
+       allocate(tmpv2(nn))
+     end if
 
     do ii = 1, num_mesh_points
       rho(ii, 1) = density_at_point(pp(1, :,:,:), max_l, num_alpha, poly_order, alpha, abcissa(ii))
@@ -263,7 +295,7 @@ contains
 
     end if
 
-    ! case Xalpha treated seperatly:
+    ! case Xalpha treated separately:
     ! divide by 4*pi to catch different normalization of spherical harmonics
     if (xcnr == 1) then
       do ii = 1, num_mesh_points
@@ -279,35 +311,29 @@ contains
     ! divide by 4*pi to catch different normalization of spherical harmonics
     rhor(:,:) = transpose(rho) * rec4pi
     rho4pitot = rho(ii, 1) + rho(ii, 2)
-    if (tGGA .or. tLC) then
+    if (tGGA .or. tLC .or. tGlobalHybrid .or. tCam) then
       sigma(1, :) = drho(:, 1) * drho(:, 1) * rec4pi**2
       sigma(2, :) = drho(:, 1) * drho(:, 2) * rec4pi**2
       sigma(3, :) = drho(:, 2) * drho(:, 2) * rec4pi**2
     end if
 
     select case (xcnr)
-    case(2)
+    ! LDA-PW91, BNL (long-range corrected)
+    case(2, 6)
       call xc_f03_lda_exc_vxc(xcfunc_x, nn, rhor(1, 1), ex(1), vx(1, 1))
+    ! GGA-PBE, GGA-BLYP, LC-PBE (long-range corrected)
     case(3:5)
       call xc_f03_gga_exc_vxc(xcfunc_x, nn, rhor(1, 1), sigma(1, 1), ex(1), vx(1,1), vxsigma(1,1))
-      call xc_f03_gga_fxc(xcfunc_x, nn, rhor(1, 1), sigma(1, 1), vx2rho2(1, 1), vx2rhosigma(1, 1),&
-          & vx2sigma2(1, 1))
-    !! exchange of BNL (Slater exchange with Yukawa screening) treated by Vitalijs code
-    case(6)
-      call xc_f03_lda_exc_vxc(xcfunc_x, nn, rhor(1, 1), ex(1), vx(1, 1))
-      !! important to set to zero, used below for E vs. grad n in GGA
-      vxsigma(:,:) = 0.0_dp
-    case default
-      write(*, '(A,I2,A)') 'XCNR=', xcnr, ' not implemented'
-      stop
     end select
 
    !! -------- Correlation energy and potential -----------------------
 
     select case (xcnr)
+    ! LDA-PW91
     case(2)
       call xc_f03_lda_exc_vxc(xcfunc_c, nn, rhor(1, 1), ec(1), vc(1, 1))
       vxc(:,:) = transpose(vx + vc)
+    ! GGA-PBE, GGA-BLYP, LC-PBE, BNL
     case(3:6)
       call xc_f03_gga_exc_vxc(xcfunc_c, nn, rhor(1, 1), sigma(1, 1), ec(1), vc(1, 1), vcsigma(1, 1))
       vxc(:,:) = transpose(vx + vc)
@@ -317,22 +343,54 @@ contains
         iSpin2 = 3 - iSpin
         ! 1 for spin up, 3 for spin down
         iSigma = 2 * iSpin - 1
-        tmpv(:) = (vxsigma(iSigma, :) + vcsigma(iSigma, :)) * drho(:, iSpin) * rec4pi
-        call radial_divergence(tmpv, abcissa, dz, tmpv2, dzdr)
+        tmpv1(:) = (vxsigma(iSigma, :) + vcsigma(iSigma, :)) * drho(:, iSpin) * rec4pi
+        call radial_divergence(tmpv1, abcissa, dz, tmpv2, dzdr)
         vxc(:, iSpin) = vxc(:, iSpin) - 2.0_dp * tmpv2
-        tmpv(:) = (vxsigma(2, :) +  vcsigma(2,:)) * drho(:, iSpin2) * rec4pi
-        call radial_divergence(tmpv, abcissa, dz, tmpv2, dzdr)
+        tmpv1(:) = (vxsigma(2, :) +  vcsigma(2, :)) * drho(:, iSpin2) * rec4pi
+        call radial_divergence(tmpv1, abcissa, dz, tmpv2, dzdr)
+        vxc(:, iSpin) = vxc(:, iSpin) - tmpv2
+      end do
+    end select
+
+    !! -------- Exchange + Correlation energy and potential -----------
+
+    select case (xcnr)
+    ! PBE0, B3LYP (global hybrids), CAMY-B3LYP (CAM-functional)
+    case(7:9)
+      call xc_f03_gga_exc_vxc(xcfunc_xc, nn, rhor(1, 1), sigma(1, 1), exc_tmp(1), vxc_tmp(1, 1),&
+          & vxcsigma(1, 1))
+      print *, exc_tmp(1:5)
+      vxc(:,:) = transpose(vxc_tmp)
+      ! derivative of E vs. grad n
+      do iSpin = 1, 2
+        ! the other spin
+        iSpin2 = 3 - iSpin
+        ! 1 for spin up, 3 for spin down
+        iSigma = 2 * iSpin - 1
+        tmpv1(:) = vxcsigma(iSigma, :) * drho(:, iSpin) * rec4pi
+        call radial_divergence(tmpv1, abcissa, dz, tmpv2, dzdr)
+        vxc(:, iSpin) = vxc(:, iSpin) - 2.0_dp * tmpv2
+        tmpv1(:) = vxcsigma(2, :) * drho(:, iSpin2) * rec4pi
+        call radial_divergence(tmpv1, abcissa, dz, tmpv2, dzdr)
         vxc(:, iSpin) = vxc(:, iSpin) - tmpv2
       end do
     end select
 
     ! sum up exchange and correlation energy on the grid
-    exc(:) = ec + ex
+    if (.not. (tGlobalHybrid .or. tCam)) then
+      exc(:) = ec + ex
+    else
+      exc(:) = exc_tmp
+    end if
 
     ! finalize libxc objects
     if (xcnr > 1) then
-      call xc_f03_func_end(xcfunc_x)
-      call xc_f03_func_end(xcfunc_c)
+      if (tGlobalHybrid .or. tCam) then
+        call xc_f03_func_end(xcfunc_xc)
+      else
+        call xc_f03_func_end(xcfunc_x)
+        call xc_f03_func_end(xcfunc_c)
+      end if
     end if
 
  end subroutine density_grid
