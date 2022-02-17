@@ -9,16 +9,16 @@ module hamiltonian
   implicit none
   private
 
-  public :: build_fock, build_coulomb_matrix
+  public :: build_hamiltonian, build_coulomb_matrix
   public :: build_hf_ex_matrix, build_dft_exc_matrix
 
 
 contains
 
   !> Main driver routine for Fock matrix build-up. Also calls mixer with potential matrix.
-  subroutine build_fock(iScf, tt, uu, nuc, vconf, jj, kk, pp, max_l, num_alpha, poly_order,&
-      & problemsize, xcnr, num_mesh_points, weight, abcissa, vxc, alpha, pot_old, pot_new,&
-      & tZora, tBroyden, mixing_factor, ff)
+  subroutine build_hamiltonian(iScf, tt, uu, nuc, vconf, jj, kk, kk_lr, pp, max_l, num_alpha,&
+      & poly_order, problemsize, xcnr, num_mesh_points, weight, abcissa, vxc, alpha, pot_old,&
+      & pot_new, tZora, tBroyden, mixing_factor, ff, camAlpha, camBeta)
 
     !> current SCF step
     integer, intent(in) :: iScf
@@ -40,6 +40,9 @@ contains
 
     !> (hf) exchange supermatrix
     real(dp), intent(in) :: kk(0:,:,:,0:,:,:)
+
+    !> (hf) exchange supermatrix (long-range, range-separated version)
+    real(dp), intent(in) :: kk_lr(0:,:,:,0:,:,:)
 
     !> density matrix supervector
     real(dp), intent(in) :: pp(:,0:,:,:)
@@ -92,22 +95,42 @@ contains
     !> fock matrix supervector
     real(dp), intent(out) :: ff(:,0:,:,:)
 
+    !> CAM alpha parameter
+    real(dp), intent(in) :: camAlpha
+
+    !> CAM beta parameter
+    real(dp), intent(in) :: camBeta
+
     !> auxiliary matrices
     real(dp), allocatable :: j_matrix(:,:,:), k_matrix(:,:,:,:), p_total(:,:,:), t_zora(:,:,:,:)
 
-    !> auxiliary matrix for hybrids
-    real(dp), allocatable :: k_matrix2(:,:,:,:)
+    !> auxiliary matrices for (CAM) hybrids
+    real(dp), allocatable :: k_matrix2(:,:,:,:), k_matrix3(:,:,:,:)
 
-    !> auxiliary variables
+    !! true, if a (long-range corrected) range-separated hybrid functional is requested
+    logical :: tLC
+
+    !! true, if a CAM functional is requested
+    logical :: tCam
+
+    !! true, if a global hybrid functional is requested
+    logical :: tGlobalHybrid
+
+    !! auxiliary variables
     integer :: ii, jjj, kkk, ll, mm, ss, ttt, iMix
+
+    tLC = ((xcnr == 5) .or. (xcnr == 6))
+    tCam = ((xcnr == 9) .or. (xcnr == 10))
+    tGlobalHybrid = ((xcnr == 7) .or. (xcnr == 8))
 
     ff(:,:,:,:) = 0.0_dp
 
     allocate(j_matrix(0:max_l, problemsize, problemsize))
     allocate(k_matrix(2, 0:max_l, problemsize, problemsize))
 
-    ! additional k_matrix for hybrids
+    ! additional k_matrix for (CAM) hybrids
     allocate(k_matrix2(2, 0:max_l, problemsize, problemsize))
+    allocate(k_matrix3(2, 0:max_l, problemsize, problemsize))
 
     allocate(t_zora(2, 0:max_l, problemsize, problemsize))
     t_zora(:,:,:,:) = 0.0_dp
@@ -133,12 +156,37 @@ contains
     end if
 
     ! HF - DFT hybrid
-    if (xcnr >= 5) then
+    if (tLC) then
+       call build_hf_ex_matrix(kk_lr, pp, max_l, num_alpha, poly_order, k_matrix)
+       call build_dft_exc_matrix(max_l, num_alpha, poly_order, alpha, num_mesh_points, abcissa,&
+           & weight, vxc, k_matrix2)
+       k_matrix(:,:,:,:) = k_matrix + k_matrix2
+     elseif (tGlobalHybrid) then
        call build_hf_ex_matrix(kk, pp, max_l, num_alpha, poly_order, k_matrix)
        call build_dft_exc_matrix(max_l, num_alpha, poly_order, alpha, num_mesh_points, abcissa,&
            & weight, vxc, k_matrix2)
-       k_matrix(1, :,:,:) = k_matrix(1, :,:,:) + k_matrix2(1, :,:,:)
-       k_matrix(2, :,:,:) = k_matrix(2, :,:,:) + k_matrix2(2, :,:,:)
+       if (xcnr == 7) then
+         ! PBE0 requires 1/4 Hartree-Fock exchange and 3/4 PBE-DFT exchange
+         ! --> 1/4 HF exchange + full libXC PBE-DFT exchange (3/4 included)
+         k_matrix(:,:,:,:) = 1.0_dp / 4.0_dp * k_matrix + k_matrix2
+       elseif (xcnr == 8) then
+         ! B3LYP parameters a=0.20, b=0.72, c=0.81 (libXC defaults)
+         ! --> 0.20 * HF exchange + full libXC DFT exchange
+         k_matrix(:,:,:,:) = 0.20_dp * k_matrix + k_matrix2
+       end if
+     elseif (tCam) then
+       call build_hf_ex_matrix(kk, pp, max_l, num_alpha, poly_order, k_matrix)
+       call build_hf_ex_matrix(kk_lr, pp, max_l, num_alpha, poly_order, k_matrix2)
+       call build_dft_exc_matrix(max_l, num_alpha, poly_order, alpha, num_mesh_points, abcissa,&
+           & weight, vxc, k_matrix3)
+       if (xcnr == 9) then
+         ! CAMY-B3LYP parameters (libXC defaults)
+         ! k_matrix(:,:,:,:) = camAlpha * 0.20_dp * k_matrix + camBeta * k_matrix2 + k_matrix3
+         k_matrix(:,:,:,:) = camAlpha * k_matrix + camBeta * k_matrix2 + k_matrix3
+       elseif (xcnr == 10) then
+         ! CAMY-PBE0
+         k_matrix(:,:,:,:) = camAlpha * k_matrix + camBeta * k_matrix2 + k_matrix3
+       end if
     end if
 
     ! build mixer input
@@ -150,8 +198,8 @@ contains
     call mixing_driver(pot_old, pot_new, max_l, num_alpha, poly_order, problemsize,&
         & iScf - iMix * 40, tBroyden, mixing_factor)
 
-    ! Not sure: before or after mixer .... ? Potential .ne. Matrix elements
-    ! Should be irrelevant once self-consistency is reached
+    ! Not sure: before or after mixer (potential .ne. Matrix elements)?
+    ! Should be irrelevant once self-consistency is reached.
     if (tZora .and. (iScf /= 0)) then
       call zora_t_correction(1, t_zora, max_l, num_alpha, alpha, poly_order, num_mesh_points,&
           & weight, abcissa, vxc, nuc, pp, problemsize)
@@ -182,7 +230,7 @@ contains
       end do
     end do
 
-  end subroutine build_fock
+  end subroutine build_hamiltonian
 
 
   !> Builds Coulomb matrix to be added to the Fock matrix from Coulomb supermatrix by multiplying
@@ -295,7 +343,7 @@ contains
                       do rr = 1, poly_order(nn)
                         vv = vv + 1
 
-                        ! multiply hf exchange supermatrix with density matrix supervector per spin
+                        ! multiply HF exchange supermatrix with density matrix supervector per spin
                         k_matrix(1, ii, ss, tt) = k_matrix(1, ii, ss, tt)&
                             & + kk(ii, ss, tt, nn, uu, vv) * pp(1, nn, uu, vv)
                         k_matrix(2, ii, ss, tt) = k_matrix(2, ii, ss, tt)&

@@ -68,6 +68,9 @@ module globals
   !> (hf) exchange supermatrix
   real(dp), allocatable :: kk(:,:,:,:,:,:)
 
+  !> (hf) exchange supermatrix (long-range, range-separated version)
+  real(dp), allocatable :: kk_lr(:,:,:,:,:,:)
+
   !> wavefunction coefficients
   real(dp), allocatable :: cof(:,:,:,:)
 
@@ -203,6 +206,7 @@ contains
     write(*, '(A,I0,A)') 'Size of one Supermatrix is ', size(jj), ' double precision elements'
 
     allocate(kk(0:max_l, problemsize, problemsize, 0:max_l, problemsize, problemsize))
+    allocate(kk_lr(0:max_l, problemsize, problemsize, 0:max_l, problemsize, problemsize))
 
     write(*, '(A,I3)') 'MAXIMUM SIZE OF EIGENPROBLEM IS ', problemsize
     write(*, '(A)') ' '

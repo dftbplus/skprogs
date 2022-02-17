@@ -218,18 +218,18 @@ contains
     beta = (pi/sin_pi + pi_hlf*sin_pi/sin_pi_hlf)*step
     sin_pi = sin_pi*sin_pi ! ^2
 
-   sin_pi_hlf = sin_pi_hlf*sin_pi_hlf ! ^4
-   sin_pi_hlf = sin_pi_hlf*sin_pi_hlf ! ^8
-   gama = -(a2c*sin_pi/sin_pi_hlf)
-   self%fdmat%d(3) = -pi_rm_4_3*cos_pi_hlf/sin_pi_hlf
-   self%fdmat%g(3) = -llp1_pi_2_rm_4/sin_pi*step_2*180.0_dp
+    sin_pi_hlf = sin_pi_hlf*sin_pi_hlf ! ^4
+    sin_pi_hlf = sin_pi_hlf*sin_pi_hlf ! ^8
+    gama = -(a2c*sin_pi/sin_pi_hlf)
+    self%fdmat%d(3) = -pi_rm_4_3*cos_pi_hlf/sin_pi_hlf
+    self%fdmat%g(3) = -llp1_pi_2_rm_4/sin_pi*step_2*180.0_dp
 
-   self%fdmat%H1(7, 3) = (-490.0_dp)   + gama*step_2*180.0_dp
-   self%fdmat%H1(6, 4) = (270.0_dp)    + beta*(135.0_dp)
-   self%fdmat%H1(5, 5) = (-27.0_dp)    + beta*(-27.0_dp)
-   self%fdmat%H1(4, 6) = (2.0_dp)      + beta*3.0_dp
-   self%fdmat%H1(8, 2) = (270.0_dp)    + beta*(-135.0_dp)
-   self%fdmat%H1(9, 1) = (-27.0_dp)    + beta*(27.0_dp)
+    self%fdmat%H1(7, 3) = (-490.0_dp)   + gama*step_2*180.0_dp
+    self%fdmat%H1(6, 4) = (270.0_dp)    + beta*(135.0_dp)
+    self%fdmat%H1(5, 5) = (-27.0_dp)    + beta*(-27.0_dp)
+    self%fdmat%H1(4, 6) = (2.0_dp)      + beta*3.0_dp
+    self%fdmat%H1(8, 2) = (270.0_dp)    + beta*(-135.0_dp)
+    self%fdmat%H1(9, 1) = (-27.0_dp)    + beta*(27.0_dp)
 
    do ii=4, N-3
       zz = self%fdmat%zi(ii)
