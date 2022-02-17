@@ -153,6 +153,14 @@ class SkgenSktableAssembly:
         if xcn in ('lc-bnl', 'lc-pbe'):
             rsh_tag = "RangeSep\nLC {:f}".format(myinput.xcf.omega)
             extra_tag = [rsh_tag]
+        if xcn == 'cam-b3lyp':
+            rsh_tag = "RangeSep\nCAM {:f} {:f} {:f}".format(myinput.xcf.omega,
+                                                            myinput.xcf.alpha,
+                                                            myinput.xcf.beta)
+            extra_tag = [rsh_tag]
+        if xcn in ('pbe0', 'b3lyp'):
+            rsh_tag = "GlobalHybrid"
+            extra_tag = [rsh_tag]
 
         if self._input.homo:
             onsites, occs, hubbus, spinpolerr, mass = self._get_atomic_data()
