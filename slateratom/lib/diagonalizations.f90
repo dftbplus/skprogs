@@ -153,7 +153,7 @@ contains
 !
 ! **********************************************************************
 !
-!  This is a collection of subroutines designated to solve the real*8
+!  This is a collection of subroutines designated to solve the real(dp)
 !  general symmetric eigenvalue problem with or without eigenvectors.
 !  The routines have been taken from different freeware FORTRAN
 !  libraries and optimized by hand (or eye ?! ;-)). Most of the
@@ -219,7 +219,7 @@ contains
         integer, intent(in) :: iev,iord
         integer :: IER,ii,i,j
         real(dp) :: a,b,ew,h,eps
-!        IMPLICIT REAL*8 (A-H,O-Z)
+!        IMPLICIT real(dp) (A-H,O-Z)
         DIMENSION  A(NA,N),B(NB,N),EW(N),H(N)
 !
 !        do i=1,n
@@ -272,7 +272,7 @@ contains
         IMPLICIT NONE
         integer :: N,NB,ICHO,i,ii,j,K,i1
         real(dp) :: B,d,s
-!        IMPLICIT REAL*8 (A-H,O-Z)
+!        IMPLICIT real(dp) (A-H,O-Z)
         DIMENSION  B(NB,N)
 !
         IF (ICHO .GT. N)  GOTO 200
@@ -326,7 +326,7 @@ contains
         IMPLICIT NONE
         integer :: N,NA,NB,i,j,ii,k,i1
         real(dp) :: A,B,H,s,d
-!        IMPLICIT REAL*8 (A-H,O-Z)
+!        IMPLICIT real(dp) (A-H,O-Z)
         DIMENSION  A(NA,N),B(NB,N),H(N)
 !
 !  FILL MATRIX
@@ -398,7 +398,7 @@ contains
         IMPLICIT NONE
         integer :: NM,N,iev,i,j,ii,K,JP1,L
         real(dp) :: A,D,E,H,HH,G,F,scale
-!        IMPLICIT REAL*8 (A-H,O-Z)
+!        IMPLICIT real(dp) (A-H,O-Z)
         DIMENSION  A(NM,N),D(N),E(N)
 !
         DO I = 1,N
@@ -565,7 +565,7 @@ contains
         integer :: NM,N,iev,ier,i,j,ii,k,M,L,MM1,KK,MML
         real(dp) :: E,Z,D,DD,P,G,R,S,T,PSI,PSJ,F,B,C,anorm
         real(dp) :: big,eps4,eps,epss
-!        IMPLICIT REAL*8 (A-H,O-Z)
+!        IMPLICIT real(dp) (A-H,O-Z)
         DIMENSION  D(N),E(N),Z(NM,N)
 !
         IER = 0
@@ -704,7 +704,7 @@ contains
 ! ******************************************************************
 !
 !     SUBROUTINE IQLDIA (NM,N,D,E,Z,IEV,IER)
-!       IMPLICIT REAL*8 (A-H,O-Z)
+!       IMPLICIT real(dp) (A-H,O-Z)
 !       DIMENSION  D(N),E(N),Z(NM,N)
 !
 !       IER = 0
@@ -810,7 +810,7 @@ contains
         IMPLICIT NONE
         integer :: N,M,NR,NX,NY,i,j,ii,I1,K
         real(dp) :: R,X,Y,H,D,S
-!        IMPLICIT REAL*8 (A-H,O-Z)
+!        IMPLICIT real(dp) (A-H,O-Z)
         DIMENSION  R(NR,N),X(NX,M),Y(NY,M),H(N)
 !
 !  CALCULATION OF X = INV(R) * Y
@@ -867,7 +867,7 @@ contains
         IMPLICIT NONE
         integer :: NM,M,NQ,IEV,i,j,ii,KK,K,N
         real(dp) :: D,Q,E,H,S
-!        IMPLICIT REAL*8 (A-H,O-Z)
+!        IMPLICIT real(dp) (A-H,O-Z)
         LOGICAL    LMIN,LMAX
         DIMENSION  D(NQ),E(NQ),Q(NM,NQ)
 !
