@@ -303,7 +303,7 @@ contains
         nRad = size(quads(1)%xx)
         nAng = size(quads(2)%xx)
         call getskintegrals(t_integ, nRad, nAng, atom1, atom2, grid1, grid2, dots, weights,&
-            & inp%kappa, inp%tDensitySuperpos, inp%iXC, inp%tXchyb, imap, xcfunc_x, xcfunc_c,&
+            & inp%tDensitySuperpos, inp%iXC, inp%tXchyb, imap, xcfunc_x, xcfunc_c,&
             & skhambuffer(:, ir), skoverbuffer(:, ir), denserr(ir))
       end do lpDist
       denserrmax = max(denserrmax, maxval(denserr))
@@ -341,7 +341,7 @@ contains
 
 
   !> Calculates SK-integrals.
-  subroutine getskintegrals(t_integ, nRad, nAng, atom1, atom2, grid1, grid2, dots, weights, kappa,&
+  subroutine getskintegrals(t_integ, nRad, nAng, atom1, atom2, grid1, grid2, dots, weights,&
       & tDensitySuperpos, iXC, tXchyb, imap, xcfunc_x, xcfunc_c, skham, skover, denserr)
 
     !> Becke integrator instances
@@ -361,9 +361,6 @@ contains
 
     !> integration weights
     real(dp), intent(in) :: weights(:)
-
-    !> range-separation parameter
-    real(dp), intent(in) :: kappa
 
     !> true, if density superposition is requested, otherwise potential superposition is applied
     logical, intent(in) :: tDensitySuperpos
@@ -402,17 +399,14 @@ contains
     !! total potential and electron density of two atoms
     real(dp), allocatable :: potval(:), densval(:)
 
-    !! atomic 1st and 2nd density derivatives of atom 1
-    real(dp), allocatable :: densval1p(:), densval1pp(:)
+    !! atomic 1st density derivatives of atom 1
+    real(dp), allocatable :: densval1p(:)
 
-    !! atomic 1st and 2nd density derivatives of atom 2
-    real(dp), allocatable :: densval2p(:), densval2pp(:)
+    !! atomic 1st density derivatives of atom 2
+    real(dp), allocatable :: densval2p(:)
 
     !! real tesseral spherical harmonic for spherical coordinate (theta) of atom 1 and atom 2
     real(dp), allocatable :: spherval1(:), spherval2(:)
-
-    !! higher-level density expressions
-    real(dp), allocatable :: absgr(:), laplace(:), gr_grabsgr(:)
 
     !! temporary storage for Hamiltonian, overlap, density and pre-factors
     real(dp) :: integ1, integ2, dens, prefac
@@ -480,7 +474,7 @@ contains
         densval1p = atom1%drho%getValue(r1)
         densval2p = atom2%drho%getValue(r2)
         ! care about correct 4pi normalization of density and compute sigma
-        sigma = getLibxcSigma(densval, densval1p, densval2p, r1, r2, dots)
+        sigma = getLibxcSigma(densval1p, densval2p, dots)
       end if
 
       select case (iXC)
@@ -533,8 +527,8 @@ contains
 
       if (tXchyb) then
         ! long-range exchange contribution
-        lrx = 0.5_dp * getLcContribution(t_integ, atom1, atom2, imap, ii, kappa, r1, theta1, r2,&
-            & theta2, weights)
+        lrx = 0.5_dp * getLcContribution(t_integ, atom1, atom2, imap, ii, r1, theta1, r2, theta2,&
+            & weights)
         ! add up long-range exchange to the Hamiltonian
         integ1 = integ1 - lrx
       end if
@@ -569,16 +563,10 @@ contains
 
 
   !> Calculates libXC sigma of dimer.
-  pure function getLibxcSigma(rho, drho1, drho2, r1, r2, dots) result(sigma)
-
-    !> superposition of atomic densities of atom 1 and atom 2
-    real(dp), intent(in) :: rho(:)
+  pure function getLibxcSigma(drho1, drho2, dots) result(sigma)
 
     !> 1st derivative of atomic densities
     real(dp), intent(in) :: drho1(:), drho2(:)
-
-    !> radial spherical coordinates of atomic grids
-    real(dp), intent(in) :: r1(:), r2(:)
 
     !> dot product of unit distance vectors
     real(dp), intent(in) :: dots(:)
@@ -641,11 +629,13 @@ contains
     !> -2 div(vsigma grad(n)) on grid
     real(dp), intent(out), allocatable :: divv(:)
 
+    !!
     integer :: nn, ia, ir
 
     !! radii and theta values of the grid
     real(dp), allocatable :: rval(:), tval(:)
 
+    !!
     real(dp), allocatable :: aa(:,:), dar(:), dat(:), bb(:,:)
 
     allocate(divv(size(drho1)))
@@ -797,55 +787,9 @@ contains
   end function getHamiltonian
 
 
-  !> Calculates higher-level expressions based on the density's 1st and 2nd derivatives.
-  pure subroutine getDerivs(drho1, d2rho1, drho2, d2rho2, r1, r2, dots, absgr, laplace, gr_grabsgr)
-
-    !> 1st and 2nd atomic density derivatives on grid
-    real(dp), intent(in) :: drho1(:), d2rho1(:), drho2(:), d2rho2(:)
-
-    !> radial spherical coordinates of atom 1 and atom 2 on grid
-    real(dp), intent(in) :: r1(:), r2(:)
-
-    !> dot product of unit distance vectors
-    real(dp), intent(in) :: dots(:)
-
-    !> absolute total density gradient
-    real(dp), intent(out) :: absgr(:)
-
-    !> laplace operator acting on total density
-    real(dp), intent(out) :: laplace(:)
-
-    !> (grad rho4pi) * grad(abs(grad rho4pi))
-    real(dp), intent(out) :: gr_grabsgr(:)
-
-    !! temporary storage
-    real(dp), allocatable :: f1(:), f2(:)
-
-    !! number of grid points
-    integer :: nn
-
-    nn = size(drho1)
-    allocate(f1(nn), f2(nn))
-
-    f1(:) = drho1 + dots * drho2
-    f2(:) = drho2 + dots * drho1
-
-    absgr(:) = sqrt(drho1 * f1 + drho2 * f2)
-    laplace(:) = d2rho1 + d2rho2 + 2.0_dp * (drho1 / r1 + drho2 / r2)
-    where (absgr > epsilon(1.0_dp))
-      gr_grabsgr = (d2rho1 * f1 * f1 + d2rho2 * f2 * f2&
-          & + (1.0_dp - dots**2) * drho1 * drho2 * (drho2 / r1 + drho1 / r2))&
-          & / absgr
-    elsewhere
-      gr_grabsgr = 0.0_dp
-    end where
-
-  end subroutine getDerivs
-
-
   !>
-  function getLcContribution(t_int, atom1, atom2, imap, iInt, kappa, rr1, theta1, rr2, theta2,&
-      & weights) result(res2)
+  function getLcContribution(t_int, atom1, atom2, imap, iInt, rr1, theta1, rr2, theta2, weights)&
+      & result(res2)
 
     !> Becke integrator instance
     type(becke_integrator), intent(inout) :: t_int
@@ -859,9 +803,6 @@ contains
     !> current integral index
     integer, intent(in) :: iInt
 
-    !> range-separation parameter
-    real(dp), intent(in) :: kappa
-
     !! spherical coordinates (r, theta) of atom 1 and atom 2 on grid
     real(dp), intent(in) :: rr1(:), rr2(:), theta1(:), theta2(:)
 
@@ -872,16 +813,31 @@ contains
     real(dp) :: res2
 
     !!
-    real(dp), pointer :: rr3(:), theta3(:), phi3(:)
+    real(dp), pointer :: rr3(:)
+
+    !!
     integer :: nGrid, ii, kk
+
+    !!
     real(dp) :: tmp, yy2, tsymb
-    real(dp), allocatable :: VV(:), V(:), tmp22(:), tmp11(:), AA(:), AA2(:), rrin(:), rrin2(:)
+
+    !!
+    real(dp), allocatable :: V(:), tmp22(:), tmp11(:), AA(:), AA2(:), rrin(:), rrin2(:)
+
+    !!
     real(dp), allocatable :: BBB(:), CCC(:)
+
+    !!
     real(dp), allocatable :: zi(:), V_l(:,:,:),rho_lm(:),res(:),rho_lm2(:),rho_lm3(:)
-    integer :: ll1,mm1,ll2,mm2,N_radial,ll_nu,mm_nu,ll_mu,mm_mu,ll_s,ll,ll_max
+
+    !!
+    integer :: N_radial, ll_nu, mm_nu, ll_mu, mm_mu, ll_s, ll, ll_max
+
+    !!
     real(dp) :: charge
 
-    type(TRealTessY) :: tes1, tes2, tes3, tess
+    !!
+    type(TRealTessY) :: tess
 
     ! \int phi^B_a(r2) * phi^A_b(r2) \int phi^A_b(r1) phi^A_c(r1) / |r2-r1|
 

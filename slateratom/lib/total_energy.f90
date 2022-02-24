@@ -14,8 +14,8 @@ contains
 
   !> Calculates total energy for non-ZORA calculations.
   subroutine total_energy(tt, uu, nuc, vconf, jj, kk, kk_lr, pp, max_l, num_alpha, poly_order,&
-      & problemsize, xcnr, num_mesh_points, weight, abcissa, rho, exc, camAlpha, camBeta, kinetic,&
-      & nuclear, coulomb, exchange, dft_xc_energy, confinement, etot)
+      & xcnr, num_mesh_points, weight, abcissa, rho, exc, camAlpha, camBeta, kinetic, nuclear,&
+      & coulomb, exchange, dft_xc_energy, confinement, etot)
 
     !> kinetic supervector
     real(dp), intent(in) :: tt(0:,:,:)
@@ -49,9 +49,6 @@ contains
 
     !> highest polynomial order + l in each shell
     integer, intent(in) :: poly_order(0:)
-
-    !> maximum size of the eigenproblem
-    integer, intent(in) :: problemsize
 
     !> identifier of exchange-correlation type
     integer, intent(in) :: xcnr

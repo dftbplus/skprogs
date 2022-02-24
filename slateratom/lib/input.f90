@@ -340,6 +340,8 @@ contains
     if (xcnr == 9) write(*, '(A)') 'CAM: CAMY-B3LYP'
     if (xcnr == 10) write(*, '(A)') 'CAM: CAMY-PBE0'
 
+    write(*, '(A,I6)') 'Max. number of SCF iterations: ', maxiter
+
     write(*, '(A,I1)') 'Max. angular momentum: ', max_l
     write(*, '(A,I5)') 'Number of points for numerical radial integration: ', num_mesh_points
 

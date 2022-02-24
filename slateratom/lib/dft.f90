@@ -68,7 +68,7 @@ contains
   !> Calculate and store density and density derivatives on radial grid.
   !! Further calculates and stores exchange-correlation potential and energy density on grid.
   subroutine density_grid(pp, max_l, num_alpha, poly_order, alpha, num_mesh_points, abcissa, dzdr,&
-      & d2zdr2, dz, xcnr, kappa, camAlpha, camBeta, rho, drho, ddrho, vxc, exc, xalpha_const)
+      & dz, xcnr, kappa, camAlpha, camBeta, rho, drho, ddrho, vxc, exc, xalpha_const)
 
     !> density matrix supervector
     real(dp), intent(in) :: pp(:, 0:,:,:)
@@ -93,9 +93,6 @@ contains
 
     !> dz/dr
     real(dp), intent(in) :: dzdr(:)
-
-    !> d2z/dr2
-    real(dp), intent(in) :: d2zdr2(:)
 
     !> step width in linear coordinates
     real(dp), intent(in) :: dz
@@ -131,7 +128,7 @@ contains
     real(dp), intent(in) :: xalpha_const
 
     !! total density on grid (spins summed up)
-    real(dp) :: rhotot, rho4pitot
+    real(dp) :: rhotot
 
     !! difference between spin densities
     real(dp) :: rhodiff
@@ -142,9 +139,6 @@ contains
 
     !! number of density grid points
     integer(c_size_t) :: nn
-
-    !! spin-polarized LDA exchange energy and potential
-    real(dp) :: exlda(2), vxlda(2)
 
     !! exchange and correlation energy on grid
     real(dp), allocatable :: ex(:), ec(:)
@@ -278,6 +272,8 @@ contains
       rho(ii, 2) = density_at_point(pp(2, :,:,:), max_l, num_alpha, poly_order, alpha, abcissa(ii))
     end do
 
+    print *, '###################### Fine1'
+
     rho = max(rho, 0.0_dp)
 
     if (xcnr > 2) then
@@ -297,6 +293,8 @@ contains
 
     end if
 
+    print *, '###################### Fine2'
+
     ! case Xalpha treated separately:
     ! divide by 4*pi to catch different normalization of spherical harmonics
     if (xcnr == 1) then
@@ -312,12 +310,14 @@ contains
 
     ! divide by 4*pi to catch different normalization of spherical harmonics
     rhor(:,:) = transpose(rho) * rec4pi
-    rho4pitot = rho(ii, 1) + rho(ii, 2)
+    print *, '###################### Fine3'
     if (tGGA .or. tLC .or. tGlobalHybrid .or. tCam) then
       sigma(1, :) = drho(:, 1) * drho(:, 1) * rec4pi**2
       sigma(2, :) = drho(:, 1) * drho(:, 2) * rec4pi**2
       sigma(3, :) = drho(:, 2) * drho(:, 2) * rec4pi**2
     end if
+
+    print *, '###################### Fine3'
 
     select case (xcnr)
     ! LDA-PW91, BNL (long-range corrected)

@@ -148,7 +148,7 @@ program HFAtom
 
     ! get electron density, derivatives, exc related potentials and energy densities
     call density_grid(pp, max_l, num_alpha, poly_order, alpha, num_mesh_points, abcissa, dzdr,&
-        & d2zdr2, dz, xcnr, kappa, camAlpha, camBeta, rho, drho, ddrho, vxc, exc, xalpha_const)
+        & dz, xcnr, kappa, camAlpha, camBeta, rho, drho, ddrho, vxc, exc, xalpha_const)
 
     ! build Fock matrix and get total energy during SCF
     call build_hamiltonian(iScf, tt, uu, nuc, vconf, jj, kk, kk_lr, pp, max_l, num_alpha,&
@@ -161,10 +161,9 @@ program HFAtom
           & camAlpha, camBeta, kinetic_energy, nuclear_energy, coulomb_energy, exchange_energy,&
           & x_en_2, conf_energy, total_ene)
     else
-      call total_energy(tt, uu, nuc, vconf, jj, kk, kk_lr, pp, max_l, num_alpha, poly_order,&
-          & problemsize, xcnr, num_mesh_points, weight, abcissa, rho, exc, camAlpha, camBeta,&
-          & kinetic_energy, nuclear_energy, coulomb_energy, exchange_energy, x_en_2, conf_energy,&
-          & total_ene)
+      call total_energy(tt, uu, nuc, vconf, jj, kk, kk_lr, pp, max_l, num_alpha, poly_order, xcnr,&
+          & num_mesh_points, weight, abcissa, rho, exc, camAlpha, camBeta, kinetic_energy,&
+          & nuclear_energy, coulomb_energy, exchange_energy, x_en_2, conf_energy, total_ene)
     end if
 
     call check_convergence(pot_old, pot_new, max_l, problemsize, iScf, change_max, tConverged)

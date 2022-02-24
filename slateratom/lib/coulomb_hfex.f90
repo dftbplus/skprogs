@@ -298,13 +298,9 @@ contains
     !! instance of becke integrator
     type(becke_integrator) :: t_integ
 
-    !! STO parameters
-    type(TSlaterBasisIndex) :: basis_index1, basis_index2
-    type(TSlaterBasisIndex) :: basis_index3, basis_index4
-
     !! inner integral
     real(dp), allocatable :: Vin(:,:,:,:)
-    integer :: eta_max, sigma_max, ll_max, N_radial, numalpha
+    integer :: eta_max, sigma_max, ll_max, N_radial
     integer :: porder, nalpha, ll1, ll2, alp, bet, sigma1, sigma2
     integer :: eta1, eta2, aa, bb, lambda, mu, maxllind, npl
 
@@ -318,8 +314,6 @@ contains
 
     real(dp), allocatable :: gauntFaktor(:,:,:), innerint(:), normfaktor(:,:,:)
     real(dp) :: gaunt_lm, gaunt2_lm, norm
-
-    real(dp) :: res
 
     N_radial = grid_params%N_radial
     ll_max = grid_params%ll_max
