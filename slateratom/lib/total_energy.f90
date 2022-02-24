@@ -366,6 +366,7 @@ contains
     !! auxiliary variables
     integer :: ii, jjj, kkk, ll, mm, nn, oo, ppp, qq, rr, ss, tt, uu, vv
 
+    coulomb = 0.0_dp
     do ii = 0, max_l
       ss = 0
       do jjj = 1, num_alpha(ii)
@@ -426,6 +427,8 @@ contains
 
     !! auxiliary variables
     integer :: ii, jj, kkk, ll, mm, nn, oo, ppp, qq, rr, ss, tt, uu, vv
+
+    exchange = 0.0_dp
 
     do ii = 0, max_l
       ss = 0
@@ -499,6 +502,9 @@ contains
     !> auxiliary variables
     integer :: ii, jj, kk, ll, mm, ss, ttt
 
+    kinetic = 0.0_dp
+    nuclear = 0.0_dp
+    confinement = 0.0_dp
     do ii = 0, max_l
       ss = 0
       do jj = 1, num_alpha(ii)

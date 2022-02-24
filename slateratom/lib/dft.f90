@@ -183,6 +183,9 @@ contains
     tGlobalHybrid = .false.
     tCam = .false.
 
+    rho(:,:) = 0.0_dp
+    drho(:,:) = 0.0_dp
+    ddrho(:,:) = 0.0_dp
     exc(:) = 0.0_dp
     vxc(:,:) = 0.0_dp
 

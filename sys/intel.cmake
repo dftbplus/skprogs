@@ -65,3 +65,4 @@ set(C_FLAGS_DEBUG "-g -Wall"
 #     "Directories where BLAS libraries can be found")
 #set(LAPACK_LIBRARY_DIR "$ENV{MKLROOT}/lib/intel64" CACHE STRING
 #    "Directories where LAPACK libraries can be found")
+set(BLA_VENDOR Intel10_64lp)

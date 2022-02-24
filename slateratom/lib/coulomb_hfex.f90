@@ -47,10 +47,10 @@ contains
     integer, intent(in) :: poly_order(0:)
 
     !> nucleus-electron supervector
-    real(dp), intent(out) :: uu(0:,:,:)
+    real(dp), intent(in) :: uu(0:,:,:)
 
     !> overlap supervector
-    real(dp), intent(out) :: ss(0:,:,:)
+    real(dp), intent(in) :: ss(0:,:,:)
 
     !> temporary storage
     real(dp) :: alpha1, alpha2
