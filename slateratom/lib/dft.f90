@@ -10,7 +10,8 @@ module dft
       & xc_f03_func_get_info, xc_f03_lda_exc_vxc, xc_f03_gga_exc_vxc, xc_f03_gga_fxc,&
       & xc_f03_func_set_ext_params, XC_LDA_X, XC_LDA_X_YUKAWA, XC_LDA_C_PW, XC_GGA_X_PBE,&
       & XC_GGA_X_B88, XC_GGA_X_SFAT_PBE, XC_HYB_GGA_XC_PBEH, XC_HYB_GGA_XC_B3LYP,&
-      & XC_HYB_GGA_XC_CAMY_B3LYP, XC_HYB_GGA_XC_CAMY_PBEH, XC_GGA_C_PBE, XC_GGA_C_LYP, XC_POLARIZED
+      & XC_HYB_GGA_XC_CAMY_B3LYP, XC_HYB_GGA_XC_CAMY_PBEH, XC_GGA_C_PBE, XC_GGA_C_LYP,&
+      & XC_POLARIZED
 
   implicit none
   private
@@ -229,12 +230,16 @@ contains
     elseif (xcnr == 9) then
       tCam = .true.
       call xc_f03_func_init(xcfunc_xc, XC_HYB_GGA_XC_CAMY_B3LYP, XC_POLARIZED)
-      call xc_f03_func_set_ext_params(xcfunc_xc, [camAlpha, camBeta, kappa, 0.81_dp])
+      call xc_f03_func_set_ext_params(xcfunc_xc, [camAlpha + camBeta, -camBeta, kappa, 0.81_dp])
       xcinfo = xc_f03_func_get_info(xcfunc_xc)
     elseif (xcnr == 10) then
       tCam = .true.
       call xc_f03_func_init(xcfunc_xc, XC_HYB_GGA_XC_CAMY_PBEH, XC_POLARIZED)
-      call xc_f03_func_set_ext_params(xcfunc_xc, [camAlpha, camBeta, kappa])
+      call xc_f03_func_set_ext_params(xcfunc_xc, [camAlpha + camBeta, -camBeta, kappa])
+      ! those calls seems to be equivalent to the statement above (note the underscores):
+      ! call xc_f03_func_set_ext_params_name(xcfunc_xc, '_alpha', ...)
+      ! call xc_f03_func_set_ext_params_name(xcfunc_xc, '_beta', ...)
+      ! call xc_f03_func_set_ext_params_name(xcfunc_xc, '_omega', ...)
       xcinfo = xc_f03_func_get_info(xcfunc_xc)
     end if
 
@@ -272,12 +277,9 @@ contains
       rho(ii, 2) = density_at_point(pp(2, :,:,:), max_l, num_alpha, poly_order, alpha, abcissa(ii))
     end do
 
-    print *, '###################### Fine1'
-
     rho = max(rho, 0.0_dp)
 
     if (xcnr > 2) then
-
       do ii = 1, num_mesh_points
 
         drho(ii, 1) = density_at_point_1st(pp(1, :,:,:), max_l, num_alpha, poly_order, alpha,&
@@ -290,10 +292,7 @@ contains
         ddrho(ii, 2) = density_at_point_2nd(pp(2, :,:,:), max_l, num_alpha, poly_order, alpha,&
             & abcissa(ii))
       end do
-
     end if
-
-    print *, '###################### Fine2'
 
     ! case Xalpha treated separately:
     ! divide by 4*pi to catch different normalization of spherical harmonics
@@ -310,14 +309,11 @@ contains
 
     ! divide by 4*pi to catch different normalization of spherical harmonics
     rhor(:,:) = transpose(rho) * rec4pi
-    print *, '###################### Fine3'
     if (tGGA .or. tLC .or. tGlobalHybrid .or. tCam) then
       sigma(1, :) = drho(:, 1) * drho(:, 1) * rec4pi**2
       sigma(2, :) = drho(:, 1) * drho(:, 2) * rec4pi**2
       sigma(3, :) = drho(:, 2) * drho(:, 2) * rec4pi**2
     end if
-
-    print *, '###################### Fine3'
 
     select case (xcnr)
     ! LDA-PW91, BNL (long-range corrected)
@@ -339,7 +335,7 @@ contains
     case(3:6)
       call xc_f03_gga_exc_vxc(xcfunc_c, nn, rhor(1, 1), sigma(1, 1), ec(1), vc(1, 1), vcsigma(1, 1))
       vxc(:,:) = transpose(vx + vc)
-      !! derivative of E vs. grad n, treat x and c at the same time
+      ! derivative of E vs. grad n
       do iSpin = 1, 2
         ! the other spin
         iSpin2 = 3 - iSpin

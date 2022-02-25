@@ -181,7 +181,6 @@ contains
            & weight, vxc, k_matrix3)
        if (xcnr == 9) then
          ! CAMY-B3LYP parameters (libXC defaults)
-         ! k_matrix(:,:,:,:) = camAlpha * 0.20_dp * k_matrix + camBeta * k_matrix2 + k_matrix3
          k_matrix(:,:,:,:) = camAlpha * k_matrix + camBeta * k_matrix2 + k_matrix3
        elseif (xcnr == 10) then
          ! CAMY-PBE0

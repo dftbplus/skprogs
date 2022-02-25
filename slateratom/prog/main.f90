@@ -11,7 +11,7 @@ program HFAtom
   use output, only : write_eigvec, write_eigval, write_moments, write_energies,&
       & write_energies_tagged, write_potentials_file_standard, write_densities_file_standard,&
       & write_waves_file_standard, write_wave_coeffs_file, cusp_values
-  use totalenergy, only : total_energy, zora_total_energy
+  use totalenergy, only : getTotalEnergy, getTotalEnergyZora
   use dft, only : check_accuracy, dft_start_pot, density_grid
   use utilities, only : check_electron_number, check_convergence
   use zora_routines, only : scaled_zora
@@ -156,13 +156,13 @@ program HFAtom
         & pot_new, tZora, tBroyden, mixing_factor, ff, camAlpha, camBeta)
 
     if (tZora) then
-      call zora_total_energy(tt, uu, nuc, vconf, jj, kk, kk_lr, pp, max_l, num_alpha, poly_order,&
+      call getTotalEnergyZora(tt, uu, nuc, vconf, jj, kk, kk_lr, pp, max_l, num_alpha, poly_order,&
           & problemsize, xcnr, num_mesh_points, weight, abcissa, rho, exc, vxc, eigval_scaled, occ,&
           & camAlpha, camBeta, kinetic_energy, nuclear_energy, coulomb_energy, exchange_energy,&
           & x_en_2, conf_energy, total_ene)
     else
-      call total_energy(tt, uu, nuc, vconf, jj, kk, kk_lr, pp, max_l, num_alpha, poly_order, xcnr,&
-          & num_mesh_points, weight, abcissa, rho, exc, camAlpha, camBeta, kinetic_energy,&
+      call getTotalEnergy(tt, uu, nuc, vconf, jj, kk, kk_lr, pp, max_l, num_alpha, poly_order,&
+          & xcnr, num_mesh_points, weight, abcissa, rho, exc, camAlpha, camBeta, kinetic_energy,&
           & nuclear_energy, coulomb_energy, exchange_energy, x_en_2, conf_energy, total_ene)
     end if
 
@@ -171,7 +171,7 @@ program HFAtom
     write(*, '(I4,2X,3(1X,F16.9),3X,E16.9)') iScf, total_ene, exchange_energy, x_en_2, change_max
 
     ! if self-consistency is reached, exit loop
-    if (tConverged) exit
+    if (tConverged) exit lpScf
 
     ! check conservation of number of electrons during SCF
     call check_electron_number(cof, ss, occ, max_l, num_alpha, poly_order, problemsize)
@@ -202,7 +202,7 @@ program HFAtom
   end if
 
   if (tZora) then
-    call zora_total_energy(tt, uu, nuc, vconf, jj, kk, kk_lr, pp, max_l, num_alpha, poly_order,&
+    call getTotalEnergyZora(tt, uu, nuc, vconf, jj, kk, kk_lr, pp, max_l, num_alpha, poly_order,&
         & problemsize, xcnr, num_mesh_points, weight, abcissa, rho, exc, vxc, eigval_scaled, occ,&
         & camAlpha, camBeta, zora_ekin, nuclear_energy, coulomb_energy, exchange_energy, x_en_2,&
         & conf_energy, total_ene)

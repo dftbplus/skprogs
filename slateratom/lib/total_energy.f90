@@ -7,15 +7,15 @@ module totalenergy
   implicit none
   private
 
-  public :: total_energy, zora_total_energy
+  public :: getTotalEnergy, getTotalEnergyZora
 
 
 contains
 
   !> Calculates total energy for non-ZORA calculations.
-  subroutine total_energy(tt, uu, nuc, vconf, jj, kk, kk_lr, pp, max_l, num_alpha, poly_order,&
+  subroutine getTotalEnergy(tt, uu, nuc, vconf, jj, kk, kk_lr, pp, max_l, num_alpha, poly_order,&
       & xcnr, num_mesh_points, weight, abcissa, rho, exc, camAlpha, camBeta, kinetic, nuclear,&
-      & coulomb, exchange, dft_xc_energy, confinement, etot)
+      & coulomb, hf_x_energy, dft_xc_energy, confinement, total_energy)
 
     !> kinetic supervector
     real(dp), intent(in) :: tt(0:,:,:)
@@ -75,10 +75,13 @@ contains
     real(dp), intent(in) :: camBeta
 
     !> resulting energy portions
-    real(dp), intent(out) :: kinetic, nuclear, coulomb, exchange, dft_xc_energy, confinement, etot
+    real(dp), intent(out) :: kinetic, nuclear, coulomb, hf_x_energy, dft_xc_energy, confinement
 
-    !! exchange contribution of long-range Hartree-Fock exchange matrix
-    real(dp) :: exchange_lr
+    !> resulting total energy
+    real(dp), intent(out) :: total_energy
+
+    !! exchange energy contribution of long-range Hartree-Fock exchange matrix
+    real(dp) :: hf_x_energy_lr
 
     !! density matrix supervector (spins summed up)
     real(dp), allocatable :: p_total(:,:,:)
@@ -103,14 +106,14 @@ contains
     tCam = ((xcnr == 9) .or. (xcnr == 10))
     tGlobalHybrid = ((xcnr == 7) .or. (xcnr == 8))
 
-    etot = 0.0_dp
+    total_energy = 0.0_dp
     kinetic = 0.0_dp
     nuclear = 0.0_dp
     dft_xc_energy = 0.0_dp
     confinement = 0.0_dp
     coulomb = 0.0_dp
-    exchange = 0.0_dp
-    exchange_lr = 0.0_dp
+    hf_x_energy = 0.0_dp
+    hf_x_energy_lr = 0.0_dp
 
     ! build total density matrix
     p_total = pp(1, :,:,:) + pp(2, :,:,:)
@@ -124,32 +127,31 @@ contains
     ! get Coulomb and HF exchange contributions
     coulomb = coulomb_energy(jj, p_total, max_l, num_alpha, poly_order)
     if (xcnr == 0) then
-      exchange = hf_ex_energy(kk, pp, max_l, num_alpha, poly_order)
+      hf_x_energy = hf_ex_energy(kk, pp, max_l, num_alpha, poly_order)
     elseif (tLC) then
-      exchange = hf_ex_energy(kk_lr, pp, max_l, num_alpha, poly_order)
+      hf_x_energy = hf_ex_energy(kk_lr, pp, max_l, num_alpha, poly_order)
     elseif (tGlobalHybrid) then
-      exchange = hf_ex_energy(kk, pp, max_l, num_alpha, poly_order)
+      hf_x_energy = hf_ex_energy(kk, pp, max_l, num_alpha, poly_order)
       if (xcnr == 7) then
         ! PBE0 requires 1/4 Hartree-Fock exchange
-        exchange = 1.0_dp / 4.0_dp * exchange
+        hf_x_energy = 1.0_dp / 4.0_dp * hf_x_energy
       elseif (xcnr == 8) then
         ! B3LYP requires 0.20 * HF exchange
-        exchange = 0.20_dp * exchange
+        hf_x_energy = 0.20_dp * hf_x_energy
       end if
     elseif (tCam) then
-      exchange = hf_ex_energy(kk, pp, max_l, num_alpha, poly_order)
-      exchange_lr = hf_ex_energy(kk_lr, pp, max_l, num_alpha, poly_order)
+      hf_x_energy = hf_ex_energy(kk, pp, max_l, num_alpha, poly_order)
+      hf_x_energy_lr = hf_ex_energy(kk_lr, pp, max_l, num_alpha, poly_order)
       if (xcnr == 9) then
         ! CAMY-B3LYP parameters a=0.20, b=0.72, c=0.81 (libXC defaults)
-        ! exchange = camAlpha * 0.20_dp * exchange
-        exchange = camAlpha * exchange
-        exchange_lr = camBeta * exchange_lr
-        exchange = exchange + exchange_lr
+        hf_x_energy = camAlpha * hf_x_energy
+        hf_x_energy_lr = camBeta * hf_x_energy_lr
+        hf_x_energy = hf_x_energy + hf_x_energy_lr
       elseif (xcnr == 10) then
         ! CAMY-PBE0
-        exchange = camAlpha * exchange
-        exchange_lr = camBeta * exchange_lr
-        exchange = exchange + exchange_lr
+        hf_x_energy = camAlpha * hf_x_energy
+        hf_x_energy_lr = camBeta * hf_x_energy_lr
+        hf_x_energy = hf_x_energy + hf_x_energy_lr
       end if
     end if
 
@@ -164,23 +166,23 @@ contains
 
     ! pure HF
     if (xcnr == 0) then
-      etot = dummy1 + 0.5_dp * coulomb + 0.5_dp * exchange
+      total_energy = dummy1 + 0.5_dp * coulomb + 0.5_dp * hf_x_energy
     ! (semi-)local functionals
     elseif ((xcnr > 0) .and. (xcnr <= 4)) then
-      etot = dummy1 + 0.5_dp * coulomb + dft_xc_energy
+      total_energy = dummy1 + 0.5_dp * coulomb + dft_xc_energy
     ! global hybrids, LC, CAM functionals
     else
-      etot = dummy1 + 0.5_dp * coulomb + dft_xc_energy + 0.5_dp * exchange
+      total_energy = dummy1 + 0.5_dp * coulomb + dft_xc_energy + 0.5_dp * hf_x_energy
     end if
 
-  end subroutine total_energy
+  end subroutine getTotalEnergy
 
 
   !> Calculates total energy for ZORA, note that the total energy is not well defined here.
-  subroutine zora_total_energy(tt, uu, nuc, vconf, jj, kk, kk_lr, pp, max_l, num_alpha,&
+  subroutine getTotalEnergyZora(tt, uu, nuc, vconf, jj, kk, kk_lr, pp, max_l, num_alpha,&
       & poly_order, problemsize, xcnr, num_mesh_points, weight, abcissa, rho, exc, vxc,&
-      & eigval_scaled, occ, camAlpha, camBeta, kinetic, nuclear, coulomb, exchange, xc_energy,&
-      & confinement, etot)
+      & eigval_scaled, occ, camAlpha, camBeta, kinetic, nuclear, coulomb, hf_x_energy,&
+      & dft_xc_energy, confinement, total_energy)
 
     !> kinetic supervector
     real(dp), intent(in) :: tt(0:,:,:)
@@ -252,10 +254,13 @@ contains
     real(dp), intent(in) :: camBeta
 
     !> resulting energy portions
-    real(dp), intent(out) :: kinetic, nuclear, coulomb, exchange, xc_energy, confinement, etot
+    real(dp), intent(out) :: kinetic, nuclear, coulomb, hf_x_energy, dft_xc_energy, confinement
+
+    !> resulting total energy
+    real(dp), intent(out) :: total_energy
 
     !! exchange contribution of long-range Hartree-Fock exchange matrix
-    real(dp) :: exchange_lr
+    real(dp) :: hf_x_energy_lr
 
     !! density matrix supervector (spins summed up)
     real(dp), allocatable :: p_total(:,:,:)
@@ -278,17 +283,17 @@ contains
 
     tGgaLda = ((xcnr > 0) .and. (xcnr <= 4))
     tLC = ((xcnr == 5) .or. (xcnr == 6))
-    tCam = (xcnr == 9)
+    tCam = ((xcnr == 9) .or. (xcnr == 10))
     tGlobalHybrid = ((xcnr == 7) .or. (xcnr == 8))
 
-    etot = 0.0_dp
+    total_energy = 0.0_dp
     kinetic = 0.0_dp
     nuclear = 0.0_dp
     confinement = 0.0_dp
     coulomb = 0.0_dp
-    exchange = 0.0_dp
-    exchange_lr = 0.0_dp
-    xc_energy = 0.0_dp
+    hf_x_energy = 0.0_dp
+    hf_x_energy_lr = 0.0_dp
+    dft_xc_energy = 0.0_dp
     eigsum = 0.0_dp
 
     ! build total density matrix
@@ -298,7 +303,7 @@ contains
     call core_hamiltonian_energies(tt, uu, vconf, p_total, max_l, num_alpha, poly_order, nuc,&
         & kinetic, nuclear, confinement)
 
-    ! sum of occupied eigenvalues
+    ! sum of occupied (scaled) eigenvalues
     do mm = 1, 2
       do nn = 0, max_l
         do oo = 1, problemsize
@@ -311,31 +316,57 @@ contains
 
     ! get Coulomb and HF exchange contributions
     coulomb = coulomb_energy(jj, p_total, max_l, num_alpha, poly_order)
-    if (tLC) then
-      exchange = hf_ex_energy(kk, pp, max_l, num_alpha, poly_order)
+    if (xcnr == 0) then
+      hf_x_energy = hf_ex_energy(kk, pp, max_l, num_alpha, poly_order)
+    elseif (tLC) then
+      hf_x_energy = hf_ex_energy(kk_lr, pp, max_l, num_alpha, poly_order)
+    elseif (tGlobalHybrid) then
+      hf_x_energy = hf_ex_energy(kk, pp, max_l, num_alpha, poly_order)
+      if (xcnr == 7) then
+        ! PBE0 requires 1/4 Hartree-Fock exchange
+        hf_x_energy = 1.0_dp / 4.0_dp * hf_x_energy
+      elseif (xcnr == 8) then
+        ! B3LYP requires 0.20 * HF exchange
+        hf_x_energy = 0.20_dp * hf_x_energy
+      end if
+    elseif (tCam) then
+      hf_x_energy = hf_ex_energy(kk, pp, max_l, num_alpha, poly_order)
+      hf_x_energy_lr = hf_ex_energy(kk_lr, pp, max_l, num_alpha, poly_order)
+      if (xcnr == 9) then
+        ! CAMY-B3LYP parameters a=0.20, b=0.72, c=0.81 (libXC defaults)
+        hf_x_energy = camAlpha * hf_x_energy
+        hf_x_energy_lr = camBeta * hf_x_energy_lr
+        hf_x_energy = hf_x_energy + hf_x_energy_lr
+      elseif (xcnr == 10) then
+        ! CAMY-PBE0
+        hf_x_energy = camAlpha * hf_x_energy
+        hf_x_energy_lr = camBeta * hf_x_energy_lr
+        hf_x_energy = hf_x_energy + hf_x_energy_lr
+      end if
     end if
 
-    call dft_exc_energy(num_mesh_points, rho, exc, weight, abcissa, xc_energy)
+    call dft_exc_energy(num_mesh_points, rho, exc, weight, abcissa, dft_xc_energy)
     call dft_vxc_energy(num_mesh_points, rho, vxc, weight, abcissa, dummy)
 
+    ! sum up spin channels
     xc_pot = dummy(1) + dummy(2)
 
     ! pure Hartree-Fock
     if (xcnr == 0) then
-      etot = eigsum - 0.5_dp * coulomb - 0.5_dp * exchange
+      total_energy = eigsum - 0.5_dp * coulomb - 0.5_dp * hf_x_energy
     ! (semi-)local functionals
     elseif (tGgaLda) then
-      etot = eigsum - 0.5_dp * coulomb + xc_energy - xc_pot
+      total_energy = eigsum - 0.5_dp * coulomb + dft_xc_energy - xc_pot
     ! range-separated (long-range corrected) hybrid functionals
     elseif (tLC) then
-      etot = eigsum - 0.5_dp * coulomb - 0.5_dp * exchange + xc_energy - xc_pot
+      total_energy = eigsum - 0.5_dp * coulomb - 0.5_dp * hf_x_energy + dft_xc_energy - xc_pot
     elseif (tGlobalHybrid) then
-      etot = eigsum - 0.5_dp * coulomb - 0.5_dp * exchange + xc_energy - xc_pot
+      total_energy = eigsum - 0.5_dp * coulomb - 0.5_dp * hf_x_energy + dft_xc_energy - xc_pot
     elseif (tCam) then
-      etot = eigsum - 0.5_dp * coulomb - 0.5_dp * exchange + xc_energy - xc_pot
+      total_energy = eigsum - 0.5_dp * coulomb - 0.5_dp * hf_x_energy + dft_xc_energy - xc_pot
     end if
 
-  end subroutine zora_total_energy
+  end subroutine getTotalEnergyZora
 
 
   !> Calculates Coulomb contribution to total energy by multiplying the jj supermatrix with the
