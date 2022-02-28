@@ -3,9 +3,9 @@ module coulomb_hfex
 
   use common_accuracy, only : dp
   use common_anglib, only : realGaunt
-  use common_poisson, only : becke_grid_params, becke_integrator, integrator_init,&
-      & integrator_set_kernel_param, integrator_precomp_fdmat, integrator_build_LU,&
-      & integrator_get_coords, integrator_solve_helmholz
+  use common_poisson, only : TBeckeGridParams, TBeckeIntegrator, TBeckeIntegrator_init,&
+      & TBeckeIntegrator_setKernelParam, TBeckeIntegrator_precompFdMatrix,&
+      & TBeckeIntegrator_buildLU, TBeckeIntegrator_getCoords, TBeckeIntegrator_solveHelmholz
   use utilities, only : fak
   use core_overlap, only : v
 
@@ -280,7 +280,7 @@ contains
     real(dp), intent(in) :: kappa
 
     !> holds parameters, defining a Becke integration grid
-    type(becke_grid_params), intent(in) :: grid_params
+    type(TBeckeGridParams), intent(in) :: grid_params
 
     !! Rev. Mod. Phys. 32, 186 (1960) eqn. 21
     real(dp), allocatable :: knu(:,:,:,:,:,:,:)
@@ -296,11 +296,11 @@ contains
     integer :: nu, nlp, nlq, nmr, nms
 
     !! instance of becke integrator
-    type(becke_integrator) :: t_integ
+    type(TBeckeIntegrator) :: t_integ
 
     !! inner integral
     real(dp), allocatable :: Vin(:,:,:,:)
-    integer :: eta_max, sigma_max, ll_max, N_radial
+    integer :: eta_max, sigma_max, ll_max, nRadial
     integer :: porder, nalpha, ll1, ll2, alp, bet, sigma1, sigma2
     integer :: eta1, eta2, aa, bb, lambda, mu, maxllind, npl
 
@@ -315,18 +315,18 @@ contains
     real(dp), allocatable :: gauntFaktor(:,:,:), innerint(:), normfaktor(:,:,:)
     real(dp) :: gaunt_lm, gaunt2_lm, norm
 
-    N_radial = grid_params%N_radial
+    nRadial = grid_params%nRadial
     ll_max = grid_params%ll_max
 
-    ! inititalize the becke_integrator
-    call integrator_init(t_integ, grid_params)
+    ! inititalize the becke integrator
+    call TBeckeIntegrator_init(t_integ, grid_params)
 
     ! set the kernel parameter
-    call integrator_set_kernel_param(t_integ, kappa)
-    call integrator_precomp_fdmat(t_integ)
-    call integrator_build_LU(t_integ)
+    call TBeckeIntegrator_setKernelParam(t_integ, kappa)
+    call TBeckeIntegrator_precompFdMatrix(t_integ)
+    call TBeckeIntegrator_buildLU(t_integ)
 
-    call integrator_get_coords(t_integ, [3, 1, 1], rr1)
+    call TBeckeIntegrator_getCoords(t_integ, [3, 1, 1], rr1)
 
     ! if poly order is not the same for all shells this will give a bug!
     porder = poly_order(0)
@@ -336,10 +336,10 @@ contains
 
     sigma_max = nalpha * (nalpha + 1) / 2
 
-    allocate(Vin(ll_max, eta_max, sigma_max, N_radial))
-    allocate(rho_lm(N_radial))
+    allocate(Vin(ll_max, eta_max, sigma_max, nRadial))
+    allocate(rho_lm(nRadial))
     allocate(expon(sigma_max))
-    allocate(Integrand(eta_max, sigma_max, N_radial))
+    allocate(Integrand(eta_max, sigma_max, nRadial))
 
     maxllind = (max_l + 1) * (max_l + 2) / 2
 
@@ -428,13 +428,13 @@ contains
           Integrand(ii, kkk, :) = rr1**(ii - 1) * exp(-expon(kkk) * rr1)
           do ll = 0, ll_max - 1
              rho_lm(:) = Integrand(ii, kkk, :)
-             call integrator_solve_helmholz(t_integ, ll, rho_lm)
-             Vin(ll + 1, ii, kkk, :) = rho_lm / rr1 * t_integ%integration_grid(3)%weight
+             call TBeckeIntegrator_solveHelmholz(t_integ, ll, rho_lm)
+             Vin(ll + 1, ii, kkk, :) = rho_lm / rr1 * t_integ%beckeGrid(3)%weight
           end do
        end do
     end do
 
-    allocate(innerint(N_radial))
+    allocate(innerint(nRadial))
     allocate(IK(2 * (max_l + 1) * (max_l + 2) - 1, porder * nalpha * (porder * nalpha + 1) / 2,&
         & porder * nalpha * (porder * nalpha + 1) / 2))
 

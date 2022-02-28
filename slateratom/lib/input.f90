@@ -2,7 +2,7 @@
 module input
 
   use common_accuracy, only : dp
-  use common_poisson, only : becke_grid_params
+  use common_poisson, only : TBeckeGridParams
 
   implicit none
   private
@@ -91,7 +91,7 @@ contains
     real(dp), intent(out) :: camBeta
 
     !> holds parameters, defining a Becke integration grid
-    type(becke_grid_params), intent(out) :: grid_params
+    type(TBeckeGridParams), intent(out) :: grid_params
 
     !! true, if a (long-range corrected) range-separated hybrid functional is requested
     logical :: tLC
@@ -132,7 +132,7 @@ contains
 
     if (tLC .or. tCam .or. tGlobalHybrid) then
       write(*, '(A)') 'NRadial NAngular ll_max rm'
-      read(*,*) grid_params%N_radial, grid_params%N_angular, grid_params%ll_max, grid_params%rm
+      read(*,*) grid_params%nRadial, grid_params%nAngular, grid_params%ll_max, grid_params%rm
     end if
 
     if (xcnr == 0) write(*, '(A)') 'WARNING: ONLY CORRECT FOR CLOSED SHELL 1S !'

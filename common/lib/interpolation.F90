@@ -6,7 +6,7 @@ module common_interpolation
   implicit none
   private
 
-  public :: poly5zero, spline3_free, polyinter, get_cubic_spline, ipl_tst
+  public :: poly5zero, spline3_free, polyinter, get_cubic_spline, get2ndNaturalSplineDerivs
 
 
 contains
@@ -242,7 +242,7 @@ contains
   !> Finds the 2nd derivatives of natural splines.
   !!
   !! \note Works only for equidistant points!
-  subroutine ipl_tst(xx, fct, gama)
+  subroutine get2ndNaturalSplineDerivs(xx, fct, gama)
 
     !> abscissas
     real(dp), intent(in) :: xx(:)
@@ -312,7 +312,7 @@ contains
 
     gama = SOL
 
-  end subroutine ipl_tst
+  end subroutine get2ndNaturalSplineDerivs
 
 
   !> Find second derivatives of the splines at tabulated function points.

@@ -11,10 +11,10 @@ module twocnt
   use common_partition, only : partition_becke_homo
   use common_splines, only : spline3ders
   use common_fifo, only : TFiFoReal2
-  use common_interpolation, only : ipl_tst, get_cubic_spline
-  use common_poisson, only : solve_poisson, becke_grid_params, becke_integrator, integrator_init,&
-      & integrator_set_kernel_param, integrator_precomp_fdmat, integrator_build_LU,&
-      & integrator_get_coords, integrator_solve_helmholz
+  use common_interpolation, only : get2ndNaturalSplineDerivs, get_cubic_spline
+  use common_poisson, only : solvePoisson, TBeckeGridParams, TBeckeIntegrator,&
+      & TBeckeIntegrator_init, TBeckeIntegrator_setKernelParam, TBeckeIntegrator_precompFdMatrix,&
+      & TBeckeIntegrator_buildLU, TBeckeIntegrator_getCoords, TBeckeIntegrator_solveHelmholz
 
   use gridorbital, only : TGridorb2
 
@@ -205,10 +205,10 @@ contains
     type(xc_f03_func_info_t) :: xcinfo
 
     !! Becke integrator instances
-    type(becke_integrator) :: t_integ
+    type(TBeckeIntegrator) :: beckeInt
 
     !! grid characteristics
-    type(becke_grid_params) :: grid_params
+    type(TBeckeGridParams) :: beckeGridParams
 
     !! number of radial and angular integration abscissas
     integer :: nRad, nAng
@@ -243,27 +243,24 @@ contains
     end if
 
     if (inp%tXchyb) then
-      grid_params%N_radial = inp%nradial
-      grid_params%N_angular = inp%nangular
-      grid_params%ll_max = inp%ll_max
-      grid_params%rm = inp%rm
+      beckeGridParams%nRadial = inp%nRadial
+      beckeGridParams%nAngular = inp%nAngular
+      beckeGridParams%ll_max = inp%ll_max
+      beckeGridParams%rm = inp%rm
 
-      ! inititalize the becke_integrator
-      call integrator_init(t_integ, grid_params)
-      t_integ%verbosity = 0
+      ! inititalize the becke integrator
+      call TBeckeIntegrator_init(beckeInt, beckeGridParams)
 
-      call integrator_set_kernel_param(t_integ, 0.1e-16_dp)
-      call integrator_precomp_fdmat(t_integ)
-      call integrator_build_LU(t_integ)
+      call TBeckeIntegrator_setKernelParam(beckeInt, 0.1e-16_dp)
+      call TBeckeIntegrator_precompFdMatrix(beckeInt)
+      call TBeckeIntegrator_buildLU(beckeInt)
 
       !== Note: this is a workaround! ==
       ! we generate the LU decomposition for \kappa \approx 0 and copy the LU decomposition into H4
-      ! and permutation matrix into ipiv4
-      t_integ%fdmat%H4 = t_integ%fdmat%H3
-      t_integ%fdmat%ipiv4 = t_integ%fdmat%ipiv2
-      call integrator_set_kernel_param(t_integ, inp%kappa)
-      call integrator_precomp_fdmat(t_integ)
-      call integrator_build_LU(t_integ)
+      beckeInt%fdmat%H4 = beckeInt%fdmat%H3
+      call TBeckeIntegrator_setKernelParam(beckeInt, inp%kappa)
+      call TBeckeIntegrator_precompFdMatrix(beckeInt)
+      call TBeckeIntegrator_buildLU(beckeInt)
     end if
 
     call gauss_legendre_quadrature(inp%ninteg1, quads(1))
@@ -302,7 +299,7 @@ contains
             & grid2, dots, weights)
         nRad = size(quads(1)%xx)
         nAng = size(quads(2)%xx)
-        call getskintegrals(t_integ, nRad, nAng, atom1, atom2, grid1, grid2, dots, weights,&
+        call getskintegrals(beckeInt, nRad, nAng, atom1, atom2, grid1, grid2, dots, weights,&
             & inp%tDensitySuperpos, inp%iXC, inp%tXchyb, imap, xcfunc_x, xcfunc_c,&
             & skhambuffer(:, ir), skoverbuffer(:, ir), denserr(ir))
       end do lpDist
@@ -341,11 +338,11 @@ contains
 
 
   !> Calculates SK-integrals.
-  subroutine getskintegrals(t_integ, nRad, nAng, atom1, atom2, grid1, grid2, dots, weights,&
+  subroutine getskintegrals(beckeInt, nRad, nAng, atom1, atom2, grid1, grid2, dots, weights,&
       & tDensitySuperpos, iXC, tXchyb, imap, xcfunc_x, xcfunc_c, skham, skover, denserr)
 
     !> Becke integrator instances
-    type(becke_integrator), intent(inout) :: t_integ
+    type(TBeckeIntegrator), intent(inout) :: beckeInt
 
     !> number of radial and angular integration abscissas
     integer, intent(in) :: nRad, nAng
@@ -527,7 +524,7 @@ contains
 
       if (tXchyb) then
         ! long-range exchange contribution
-        lrx = 0.5_dp * getLcContribution(t_integ, atom1, atom2, imap, ii, r1, theta1, r2, theta2,&
+        lrx = 0.5_dp * getLcContribution(beckeInt, atom1, atom2, imap, ii, r1, theta1, r2, theta2,&
             & weights)
         ! add up long-range exchange to the Hamiltonian
         integ1 = integ1 - lrx
@@ -787,12 +784,12 @@ contains
   end function getHamiltonian
 
 
-  !>
-  function getLcContribution(t_int, atom1, atom2, imap, iInt, rr1, theta1, rr2, theta2, weights)&
-      & result(res2)
+  !> Calculates long-range contribution to H0, i.e. two-center integral over descreened Yukawa.
+  function getLcContribution(beckeInt, atom1, atom2, imap, iInt, rr1, theta1, rr2, theta2, weights)&
+      & result(lcContribution)
 
     !> Becke integrator instance
-    type(becke_integrator), intent(inout) :: t_int
+    type(TBeckeIntegrator), intent(inout) :: beckeInt
 
     !> atomic property instances of dimer atoms
     type(TAtomdata), intent(in) :: atom1, atom2
@@ -809,29 +806,29 @@ contains
     !> integration weights
     real(dp), intent(in) :: weights(:)
 
-    !> LC contribution to the Hamiltonian
-    real(dp) :: res2
+    !> LC contribution to the Hamiltonian H0
+    real(dp) :: lcContribution
 
     !!
     real(dp), pointer :: rr3(:)
 
     !!
-    integer :: nGrid, ii, kk
+    integer :: nGrid, nRadial, iGridPt, iCore
 
     !!
-    real(dp) :: tmp, yy2, tsymb
+    real(dp) :: yy2, tsymbol
 
     !!
-    real(dp), allocatable :: V(:), tmp22(:), tmp11(:), AA(:), AA2(:), rrin(:), rrin2(:)
+    real(dp), allocatable :: V(:), tmp11(:), tmp22(:), AA(:), AA2(:), rrin(:), rrin2(:)
 
     !!
-    real(dp), allocatable :: BBB(:), CCC(:)
+    real(dp), allocatable :: CCC(:)
 
     !!
-    real(dp), allocatable :: zi(:), V_l(:,:,:),rho_lm(:),res(:),rho_lm2(:),rho_lm3(:)
+    real(dp), allocatable :: zi(:), V_l(:,:,:), rho_lm(:), res(:), rho_lm2(:), rho_lm3(:)
 
     !!
-    integer :: N_radial, ll_nu, mm_nu, ll_mu, mm_mu, ll_s, ll, ll_max
+    integer :: ll, ll_a, ll_nu, mm_nu, ll_mu, mm_mu
 
     !!
     real(dp) :: charge
@@ -842,212 +839,208 @@ contains
     ! \int phi^B_a(r2) * phi^A_b(r2) \int phi^A_b(r1) phi^A_c(r1) / |r2-r1|
 
     ! get the coordinates for the inner one-center integral
-    call integrator_get_coords(t_int, [3, 1, 1], rr3)
-    ll_max = t_int%grid_params%ll_max
+    call TBeckeIntegrator_getCoords(beckeInt, [3, 1, 1], rr3)
 
     nGrid = size(rr2)
+
     allocate(V(nGrid))
-    allocate(AA(nGrid))
-    allocate(AA2(nGrid))
+    allocate(V_l(nRadial, beckeInt%beckeGridParams%ll_max, 2))
+
     allocate(tmp22(nGrid))
     allocate(tmp11(nGrid))
     tmp22(:) = acos((rr2 - 1.0_dp) / (rr2 + 1.0_dp)) / pi
     tmp11(:) = acos((rr1 - 1.0_dp) / (rr1 + 1.0_dp)) / pi
 
-    N_radial = size(rr3)
-    allocate(rrin(N_radial))
-    allocate(rrin2(N_radial))
-    allocate(rho_lm(N_radial))
-    allocate(rho_lm2(N_radial))
-    allocate(rho_lm3(N_radial))
-    allocate(CCC(N_radial))
-    allocate(BBB(N_radial))
-    allocate(zi(N_radial))
-    allocate(V_l(N_radial, ll_max, 2))
+    nRadial = size(rr3)
+
+    allocate(rrin(nRadial))
+    allocate(rrin2(nRadial))
+    allocate(rho_lm(nRadial))
+    allocate(rho_lm2(nRadial))
+    allocate(rho_lm3(nRadial))
+    allocate(zi(nRadial))
 
     ! nu-orbital
     ll_nu = atom1%angmoms(imap%type(1, iInt))
     mm_nu = imap%type(3, iInt) - 1
-    rrin2 = atom1%rad(imap%type(1, iInt))%getValue(rr3)
-    zi = acos(t_int%radial_quadrature%xx) / pi
+    rrin2(:) = atom1%rad(imap%type(1, iInt))%getValue(rr3)
+    zi(:) = acos(beckeInt%radialQuadrature%xx) / pi
 
-    AA2 = 0.0_dp
-    CCC = 0.0_dp
-    BBB = 0.0_dp
-    AA = 0.0_dp
+    allocate(AA(nGrid))
+    allocate(AA2(nGrid))
+    allocate(CCC(nRadial))
+    AA(:) = 0.0_dp
+    AA2(:) = 0.0_dp
+    CCC(:) = 0.0_dp
+
     ! start the sigma loop for all core electrons of atom1
-    do kk = 1, atom1%nCore
+    do iCore = 1, atom1%nCore
 
       ! evaluate the radial part of the inner integrand
-      rrin = rrin2 * atom1%corerad(kk)%getValue(rr3)
-      ll_s = atom1%coreAngmoms(kk)
+      rrin(:) = rrin2 * atom1%corerad(iCore)%getValue(rr3)
+      ll_a = atom1%coreAngmoms(iCore)
 
       ! evaluate the correction to the poisson solver, necessary only for small kappa
-
-      rho_lm3 = rrin
+      rho_lm3(:) = rrin
       ll = 0
-      if (ll_s == ll_nu) then
-        rho_lm3 = rrin
-        charge = sum(rho_lm3 * t_int%integration_grid(3)%weight)
-        call solve_poisson(ll, rho_lm3, zi, charge)
-        CCC = rho_lm3
-        rho_lm3 = rrin
-        charge = 0.0_dp ! sum(rho_lm3*t_int%integration_grid(3)%weight)
-        call solve_poisson(ll, rho_lm3, zi, charge)
-        CCC = (CCC - rho_lm3) / sqrt(4.0_dp * pi)
+      if (ll_a == ll_nu) then
+        rho_lm3(:) = rrin
+        charge = sum(rho_lm3 * beckeInt%beckeGrid(3)%weight)
+        call solvePoisson(ll, rho_lm3, zi, charge)
+        CCC(:) = rho_lm3
+        rho_lm3(:) = rrin
+        charge = 0.0_dp
+        call solvePoisson(ll, rho_lm3, zi, charge)
+        CCC(:) = (CCC - rho_lm3) / sqrt(4.0_dp * pi)
 
-        call ipl_tst(zi, CCC, res)
+        call get2ndNaturalSplineDerivs(zi, CCC, res)
         V_l(:, ll+1, 1) = CCC
         V_l(:, ll+1, 2) = res
-        do ii = 1, nGrid
-          tmp = tmp11(ii)
-          call get_cubic_spline(zi, V_l(:, ll+1, 1), V_l(:, ll+1, 2), tmp, yy2)
-          AA2(ii) = AA2(ii) + yy2 / rr1(ii)
+        do iGridPt = 1, nGrid
+          call get_cubic_spline(zi, V_l(:, ll+1, 1), V_l(:, ll+1, 2), tmp11(iGridPt), yy2)
+          AA2(iGridPt) = AA2(iGridPt) + yy2 / rr1(iGridPt)
         end do
       end if
 
       ! solve the inner integral
       V(:) = 0.0_dp
-      do ll = 0, ll_max-1
-        tsymb = getTsymbol(ll_s, ll, ll_nu, mm_nu) * atom1%coreOcc(kk)
-        if (tsymb >= 1.0e-16_dp) then
-          rho_lm = rrin
-          rho_lm2 = rrin
+      do ll = 0, beckeInt%beckeGridParams%ll_max - 1
+        tsymbol = getTsymbol(ll_a, ll, ll_nu, mm_nu) * atom1%coreOcc(iCore)
+        if (tsymbol >= 1.0e-16_dp) then
+          rho_lm(:) = rrin
+          rho_lm2(:) = rrin
           ! solve the equation for ll
           charge = 0.0_dp
-          call solve_poisson(ll, rho_lm2, zi, charge)
-          call integrator_solve_helmholz(t_int, ll, rho_lm)
+          call solvePoisson(ll, rho_lm2, zi, charge)
+          call TBeckeIntegrator_solveHelmholz(beckeInt, ll, rho_lm)
           ! interpolate
-          rho_lm = rho_lm2 - rho_lm
-          call ipl_tst(zi, rho_lm, res)
+          rho_lm(:) = rho_lm2 - rho_lm
+          call get2ndNaturalSplineDerivs(zi, rho_lm, res)
           V_l(:, ll+1, 1) = rho_lm
           V_l(:, ll+1, 2) = res
-          do ii = 1, nGrid
-            tmp = tmp11(ii)
-            call get_cubic_spline(zi, V_l(:, ll+1, 1), V_l(:, ll+1, 2), tmp, yy2)
-            V(ii) = V(ii) + yy2 * tsymb
+          do iGridPt = 1, nGrid
+            call get_cubic_spline(zi, V_l(:, ll+1, 1), V_l(:, ll+1, 2), tmp11(iGridPt), yy2)
+            V(iGridPt) = V(iGridPt) + yy2 * tsymbol
           end do
         end if
       end do
       ! end of evaluation of the inner integral
 
       ! radial part of sigma
-      V = V * atom1%corerad(kk)%getValue(rr1)
-      AA = AA + V
+      V(:) = V * atom1%corerad(iCore)%getValue(rr1)
+      AA(:) = AA + V
     end do
 
     ! end sigma loop
-    V = AA
+    V(:) = AA
 
-    ! angular part Y(ll_nu,mm_mu)
+    ! angular part Y(ll_nu, mm_mu)
     ll_mu = atom2%angmoms(imap%type(2, iInt))
     mm_mu = imap%type(3, iInt) - 1
     call TRealTessY_init(tess, ll_nu, mm_mu)
-    V = V / rr1 * tess%getValue_1d(theta1)
+    V(:) = V / rr1 * tess%getValue_1d(theta1)
 
     ! evaluate the correction term
-    AA2 = AA2 * atom1%rad(imap%type(1, iInt))%getValue(rr1) * tess%getValue_1d(theta1)
+    AA2(:) = AA2 * atom1%rad(imap%type(1, iInt))%getValue(rr1) * tess%getValue_1d(theta1)
 
     ! mu-orbital
     call TRealTessY_init(tess, ll_mu, mm_mu)
-    V = V * atom2%rad(imap%type(2, iInt))%getValue(rr2) * tess%getValue_1d(theta2)
+    V(:) = V * atom2%rad(imap%type(2, iInt))%getValue(rr2) * tess%getValue_1d(theta2)
 
     ! evaluate the correction term
-    AA2=AA2 * atom2%rad(imap%type(2, iInt))%getValue(rr2) * tess%getValue_1d(theta2)
+    AA2(:) = AA2 * atom2%rad(imap%type(2, iInt))%getValue(rr2) * tess%getValue_1d(theta2)
 
-    res2 = sum(V * weights) + sum(AA2 * weights)
+    lcContribution = sum(V * weights) + sum(AA2 * weights)
 
     ! nu-orbital -> mu_orbital
     ll_nu = atom2%angmoms(imap%type(2, iInt))
     mm_nu = imap%type(3, iInt) - 1
-    rrin2 = atom2%rad(imap%type(2, iInt))%getValue(rr3)
+    rrin2(:) = atom2%rad(imap%type(2, iInt))%getValue(rr3)
 
-    AA2 = 0.0_dp
-    AA = 0.0_dp
+    AA2(:) = 0.0_dp
+    AA(:) = 0.0_dp
 
-    ! start the sigma loop for all core electrons of atom1
-    do kk = 1, atom2%nCore
+    ! start the sigma loop for all core electrons of atom2
+    do iCore = 1, atom2%nCore
       ! evaluate the radial part of the inner integrand
-      rrin = rrin2 * atom2%corerad(kk)%getValue(rr3)
-      ll_s = atom2%coreAngmoms(kk)
-      zi = acos(t_int%radial_quadrature%xx) / pi
+      rrin(:) = rrin2 * atom2%corerad(iCore)%getValue(rr3)
+      ll_a = atom2%coreAngmoms(iCore)
+      zi(:) = acos(beckeInt%radialQuadrature%xx) / pi
 
       ! evaluate the correction
-      rho_lm3 = rrin
+      rho_lm3(:) = rrin
       ll = 0
-      if (ll_s == ll_nu) then
-        rho_lm3 = rrin
-        charge=sum(rho_lm3 * t_int%integration_grid(3)%weight)
-        call solve_poisson(ll, rho_lm3, zi, charge)
-        CCC = rho_lm3
-        rho_lm3 = rrin
-        charge = 0.0_dp ! sum(rho_lm3*t_int%integration_grid(3)%weight)
-        call solve_poisson(ll, rho_lm3, zi, charge)
-        CCC = (CCC - rho_lm3) / sqrt(4.0_dp * pi)
+      if (ll_a == ll_nu) then
+        rho_lm3(:) = rrin
+        charge = sum(rho_lm3 * beckeInt%beckeGrid(3)%weight)
+        call solvePoisson(ll, rho_lm3, zi, charge)
+        CCC(:) = rho_lm3
+        rho_lm3(:) = rrin
+        charge = 0.0_dp
+        call solvePoisson(ll, rho_lm3, zi, charge)
+        CCC(:) = (CCC - rho_lm3) / sqrt(4.0_dp * pi)
 
-        call ipl_tst(zi, CCC, res)
+        call get2ndNaturalSplineDerivs(zi, CCC, res)
         V_l(:, ll+1, 1) = CCC
         V_l(:, ll+1, 2) = res
-        do ii = 1, nGrid
-          tmp = tmp22(ii)
-          call get_cubic_spline(zi, V_l(:, ll+1, 1), V_l(:, ll+1, 2), tmp, yy2)
-          AA2(ii) = AA2(ii) + yy2 / rr2(ii)
+        do iGridPt = 1, nGrid
+          call get_cubic_spline(zi, V_l(:, ll+1, 1), V_l(:, ll+1, 2), tmp22(iGridPt), yy2)
+          AA2(iGridPt) = AA2(iGridPt) + yy2 / rr2(iGridPt)
         end do
       end if
 
       ! solve the inner integral
       V = 0.0_dp
-      do ll = 0, ll_max - 1
-        tsymb = getTsymbol(ll_s, ll, ll_nu, mm_nu) * atom2%coreOcc(kk)
-        if (tsymb >= 1.0e-16_dp) then
-          rho_lm = rrin
-          rho_lm2 = rrin
+      do ll = 0, beckeInt%beckeGridParams%ll_max - 1
+        tsymbol = getTsymbol(ll_a, ll, ll_nu, mm_nu) * atom2%coreOcc(iCore)
+        if (tsymbol >= 1.0e-16_dp) then
+          rho_lm(:) = rrin
+          rho_lm2(:) = rrin
 
           ! solve the equation for ll
           charge = 0.0_dp
-          call solve_poisson(ll, rho_lm2, zi, charge)
-          call integrator_solve_helmholz(t_int, ll, rho_lm)
+          call solvePoisson(ll, rho_lm2, zi, charge)
+          call TBeckeIntegrator_solveHelmholz(beckeInt, ll, rho_lm)
 
           ! interpolate
-          rho_lm = rho_lm2 - rho_lm
+          rho_lm(:) = rho_lm2 - rho_lm
 
-          call ipl_tst(zi, rho_lm, res)
+          call get2ndNaturalSplineDerivs(zi, rho_lm, res)
           V_l(:, ll+1, 1) = rho_lm
           V_l(:, ll+1, 2) = res
-          do ii = 1, nGrid
-            tmp = tmp22(ii)
-            call get_cubic_spline(zi, V_l(:, ll+1, 1), V_l(:, ll+1, 2), tmp, yy2)
-            V(ii) = V(ii) + yy2 * tsymb
+          do iGridPt = 1, nGrid
+            call get_cubic_spline(zi, V_l(:, ll+1, 1), V_l(:, ll+1, 2), tmp22(iGridPt), yy2)
+            V(iGridPt) = V(iGridPt) + yy2 * tsymbol
           end do
         end if
       end do
       ! end of evaluation of the inner integral
 
       ! radial part of sigma
-      V = V * atom2%corerad(kk)%getValue(rr2)
-      AA = AA + V
+      V(:) = V * atom2%corerad(iCore)%getValue(rr2)
+      AA(:) = AA + V
     end do
 
     ! end sigma loop
-    V = AA
+    V(:) = AA
 
     ! angular part Y(ll_nu, mm_mu)
     ll_mu = atom1%angmoms(imap%type(1, iInt))
     mm_mu = imap%type(3, iInt) - 1
     call TRealTessY_init(tess, ll_nu, mm_mu)
-    V = V / rr2 * tess%getValue_1d(theta2)
+    V(:) = V / rr2 * tess%getValue_1d(theta2)
 
     ! evaluate the correction term
-    AA2 = AA2 * atom2%rad(imap%type(2,iInt))%getValue(rr2) * tess%getValue_1d(theta2)
+    AA2(:) = AA2 * atom2%rad(imap%type(2,iInt))%getValue(rr2) * tess%getValue_1d(theta2)
 
     ! mu-orbital
     call TRealTessY_init(tess, ll_mu, mm_mu)
-    V = V * atom1%rad(imap%type(1, iInt))%getValue(rr1) * tess%getValue_1d(theta1)
+    V(:) = V * atom1%rad(imap%type(1, iInt))%getValue(rr1) * tess%getValue_1d(theta1)
 
     ! evaluate the correction term
-    AA2 = AA2 * atom1%rad(imap%type(1, iInt))%getValue(rr1) * tess%getValue_1d(theta1)
+    AA2(:) = AA2 * atom1%rad(imap%type(1, iInt))%getValue(rr1) * tess%getValue_1d(theta1)
 
-    res2 = res2 + sum(V * weights) + sum(AA2 * weights)
+    lcContribution = lcContribution + sum(V * weights) + sum(AA2 * weights)
 
   end function getLcContribution
 

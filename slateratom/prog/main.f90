@@ -16,7 +16,7 @@ program HFAtom
   use utilities, only : check_electron_number, check_convergence
   use zora_routines, only : scaled_zora
   use cmdargs, only : parse_command_arguments
-  use common_poisson, only : becke_grid_params
+  use common_poisson, only : TBeckeGridParams
   use globals
 
   implicit none
@@ -50,7 +50,7 @@ program HFAtom
   logical :: tGlobalHybrid
 
   !! holds parameters, defining a Becke integration grid
-  type(becke_grid_params) :: grid_params
+  type(TBeckeGridParams) :: grid_params
 
   call parse_command_arguments()
   call read_input_1(nuc, max_l, occ_shells, maxiter, poly_order, min_alpha, max_alpha, num_alpha,&
