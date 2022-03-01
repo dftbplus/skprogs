@@ -15,16 +15,6 @@ module coulomb_hfex
   public :: coulomb, hfex, hfex_lr
 
 
-  !>
-  type TSlaterBasisIndex
-
-    real(dp) :: alpha
-    integer  :: poly_order
-    integer  :: ll
-
-  end type TSlaterBasisIndex
-
-
 contains
 
   !> Calculates Coulomb supermatrix elements,
@@ -424,14 +414,14 @@ contains
 
     ! fill in the integrands
     do ii = 1, eta_max
-       do kkk = 1, sigma_max
-          Integrand(ii, kkk, :) = rr1**(ii - 1) * exp(-expon(kkk) * rr1)
-          do ll = 0, ll_max - 1
-             rho_lm(:) = Integrand(ii, kkk, :)
-             call TBeckeIntegrator_solveHelmholz(t_integ, ll, rho_lm)
-             Vin(ll + 1, ii, kkk, :) = rho_lm / rr1 * t_integ%beckeGrid(3)%weight
-          end do
-       end do
+      do kkk = 1, sigma_max
+        Integrand(ii, kkk, :) = rr1**(ii - 1) * exp(-expon(kkk) * rr1)
+        do ll = 0, ll_max - 1
+          rho_lm(:) = Integrand(ii, kkk, :)
+          call TBeckeIntegrator_solveHelmholz(t_integ, ll, rho_lm)
+          Vin(ll + 1, ii, kkk, :) = rho_lm / rr1 * t_integ%beckeGrid(3)%weight
+        end do
+      end do
     end do
 
     allocate(innerint(nRadial))
@@ -440,45 +430,45 @@ contains
 
     ! perform the integrals and construct the exchange supermatrix
     do ll = 0, maxllind - 1 ! 2 * (max_l + 1) * (max_l + 2) - 1
-       do aa = 1, porder * nalpha * (porder * nalpha + 1) / 2
-          do bb = 1, aa
+      do aa = 1, porder * nalpha * (porder * nalpha + 1) / 2
+        do bb = 1, aa
 
-             lambda = lambdamu(ll + 1, 1) - 1
-             mu = lambdamu(ll + 1, 2) - 1
+          lambda = lambdamu(ll + 1, 1) - 1
+          mu = lambdamu(ll + 1, 2) - 1
 
-             pp = ps(aa, 1)
-             ss = ps(aa, 2)
-             qq = ps(bb, 1)
-             rr = ps(bb, 2)
+          pp = ps(aa, 1)
+          ss = ps(aa, 2)
+          qq = ps(bb, 1)
+          rr = ps(bb, 2)
 
-             eta1 = ne(pp, 2) + ne(ss, 2) + lambda + mu - 1
-             sigma1 = sigmaind(ne(pp, 1), ne(ss, 1)) ! ne(pp, 1) + ne(ss, 1)
-             eta2 = ne(qq, 2) + ne(rr, 2) + lambda + mu - 1
-             sigma2 = sigmaind(ne(qq, 1), ne(rr, 1)) ! ne(qq, 1) + ne(rr, 1)
+          eta1 = ne(pp, 2) + ne(ss, 2) + lambda + mu - 1
+          sigma1 = sigmaind(ne(pp, 1), ne(ss, 1)) ! ne(pp, 1) + ne(ss, 1)
+          eta2 = ne(qq, 2) + ne(rr, 2) + lambda + mu - 1
+          sigma2 = sigmaind(ne(qq, 1), ne(rr, 1)) ! ne(qq, 1) + ne(rr, 1)
 
-             innerint(:) = 0.0_dp
-             do ll1 = abs(lambda - mu), lambda + mu, 2
-                if(gauntFaktor(lambda + 1,mu + 1, ll1 + 1) .ge. 1.0e-16_dp) then
-                  innerint(:) = innerint + Vin(ll1 + 1, eta1, sigma1, :)&
-                      & * gauntFaktor(lambda + 1, mu + 1,ll1 + 1)
-                end if
-             end do
-             IK(ll + 1, aa, bb) = sum(innerint * Integrand(eta2, sigma2, :))
-             IK(ll + 1, bb, aa) = IK(ll + 1, aa, bb)
+          innerint(:) = 0.0_dp
+          do ll1 = abs(lambda - mu), lambda + mu, 2
+            if(gauntFaktor(lambda + 1,mu + 1, ll1 + 1) .ge. 1.0e-16_dp) then
+              innerint(:) = innerint + Vin(ll1 + 1, eta1, sigma1, :)&
+                  & * gauntFaktor(lambda + 1, mu + 1, ll1 + 1)
+            end if
           end do
-       end do
+          IK(ll + 1, aa, bb) = sum(innerint * Integrand(eta2, sigma2, :))
+          IK(ll + 1, bb, aa) = IK(ll + 1, aa, bb)
+        end do
+      end do
     end do
 
     allocate(normfaktor(porder, nalpha, max_l + 1))
 
     do ii = 1, porder
-       do kkk = 1, nalpha
-          do jj = 1, max_l + 1
-             npl = ii + jj - 1
-             normfaktor(ii, kkk, jj) = sqrt(2.0_dp * alpha(0, kkk) / fak(2 * npl))&
-                 & * (2.0_dp * alpha(0, kkk))**npl
-          end do
-       end do
+      do kkk = 1, nalpha
+        do jj = 1, max_l + 1
+          npl = ii + jj - 1
+          normfaktor(ii, kkk, jj) = sqrt(2.0_dp * alpha(0, kkk) / fak(2 * npl))&
+              & * (2.0_dp * alpha(0, kkk))**npl
+        end do
+      end do
     end do
 
     allocate(knu(0:max_l, problemsize, problemsize, 0:max_l, problemsize, problemsize, 0:2*max_l+2))

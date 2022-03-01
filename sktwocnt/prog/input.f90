@@ -45,7 +45,7 @@ contains
 
     !! xc-functional type
     !! (1: LDA-PW91, 2: GGA-PBE, 3: GGA-BLYP, 4: LCY-PBE, 5: LCY-BNL, 6: PBE0, 7: B3LYP,
-    !! 8: CAMY-B3LYP, 9: CAMY-PBE0)
+    !! 8: CAMY-B3LYP, 9: CAMY-PBEh)
     integer :: iXC
 
     !! potential data columns, summed up in order to receive the total atomic potential
@@ -104,7 +104,7 @@ contains
       ! CAMY-B3LYP (CAM-functional)
       inp%tCam = .true.
     case(9)
-      ! CAMY-PBE0 (CAM-functional)
+      ! CAMY-PBEh (CAM-functional)
       inp%tCam = .true.
     case default
       call error_("Unknown exchange-correlation functional!", fname, line, iline)

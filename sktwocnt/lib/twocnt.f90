@@ -110,7 +110,7 @@ module twocnt
 
     !> xc-functional type
     !! (1: LDA-PW91, 2: GGA-PBE, 3: GGA-BLYP, 4: LCY-PBE, 5: LCY-BNL, 6: PBE0, 7: B3LYP,
-    !! 8: CAMY-B3LYP, 9: CAMY-PBE0)
+    !! 8: CAMY-B3LYP, 9: CAMY-PBEh)
     integer :: iXC
 
     !! true, if a global hybrid functional is requested
@@ -416,7 +416,7 @@ contains
 
     !> xc-functional type
     !! (1: LDA-PW91, 2: GGA-PBE, 3: GGA-BLYP, 4: LCY-PBE, 5: LCY-BNL, 6: PBE0, 7: B3LYP,
-    !! 8: CAMY-B3LYP, 9: CAMY-PBE0)
+    !! 8: CAMY-B3LYP, 9: CAMY-PBEh)
     integer, intent(in) :: iXC
 
     !> CAM alpha parameter
@@ -558,7 +558,7 @@ contains
         call xc_f03_gga_vxc(xcfunc_c, nGridLibxc, rhor(1), sigma(1), vc(1), vcsigma(1))
         call getDivergence(nRad, nAng, densval1p, densval2p, r1, r2, theta1, theta2, vcsigma, divvc)
         potval = vx + vc + divvc
-      ! 6: PBE0, 7: B3LYP, 8: CAMY-B3LYP, 9: CAMY-PBE0
+      ! 6: PBE0, 7: B3LYP, 8: CAMY-B3LYP, 9: CAMY-PBEh
       case(6:9)
         call xc_f03_gga_vxc(xcfunc_xc, nGridLibxc, rhor(1), sigma(1), vxc(1), vxcsigma(1))
         call getDivergence(nRad, nAng, densval1p, densval2p, r1, r2, theta1, theta2, vxcsigma,&

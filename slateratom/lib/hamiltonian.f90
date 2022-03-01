@@ -183,7 +183,7 @@ contains
          ! CAMY-B3LYP parameters (libXC defaults)
          k_matrix(:,:,:,:) = camAlpha * k_matrix + camBeta * k_matrix2 + k_matrix3
        elseif (xcnr == 10) then
-         ! CAMY-PBE0
+         ! CAMY-PBEh
          k_matrix(:,:,:,:) = camAlpha * k_matrix + camBeta * k_matrix2 + k_matrix3
        end if
     end if

@@ -319,7 +319,7 @@ contains
     ! LDA-PW91, BNL (long-range corrected)
     case(2, 6)
       call xc_f03_lda_exc_vxc(xcfunc_x, nn, rhor(1, 1), ex(1), vx(1, 1))
-    ! GGA-PBE, GGA-BLYP, LC-PBE (long-range corrected)
+    ! GGA-PBE, GGA-BLYP, LCY-PBE (long-range corrected)
     case(3:5)
       call xc_f03_gga_exc_vxc(xcfunc_x, nn, rhor(1, 1), sigma(1, 1), ex(1), vx(1,1), vxsigma(1,1))
     end select
@@ -331,7 +331,7 @@ contains
     case(2)
       call xc_f03_lda_exc_vxc(xcfunc_c, nn, rhor(1, 1), ec(1), vc(1, 1))
       vxc(:,:) = transpose(vx + vc)
-    ! GGA-PBE, GGA-BLYP, LC-PBE, BNL
+    ! GGA-PBE, GGA-BLYP, LCY-PBE, LCY-BNL
     case(3:6)
       call xc_f03_gga_exc_vxc(xcfunc_c, nn, rhor(1, 1), sigma(1, 1), ec(1), vc(1, 1), vcsigma(1, 1))
       vxc(:,:) = transpose(vx + vc)
@@ -353,7 +353,7 @@ contains
     !! -------- Exchange + Correlation energy and potential -----------
 
     select case (xcnr)
-    ! PBE0, B3LYP (global hybrids), CAMY-B3LYP, CAMY-PBE0 (CAMY-functionals)
+    ! PBE0, B3LYP (global hybrids), CAMY-B3LYP, CAMY-PBEh (CAMY-functionals)
     case(7:10)
       call xc_f03_gga_exc_vxc(xcfunc_xc, nn, rhor(1, 1), sigma(1, 1), exc_tmp(1), vxc_tmp(1, 1),&
           & vxcsigma(1, 1))

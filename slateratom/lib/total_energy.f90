@@ -148,7 +148,7 @@ contains
         hf_x_energy_lr = camBeta * hf_x_energy_lr
         hf_x_energy = hf_x_energy + hf_x_energy_lr
       elseif (xcnr == 10) then
-        ! CAMY-PBE0
+        ! CAMY-PBEh
         hf_x_energy = camAlpha * hf_x_energy
         hf_x_energy_lr = camBeta * hf_x_energy_lr
         hf_x_energy = hf_x_energy + hf_x_energy_lr
@@ -338,7 +338,7 @@ contains
         hf_x_energy_lr = camBeta * hf_x_energy_lr
         hf_x_energy = hf_x_energy + hf_x_energy_lr
       elseif (xcnr == 10) then
-        ! CAMY-PBE0
+        ! CAMY-PBEh
         hf_x_energy = camAlpha * hf_x_energy
         hf_x_energy_lr = camBeta * hf_x_energy_lr
         hf_x_energy = hf_x_energy + hf_x_energy_lr

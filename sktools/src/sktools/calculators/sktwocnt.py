@@ -9,8 +9,9 @@ from sktools import twocenter_grids
 from sktools import radial_grid
 
 
-SUPPORTED_FUNCTIONALS = {'lda' : 1, 'pbe' : 2, 'blyp' : 3, 'lc-pbe' : 4,
-                         'lc-bnl' : 5, 'pbe0' : 6, 'b3lyp' : 7, 'cam-b3lyp' : 8}
+SUPPORTED_FUNCTIONALS = {'lda' : 1, 'pbe' : 2, 'blyp' : 3, 'lcy-pbe' : 4,
+                         'lcy-bnl' : 5, 'pbe0' : 6, 'b3lyp' : 7,
+                         'camy-b3lyp' : 8, 'camy-pbeh' : 9}
 
 INPUT_FILE = "sktwocnt.in"
 STDOUT_FILE = "output"
@@ -131,7 +132,8 @@ class SktwocntInput:
         atomfiles.density = self._store_density(workdir, atomdata.density,
                                                 iatom)
         xcn = self._functional.type
-        if xcn in ('lc-bnl', 'lc-pbe', 'pbe0', 'b3lyp', 'cam-b3lyp'):
+        if xcn in ('lcy-bnl', 'lcy-pbe', 'pbe0', 'b3lyp', 'camy-b3lyp',
+                   'camy-pbeh'):
             atomfiles.dens_wavefuncs = self._store_dens_wavefuncs(
                 workdir, atomdata.dens_wavefuncs, iatom)
         atomfiles.occshells = atomdata.occshells
@@ -207,7 +209,7 @@ class SktwocntInput:
         '''Writes integration grid info.'''
 
         # long-range corrected functionals
-        if self._functional.type in ('lc-bnl', 'lc-pbe'):
+        if self._functional.type in ('lcy-bnl', 'lcy-pbe'):
             # hardcoded parameters for the Becke integration,
             # -> should probably be moved to skdef.hsd
             becke = '2000 194 11 1.0'
@@ -219,7 +221,7 @@ class SktwocntInput:
             becke = '2000 194 11 1.0'
             fp.write("{:f}\n".format(becke))
         # CAM functionals
-        elif self._functional.type == 'cam-b3lyp':
+        elif self._functional.type in ('camy-b3lyp', 'camy-pbeh'):
             becke = '2000 194 11 1.0'
             fp.write("{:f} {:f} {:f} {:s}\n".format(self._functional.omega,
                                                     self._functional.alpha,
@@ -234,8 +236,8 @@ class SktwocntInput:
         fp.write("{:d} {:d}\n".format(*self._settings.integrationpoints))
 
     def _write_twocnt_atom_block(self, fp, atomfiles):
-        if self._functional.type in ('lc-bnl', 'lc-pbe', 'pbe0', 'b3lyp',
-                                     'cam-b3lyp'):
+        if self._functional.type in ('lcy-bnl', 'lcy-pbe', 'pbe0', 'b3lyp',
+                                     'camy-b3lyp', 'camy-pbeh'):
             fp.write("{:d} {:d}\n".format(len(atomfiles.wavefuncs),
                                           len(atomfiles.dens_wavefuncs)))
         else:
@@ -244,8 +246,8 @@ class SktwocntInput:
         for nn, ll, wavefuncfile in atomfiles.wavefuncs:
             fp.write("'{}' {:d}\n".format(wavefuncfile, ll))
 
-        if self._functional.type in ('lc-bnl', 'lc-pbe', 'pbe0', 'b3lyp',
-                                     'cam-b3lyp'):
+        if self._functional.type in ('lcy-bnl', 'lcy-pbe', 'pbe0', 'b3lyp',
+                                     'camy-b3lyp', 'camy-pbeh'):
             occdict = {}
             for xx in atomfiles.occshells:
                 occdict[xx[0]] = xx[1]

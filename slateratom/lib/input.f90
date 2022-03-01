@@ -110,7 +110,7 @@ contains
 
     write(*, '(A)') 'Enter XC functional:&
         & 0: HF, 1: X-Alpha, 2: LDA-PW91, 3: GGA-PBE, 4: GGA-BLYP, 5: LCY-PBE, 6: LCY-BNL, 7: PBE0,&
-        & 8: B3LYP, 9: CAMY-B3LYP, 10: CAMY-PBE0'
+        & 8: B3LYP, 9: CAMY-B3LYP, 10: CAMY-PBEh'
     read(*,*) xcnr
 
     if ((xcnr < 0) .or. (xcnr > 10)) then
@@ -338,7 +338,7 @@ contains
     if (xcnr == 7) write(*, '(A)') 'Global hybrid: PBE0'
     if (xcnr == 8) write(*, '(A)') 'Global hybrid: B3LYP'
     if (xcnr == 9) write(*, '(A)') 'CAM: CAMY-B3LYP'
-    if (xcnr == 10) write(*, '(A)') 'CAM: CAMY-PBE0'
+    if (xcnr == 10) write(*, '(A)') 'CAM: CAMY-PBEh'
 
     write(*, '(A,I6)') 'Max. number of SCF iterations: ', maxiter
 

@@ -1,4 +1,3 @@
-# Data for auorg
 SkdefVersion = 1
 
 Globals {
@@ -9,8 +8,24 @@ Globals {
 
   # supported long-range corrected xc-functionals:
   # (omega: range-separation parameter)
-  # XCFunctional = lc-pbe {omega = 0.3}
-  # XCFunctional = lc-bnl {omega = 0.3}
+  # XCFunctional = lcy-pbe {omega = 0.3}
+  # XCFunctional = lcy-bnl {omega = 0.3}
+
+  # supported global hybrid xc-functionals:
+  # XCFunctional = pbe0 {}
+  # XCFunctional = b3lyp {}
+
+  # supported CAMY xc-functionals:
+  # XCFunctional = camy-pbeh {
+  #   omega = 0.3
+  #   alpha = 0.19
+  #   beta = 0.46
+  # }
+  # XCFunctional = camy-b3lyp {
+  #   omega = 0.3
+  #   alpha = 0.19
+  #   beta = 0.46
+  # }
 
   XCFunctional = pbe {}
   Superposition = density

@@ -122,7 +122,7 @@ class SkgenAtomCalculation:
             return
 
         xcn = self._xcf.type
-        if xcn in ('lc-pbe', 'lc-bnl'):
+        if xcn in ('lcy-pbe', 'lcy-bnl'):
             hubbus = self._calculate_hubbus_corrected(
                 result_spinavg_atom, replace_empty_with_homo=True)
         else:
