@@ -291,7 +291,9 @@ contains
 
       !== Note: this is a workaround! ==
       ! we generate the LU decomposition for \omega \approx 0 and copy the LU decomposition into H4
+      ! and permutation matrix into ipiv4
       beckeInt%fdmat%H4 = beckeInt%fdmat%H3
+      beckeInt%fdmat%ipiv4 = beckeInt%fdmat%ipiv2
       call TBeckeIntegrator_setKernelParam(beckeInt, inp%omega)
       call TBeckeIntegrator_precompFdMatrix(beckeInt)
       call TBeckeIntegrator_buildLU(beckeInt)

@@ -39,9 +39,11 @@ module common_poisson
     real(dp), allocatable :: b(:)
     real(dp), allocatable :: H1(:,:), H2(:,:)
 
-    ! LU decomposition supermatrix
-    real(dp), allocatable :: H3(:,:,:)
-    real(dp), allocatable :: H4(:,:,:)
+    !> pivot indices: for 1 <= i <= N, row i of the matrix was interchanged with row ipiv(i)
+    integer, allocatable :: ipiv2(:,:), ipiv4(:,:)
+
+    !> LU decomposition supermatrices
+    real(dp), allocatable :: H3(:,:,:), H4(:,:,:)
 
   end type TFdiffMatrix
 
@@ -367,10 +369,7 @@ contains
     integer, intent(in) :: ll
 
     !> lm-resolved density
-    real(dp), intent(inout), allocatable :: rho_lm(:)
-
-    !! pivot indices: for 1 <= i <= N, row i of the matrix was interchanged with row ipiv(i)
-    integer, allocatable :: ipiv(:)
+    real(dp), intent(inout) :: rho_lm(:)
 
     !! number of radial points
     integer :: nRadial
@@ -380,14 +379,11 @@ contains
 
     info = 0
 
-    allocate(ipiv(this%beckeGridParams%nRadial))
-    ipiv(:) = 0
-
     nRadial = this%beckeGridParams%nRadial
-    rho_lm = rho_lm * this%fdmat%d
+    rho_lm(:) = rho_lm * this%fdmat%d
 
-    call DGBTRS('No transpose', nRadial, 3, 3, 1, this%fdmat%H3(:,:, ll + 1), 10, ipiv, rho_lm,&
-        & nRadial, info)
+    call DGBTRS('No transpose', nRadial, 3, 3, 1, this%fdmat%H3(:,:, ll + 1), 10,&
+        & this%fdmat%ipiv2(:, ll + 1), rho_lm, nRadial, info)
 
   end subroutine TBeckeIntegrator_solveHelmholz
 
@@ -403,10 +399,7 @@ contains
     integer, intent(in) :: ll
 
     !> lm-resolved density
-    real(dp), intent(inout), allocatable :: rho_lm(:)
-
-    !! pivot indices: for 1 <= i <= N, row i of the matrix was interchanged with row ipiv(i)
-    integer, allocatable :: ipiv(:)
+    real(dp), intent(inout) :: rho_lm(:)
 
     !! number of radial points
     integer :: nRadial
@@ -416,14 +409,11 @@ contains
 
     info = 0
 
-    allocate(ipiv(this%beckeGridParams%nRadial))
-    ipiv(:) = 0
-
     nRadial = this%beckeGridParams%nRadial
-    rho_lm = rho_lm * this%fdmat%d
+    rho_lm(:) = rho_lm * this%fdmat%d
 
-    call DGBTRS('No transpose', nRadial, 3, 3, 1, this%fdmat%H4(:,:, ll + 1), 10, ipiv, rho_lm,&
-        & nRadial, info)
+    call DGBTRS('No transpose', nRadial, 3, 3, 1, this%fdmat%H4(:,:, ll + 1), 10,&
+        & this%fdmat%ipiv4(:, ll + 1), rho_lm, nRadial, info)
 
   end subroutine TBeckeIntegrator_solvePoisson
 
@@ -459,6 +449,8 @@ contains
     allocate(this%fdmat%d(beckeGridParams%nRadial))
     allocate(this%fdmat%b(beckeGridParams%nRadial))
     allocate(this%fdmat%zi(beckeGridParams%nRadial))
+    allocate(this%fdmat%ipiv2(beckeGridParams%nRadial, beckeGridParams%ll_max))
+    allocate(this%fdmat%ipiv4(beckeGridParams%nRadial, beckeGridParams%ll_max))
     allocate(this%fdmat%H1(10, beckeGridParams%nRadial))
     allocate(this%fdmat%H2(10, beckeGridParams%nRadial))
     allocate(this%fdmat%H3(10, beckeGridParams%nRadial, beckeGridParams%ll_max))
@@ -473,9 +465,6 @@ contains
     !> Becke integrator instance
     type(TBeckeIntegrator), intent(inout) :: this
 
-    !! pivot indices: for 1 <= i <= N, row i of the matrix was interchanged with row ipiv(i)
-    integer, allocatable :: ipiv(:)
-
     !! number of radial points
     integer :: nRadial
 
@@ -487,13 +476,11 @@ contains
 
     nRadial = this%beckeGridParams%nRadial
 
-    allocate(ipiv(nRadial))
-    ipiv(:) = 0
-
     do ll = 1, this%beckeGridParams%ll_max
        call TBeckeIntegrator_buildFdMatrix(this, ll - 1)
        this%fdmat%H3(:,:, ll) = this%fdmat%H2
-       call DGBTRF(nRadial, nRadial, 3, 3, this%fdmat%H3(:,:, ll), 10, ipiv, info)
+       call DGBTRF(nRadial, nRadial, 3, 3, this%fdmat%H3(:,:, ll), 10, this%fdmat%ipiv2(:, ll),&
+           & info)
        if (info /= 0) write(*, '(A)') "ERROR: LU decomposition failed!"
     end do
 
@@ -512,7 +499,7 @@ contains
   subroutine TBeckeIntegrator_getCoords(this, grid_no, pCoords)
 
     !> Becke integrator instance
-    type(TBeckeIntegrator), target, intent(in) :: this
+    type(TBeckeIntegrator), intent(in), target :: this
 
     !> selection indices, i.e. [grid_nr, subgrid_nr, coordinate_nr]
     integer, intent(in) :: grid_no(3)
@@ -630,7 +617,7 @@ contains
     !!
     real(dp), allocatable :: alpha(:), beta(:), gama(:), delta(:)
     real(dp), allocatable :: H2(:,:), B(:)
-    real(dp), allocatable :: solution(:), work(:), dummy(:)
+    real(dp), allocatable :: solution(:), work(:)
     real, allocatable :: swork(:)
     real(dp) :: f0, f1, tmp1
     real(dp) :: pi_rm_4_3, llp1_pi_2_rm_4, sin_pi, sin_pi_hlf, cos_pi_hlf
@@ -652,7 +639,6 @@ contains
     allocate(work(nGridPts))
     allocate(solution(nGridPts))
     allocate(swork(nGridPts * (nGridPts + 1)))
-    allocate(dummy(nGridPts))
     allocate(H2(10, nGridPts))
     B(:) = 0.0_dp
     H2(:,:) = 0.0_dp
@@ -733,7 +719,7 @@ contains
     real(dp), allocatable :: H(:,:), alpha(:), beta(:), gama(:), delta(:)
 
     !!
-    real(dp), allocatable :: solution(:), work(:), dummy(:)
+    real(dp), allocatable :: solution(:), work(:)
 
     !!
     real, allocatable :: swork(:)
@@ -766,7 +752,6 @@ contains
     allocate(work(nGridPts))
     allocate(solution(nGridPts))
     allocate(swork(nGridPts * (nGridPts + 1)))
-    allocate(dummy(nGridPts))
 
     !****************************************
     ! set up the equation:
