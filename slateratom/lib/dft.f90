@@ -69,7 +69,7 @@ contains
   !> Calculate and store density and density derivatives on radial grid.
   !! Further calculates and stores exchange-correlation potential and energy density on grid.
   subroutine density_grid(pp, max_l, num_alpha, poly_order, alpha, num_mesh_points, abcissa, dzdr,&
-      & dz, xcnr, kappa, camAlpha, camBeta, rho, drho, ddrho, vxc, exc, xalpha_const)
+      & dz, xcnr, omega, camAlpha, camBeta, rho, drho, ddrho, vxc, exc, xalpha_const)
 
     !> density matrix supervector
     real(dp), intent(in) :: pp(:, 0:,:,:)
@@ -102,7 +102,7 @@ contains
     integer, intent(in) :: xcnr
 
     !> range-separation parameter
-    real(dp), intent(in) :: kappa
+    real(dp), intent(in) :: omega
 
     !> CAM alpha parameter
     real(dp), intent(in) :: camAlpha
@@ -207,14 +207,14 @@ contains
     elseif (xcnr == 5) then
       tLC = .true.
       call xc_f03_func_init(xcfunc_x, XC_GGA_X_SFAT_PBE, XC_POLARIZED)
-      call xc_f03_func_set_ext_params(xcfunc_x, [kappa])
+      call xc_f03_func_set_ext_params(xcfunc_x, [omega])
       xcinfo = xc_f03_func_get_info(xcfunc_x)
       call xc_f03_func_init(xcfunc_c, XC_GGA_C_PBE, XC_POLARIZED)
       xcinfo = xc_f03_func_get_info(xcfunc_c)
     elseif (xcnr == 6) then
       tLC = .true.
       call xc_f03_func_init(xcfunc_x, XC_LDA_X_YUKAWA, XC_POLARIZED)
-      call xc_f03_func_set_ext_params(xcfunc_x, [kappa])
+      call xc_f03_func_set_ext_params(xcfunc_x, [omega])
       xcinfo = xc_f03_func_get_info(xcfunc_x)
       call xc_f03_func_init(xcfunc_c, XC_GGA_C_PBE, XC_POLARIZED)
       xcinfo = xc_f03_func_get_info(xcfunc_c)
@@ -230,12 +230,12 @@ contains
     elseif (xcnr == 9) then
       tCam = .true.
       call xc_f03_func_init(xcfunc_xc, XC_HYB_GGA_XC_CAMY_B3LYP, XC_POLARIZED)
-      call xc_f03_func_set_ext_params(xcfunc_xc, [camAlpha + camBeta, -camBeta, kappa, 0.81_dp])
+      call xc_f03_func_set_ext_params(xcfunc_xc, [camAlpha + camBeta, -camBeta, omega, 0.81_dp])
       xcinfo = xc_f03_func_get_info(xcfunc_xc)
     elseif (xcnr == 10) then
       tCam = .true.
       call xc_f03_func_init(xcfunc_xc, XC_HYB_GGA_XC_CAMY_PBEH, XC_POLARIZED)
-      call xc_f03_func_set_ext_params(xcfunc_xc, [camAlpha + camBeta, -camBeta, kappa])
+      call xc_f03_func_set_ext_params(xcfunc_xc, [camAlpha + camBeta, -camBeta, omega])
       ! those calls seems to be equivalent to the statement above (note the underscores):
       ! call xc_f03_func_set_ext_params_name(xcfunc_xc, '_alpha', ...)
       ! call xc_f03_func_set_ext_params_name(xcfunc_xc, '_beta', ...)

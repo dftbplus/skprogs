@@ -15,7 +15,7 @@ contains
   !> Reads in all properties, except for occupation numbers.
   subroutine read_input_1(nuc, max_l, occ_shells, maxiter, poly_order, min_alpha, max_alpha,&
       & num_alpha, tAutoAlphas, alpha, conf_r0, conf_power, num_occ, num_power, num_alphas,&
-      & xcnr, tPrintEigvecs, tZora, tBroyden, mixing_factor, xalpha_const, kappa, camAlpha,&
+      & xcnr, tPrintEigvecs, tZora, tBroyden, mixing_factor, xalpha_const, omega, camAlpha,&
       & camBeta, grid_params)
 
     !> nuclear charge, i.e. atomic number
@@ -82,7 +82,7 @@ contains
     real(dp), intent(out) :: xalpha_const
 
     !> range-separation parameter
-    real(dp), intent(out) :: kappa
+    real(dp), intent(out) :: omega
 
     !> CAM alpha parameter
     real(dp), intent(out) :: camAlpha
@@ -124,10 +124,10 @@ contains
 
     if (tLC) then
       write(*, '(A)') 'Enter range-separation parameter:'
-      read(*,*) kappa
+      read(*,*) omega
     elseif (tCam) then
       write(*, '(A)') 'Enter range-separation parameter, CAM alpha, CAM beta:'
-      read(*,*) kappa, camAlpha, camBeta
+      read(*,*) omega, camAlpha, camBeta
     end if
 
     if (tLC .or. tCam .or. tGlobalHybrid) then

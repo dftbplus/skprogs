@@ -32,7 +32,7 @@ program HFAtom
   real(dp) :: x_en_2
 
   !! range-separation parameter
-  real(dp) :: kappa
+  real(dp) :: omega
 
   !! CAM alpha parameter
   real(dp) :: camAlpha
@@ -55,7 +55,7 @@ program HFAtom
   call parse_command_arguments()
   call read_input_1(nuc, max_l, occ_shells, maxiter, poly_order, min_alpha, max_alpha, num_alpha,&
       & tAutoAlphas, alpha, conf_r0, conf_power, num_occ, num_power, num_alphas, xcnr,&
-      & tPrintEigvecs, tZora, tBroyden, mixing_factor, xalpha_const, kappa, camAlpha, camBeta,&
+      & tPrintEigvecs, tZora, tBroyden, mixing_factor, xalpha_const, omega, camAlpha, camBeta,&
       & grid_params)
 
   tLC = ((xcnr == 5) .or. (xcnr == 6))
@@ -105,12 +105,12 @@ program HFAtom
   if (xcnr == 0) then
     call hfex(kk, max_l, num_alpha, alpha, poly_order, problemsize)
   elseif (tLC) then
-    call hfex_lr(kk_lr, max_l, num_alpha, alpha, poly_order, problemsize, kappa, grid_params)
+    call hfex_lr(kk_lr, max_l, num_alpha, alpha, poly_order, problemsize, omega, grid_params)
   elseif (tGlobalHybrid) then
     call hfex(kk, max_l, num_alpha, alpha, poly_order, problemsize)
   elseif (tCam) then
     call hfex(kk, max_l, num_alpha, alpha, poly_order, problemsize)
-    call hfex_lr(kk_lr, max_l, num_alpha, alpha, poly_order, problemsize, kappa, grid_params)
+    call hfex_lr(kk_lr, max_l, num_alpha, alpha, poly_order, problemsize, omega, grid_params)
   end if
 
   ! convergence flag
@@ -148,7 +148,7 @@ program HFAtom
 
     ! get electron density, derivatives, exc related potentials and energy densities
     call density_grid(pp, max_l, num_alpha, poly_order, alpha, num_mesh_points, abcissa, dzdr,&
-        & dz, xcnr, kappa, camAlpha, camBeta, rho, drho, ddrho, vxc, exc, xalpha_const)
+        & dz, xcnr, omega, camAlpha, camBeta, rho, drho, ddrho, vxc, exc, xalpha_const)
 
     ! build Fock matrix and get total energy during SCF
     call build_hamiltonian(iScf, tt, uu, nuc, vconf, jj, kk, kk_lr, pp, max_l, num_alpha,&

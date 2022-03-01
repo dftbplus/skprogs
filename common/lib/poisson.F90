@@ -18,7 +18,7 @@ module common_poisson
   use common_coordtrans, only : coordtrans_radial_becke1, coordtrans_radial_becke2
   use common_partition, only : partition_becke_homo
   use common_anglib, only : initGaunt
-  use common_finitedifferences, only : makeFDMatrix7P, P_BFDM7P
+  use common_finitedifferences, only : makeHelmholzFDMatrix7P, makePoissonFDMatrix7P
 
   implicit none
   private
@@ -127,7 +127,7 @@ contains
     integer :: nRadial
 
     !! screening parameter
-    real(dp) :: kappa
+    real(dp) :: omega
 
     !! midpoint of the integration interval
     real(dp) :: rm
@@ -139,7 +139,7 @@ contains
     !! iterates over radial points
     integer :: ii
 
-    kappa = this%kernelParameter
+    omega = this%kernelParameter
     nRadial=this%beckeGridParams%nRadial
     rm = this%rm
 
@@ -156,7 +156,7 @@ contains
     step_2 = step**2
 
     f0 = 0.0_dp
-    a2c = kappa**2 * rm**2 * pi**2 * 0.25_dp
+    a2c = omega**2 * rm**2 * pi**2 * 0.25_dp
     llp1_pi_2_rm_4 = 4.0_dp * pi**2
     pi_rm_4_3 = pi**3 * rm**3 * 4.0_dp * tmp1
 
@@ -674,26 +674,24 @@ contains
     llp1_pi_2_rm_4 = 4.0_dp * pi**2 * rm * real(ll * (ll + 1), dp)
 
     do ii = 1, nGridPts
+      sin_pi = sin(pi * zi(ii))
+      sin_pi_hlf = sin(pi_hlf * zi(ii))
+      cos_pi_hlf = cos(pi_hlf * zi(ii))
 
-       sin_pi = sin(pi * zi(ii))
-       sin_pi_hlf = sin(pi_hlf * zi(ii))
-       cos_pi_hlf = cos(pi_hlf * zi(ii))
+      sin_pi_hlf = sin_pi_hlf**2 ! ^2
+      cos_pi_hlf = cos_pi_hlf**4 ! ^4
 
-       sin_pi_hlf = sin_pi_hlf**2 ! ^2
-       cos_pi_hlf = cos_pi_hlf**4 ! ^4
+      alpha(ii) = 1.0_dp
+      beta(ii) = (pi / sin_pi + pi_hlf * sin_pi / sin_pi_hlf)
 
-       alpha(ii) = 1.0_dp
-       beta(ii) = (pi / sin_pi + pi_hlf * sin_pi / sin_pi_hlf)
+      sin_pi = sin_pi**2 ! ^2
+      gama(ii) = -llp1_pi_2_rm_4 / sin_pi
 
-       sin_pi = sin_pi**2 ! ^2
-       gama(ii) = -llp1_pi_2_rm_4 / sin_pi
-
-       sin_pi_hlf = sin_pi_hlf**4 ! ^8
-       delta(ii) = -pi_rm_4_3 * rho(ii) * cos_pi_hlf / sin_pi_hlf
-
+      sin_pi_hlf = sin_pi_hlf**4 ! ^8
+      delta(ii) = -pi_rm_4_3 * rho(ii) * cos_pi_hlf / sin_pi_hlf
     end do
 
-    call P_BFDM7P(H2, B, nGridPts, ll, zi, rm, charge)
+    call makePoissonFDMatrix7P(H2, B, nGridPts, ll, zi, rm, charge)
 
     tmp1 = (1.0_dp / real(nGridPts + 1, dp))**2 * 180.0_dp
     B(:) = B + tmp1 * delta
@@ -760,7 +758,6 @@ contains
     !********************************
     ! matrix/vector allocation
     !********************************
-    allocate(H(nGridPts, nGridPts))
     allocate(alpha(nGridPts))
     allocate(beta(nGridPts))
     allocate(gama(nGridPts))
@@ -770,7 +767,6 @@ contains
     allocate(solution(nGridPts))
     allocate(swork(nGridPts * (nGridPts + 1)))
     allocate(dummy(nGridPts))
-    H(:,:) = 0.0_dp
 
     !****************************************
     ! set up the equation:
@@ -796,7 +792,7 @@ contains
     ! generate the FD Matrix
     !******************************
     ! 7-point FD scheme, ref: Bickley
-    call makeFDMatrix7P(H, delta, nGridPts, alpha, beta, gama, dummy, f0, f1)
+    call makeHelmholzFDMatrix7P(H, delta, alpha, beta, gama, f0, f1)
 
     !******************************
     ! call LAPACK (d)sgesv routine

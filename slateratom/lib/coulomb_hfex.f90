@@ -256,7 +256,7 @@ contains
 
   !> Builds HF exchange supermatrix (long-range, range-separated version),
   !! see Rev. Mod. Phys. 32, 186 (1960) eqn. 7/8 and eqn. 21
-  subroutine hfex_lr(kk, max_l, num_alpha, alpha, poly_order, problemsize, kappa, grid_params)
+  subroutine hfex_lr(kk, max_l, num_alpha, alpha, poly_order, problemsize, omega, grid_params)
 
     !> Hartree-Fock exchange supermatrix
     real(dp), intent(out) :: kk(0:,:,:,0:,:,:)
@@ -277,7 +277,7 @@ contains
     integer, intent(in) :: problemsize
 
     !> range-separation parameter
-    real(dp), intent(in) :: kappa
+    real(dp), intent(in) :: omega
 
     !> holds parameters, defining a Becke integration grid
     type(TBeckeGridParams), intent(in) :: grid_params
@@ -322,7 +322,7 @@ contains
     call TBeckeIntegrator_init(t_integ, grid_params)
 
     ! set the kernel parameter
-    call TBeckeIntegrator_setKernelParam(t_integ, kappa)
+    call TBeckeIntegrator_setKernelParam(t_integ, omega)
     call TBeckeIntegrator_precompFdMatrix(t_integ)
     call TBeckeIntegrator_buildLU(t_integ)
 
