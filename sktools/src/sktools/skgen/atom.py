@@ -2,6 +2,7 @@ import os.path
 import copy
 import logging
 import numpy as np
+import scipy.optimize as opt
 import sktools.common as sc
 from . import common as ssc
 
@@ -122,8 +123,9 @@ class SkgenAtomCalculation:
             return
 
         xcn = self._xcf.type
-        if xcn in ('lcy-pbe', 'lcy-bnl'):
-            hubbus = self._calculate_hubbus_corrected(
+        if xcn in ('pbe0', 'b3lyp', 'lcy-pbe', 'lcy-bnl', 'camy-b3lyp',
+                   'camy-pbeh'):
+            hubbus = self._calculate_cam_hubbus(
                 result_spinavg_atom, replace_empty_with_homo=True)
         else:
             hubbus = self._calculate_hubbus(result_spinavg_atom,
@@ -206,8 +208,7 @@ class SkgenAtomCalculation:
         return valence_hubbus
 
 
-    def _calculate_hubbus_corrected(self, result_spinavg,
-                                    replace_empty_with_homo):
+    def _calculate_cam_hubbus(self, result_spinavg, replace_empty_with_homo):
         workdir = os.path.join(self._workdir, "hubbu")
         logger.info("Calculating Hubbard U values " + sc.log_path(workdir))
         shells, ihomo, energies = self._get_shells_and_energies_for_deriv_calc(
@@ -220,50 +221,60 @@ class SkgenAtomCalculation:
                                                   replace_empty_with_homo)
 
         logger.info("Applying the Hubbard correction algorithm")
-        # needs: ll, omega, Hubbard
-        # value of l: print(shells[ihomo][1])
-        # valence Hubbard: print(valence_hubbus[ihomo][ihomo])
-        # omega: print(self._xcf.omega)
-        corr_hubb = self._correct_hubbard(shells[ihomo][1],
-                                          valence_hubbus[ihomo][ihomo])
-        # correction
-        valence_hubbus[ihomo][ihomo] = corr_hubb
+        cam_hubb = self._calculate_cam_hubbu(shells[ihomo][1],
+                                              valence_hubbus[ihomo][ihomo])
+        # store corrected value
+        valence_hubbus[ihomo][ihomo] = cam_hubb
 
         return valence_hubbus
 
 
-    def _correct_hubbard(self, ll, hubbu):
-        '''Hubbard correction for range-separated hybrid functionals'''
+    def _calculate_cam_hubbu(self, ll, hubbu):
+        '''Calculates the corrected CAMY Hubbard U's by finding a root.'''
 
-        tau2hub = 3.2
-        convtol = 1.0e-8
-        maxiter = 50
-        degeneracy = 0.5 / (2 * ll + 1)
-        uu = hubbu * tau2hub / self._xcf.omega
-        xxmin = uu
-        xxmax = uu + tau2hub * degeneracy
-        xx = 0.5 * (xxmin + xxmax)
-        err = xxmax - xxmin
-        iteration = 0
-        while True:
-            yymin = (xxmin * degeneracy * (1.0 - self.funcP(xxmin)))
-            yymax = (xxmax * degeneracy * (1.0 - self.funcP(xxmax)))
-            xxmin = uu + yymin
-            xxmax = uu + yymax
-            err = xxmax-xxmin
-            xx = (xxmin + xxmax) * 0.5
-            iteration = iteration + 1
-            if (abs(err) < convtol) or iteration > maxiter:
-                break
-        tau = xx * self._xcf.omega
+        tau2hub = 16.0 / 5.0
+        xx_root = opt.brentq(
+            lambda xx: self._cam_root_equation(xx, ll, hubbu, self._xcf.omega,
+                                               self._xcf.alpha, self._xcf.beta),
+            0.0, 1e+03)
+        self._test_cam_hubbu(xx_root, ll, hubbu)
+        tau = xx_root * self._xcf.omega
+        hubbu_corrected = tau / tau2hub
 
-        return tau / tau2hub
+        return hubbu_corrected
+
+
+    def _test_cam_hubbu(self, xx_root, ll, hubbu, rtol=1.0e-12, atol=1.0e-14):
+        '''Tests fulfillment of CAMY-Hubbard equation.'''
+
+        should_be_zero = self._cam_root_equation(
+            xx_root, ll, hubbu, self._xcf.omega, self._xcf.alpha,
+            self._xcf.beta)
+
+        if not np.isclose(should_be_zero, 0.0, rtol=rtol, atol=atol):
+            msg = 'Failed to find satisfying root of CAMY-Hubbard equation.' \
+                + '\nObtained {}'.format(root) + ' > specified tolerance ' \
+                + '(rtol={}, atol={}).'.format(rtol, atol)
+            raise sc.SkgenException(msg)
 
 
     @staticmethod
-    def funcP(xx):
-        tmp = xx * xx * (xx * xx + 0.8 * xx + 0.2) / (xx + 1.0)**4
-        return tmp
+    def _cam_root_equation(xx, ll, hubbu, omega, alpha, beta):
+        '''0 = gl F(xx, alpha, beta) + u_tilde - xx'''
+
+        def funcP(xx):
+            '''P(x)'''
+            return xx**2 * (xx**2 + 0.8 * xx + 0.2) / (xx + 1.0)**4
+
+        def funcF(xx, alpha, beta):
+            '''f(x) = x (alpha + beta (1 - P(x)))'''
+            return xx * (alpha + beta * (1.0 - funcP(xx)))
+
+        tau2hub = 16.0 / 5.0
+        gl = 1.0 / (2.0 * (2.0 * ll + 1.0))
+        u_tilde = hubbu * tau2hub / omega
+
+        return gl * funcF(xx, alpha, beta) + u_tilde - xx
 
 
     def _get_shells_and_energies_for_deriv_calc(self, result_spinavg,

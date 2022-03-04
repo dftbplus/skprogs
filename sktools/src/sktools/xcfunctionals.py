@@ -15,6 +15,10 @@ class XCPBE0(sc.ClassDict):
 
         myself = cls()
         myself.type = 'pbe0'
+        # dummy omega
+        myself.omega = 1.0
+        myself.alpha = 0.25
+        myself.beta = 0.0
         return myself
 
 
@@ -27,6 +31,10 @@ class XCB3LYP(sc.ClassDict):
 
         myself = cls()
         myself.type = 'b3lyp'
+        # dummy omega
+        myself.omega = 1.0
+        myself.alpha = 0.2
+        myself.beta = 0.0
         return myself
 
 
@@ -147,6 +155,8 @@ class XCLCYBNL(sc.ClassDict):
         myself = cls()
         myself.type = 'lcy-bnl'
         myself.omega = omega
+        myself.alpha = 0.0
+        myself.beta = 1.0
         return myself
 
 
@@ -171,6 +181,8 @@ class XCLCYPBE(sc.ClassDict):
         myself = cls()
         myself.type = 'lcy-pbe'
         myself.omega = omega
+        myself.alpha = 0.0
+        myself.beta = 1.0
         return myself
 
 
