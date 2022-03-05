@@ -1126,6 +1126,7 @@ contains
     call TBeckeIntegrator_getCoords(beckeInt, [3, 1, 1], rr3)
 
     nGrid = size(rr2)
+    nRadial = size(rr3)
 
     allocate(V(nGrid))
     allocate(V_l(nRadial, beckeInt%beckeGridParams%ll_max, 2))
@@ -1134,8 +1135,6 @@ contains
     allocate(tmp11(nGrid))
     tmp22(:) = acos((rr2 - 1.0_dp) / (rr2 + 1.0_dp)) / pi
     tmp11(:) = acos((rr1 - 1.0_dp) / (rr1 + 1.0_dp)) / pi
-
-    nRadial = size(rr3)
 
     allocate(rrin(nRadial))
     allocate(rrin2(nRadial))

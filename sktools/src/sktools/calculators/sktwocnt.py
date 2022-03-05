@@ -213,7 +213,8 @@ class SktwocntInput:
             # hardcoded parameters for the Becke integration,
             # -> should probably be moved to skdef.hsd
             becke = '2000 194 11 1.0'
-            fp.write("{:f} {:s}\n".format(self._functional.omega, becke))
+            fp.write("{:f}\n".format(self._functional.omega))
+            fp.write("{:s}\n".format(becke))
         # globals hybrid functionals
         elif self._functional.type in ('pbe0', 'b3lyp'):
             # hardcoded parameters for the Becke integration,
@@ -223,10 +224,10 @@ class SktwocntInput:
         # CAM functionals
         elif self._functional.type in ('camy-b3lyp', 'camy-pbeh'):
             becke = '2000 194 11 1.0'
-            fp.write("{:f} {:f} {:f} {:s}\n".format(self._functional.omega,
-                                                    self._functional.alpha,
-                                                    self._functional.beta,
-                                                    becke))
+            fp.write("{:f} {:f} {:f}\n".format(self._functional.omega,
+                                               self._functional.alpha,
+                                               self._functional.beta))
+            fp.write("{:s}\n".format(becke))
 
         fp.write("{:f} {:f} {:e} {:f}\n".format(
             self._grid.gridstart, self._grid.gridseparation,
