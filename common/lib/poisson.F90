@@ -561,7 +561,7 @@ contains
     ! TBeckeGrid contains two subgrids
     elseif (nSubgrids == 2) then
       allocate(this%subgrid(2))
-      call gengrid2_3(angquad, radquad, coordtrans_radial_becke1, partition_becke_homo,beckepars,&
+      call gengrid2_3(angquad, radquad, coordtrans_radial_becke1, partition_becke_homo, beckepars,&
           & dist, this%subgrid(1)%data, this%subgrid(2)%data, this%weight, this%partition)
     end if
 

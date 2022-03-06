@@ -6,7 +6,7 @@ module twocnt
   use common_anglib, only : realGaunt
   use common_coordtrans, only : coordtrans_becke_12, coordtrans_radial_becke2
   use common_sphericalharmonics, only : TRealTessY, TRealTessY_init
-  use common_quadratures, only : TQuadrature, gauss_legendre_quadrature
+  use common_quadratures, only : TQuadrature, gauss_legendre_quadrature, gauss_chebyshev_quadrature
   use common_gridgenerator, only : gengrid1_1, gengrid2_2
   use common_partition, only : partition_becke_homo
   use common_splines, only : spline3ders
@@ -179,7 +179,7 @@ contains
     real(dp), allocatable, target :: grid1(:,:), grid2(:,:), rr3(:,:)
 
     !! dot product of unit distance vectors and integration weights
-    real(dp), allocatable :: dots(:), weights(:), fullRangeHFWeights(:)
+    real(dp), allocatable :: dots(:), weights(:), dummyWeights(:)
 
     !! relative density integration error for all dimer distances of a batch
     real(dp), allocatable :: denserr(:)
@@ -301,9 +301,9 @@ contains
     end if
 
     if (inp%tGlobalHybrid .or. inp%tCam) then
-      call gauss_legendre_quadrature(inp%nRadial, radialHFQuadrature)
+      call gauss_chebyshev_quadrature(inp%nRadial, radialHFQuadrature)
       ! generate spherical coordinate (r) for full-range Hartree-Fock contribution to H0
-      call gengrid1_1(radialHFQuadrature, inp%rm, coordtrans_radial_becke2, rr3, fullRangeHFWeights)
+      call gengrid1_1(radialHFQuadrature, inp%rm, coordtrans_radial_becke2, rr3, dummyWeights)
     end if
 
     call gauss_legendre_quadrature(inp%ninteg1, quads(1))
@@ -343,9 +343,9 @@ contains
         nRad = size(quads(1)%xx)
         nAng = size(quads(2)%xx)
         call getskintegrals(beckeInt, radialHFQuadrature, nRad, nAng, atom1, atom2, grid1, grid2,&
-            & rr3(:, 1), dots, weights, fullRangeHFWeights, inp%tDensitySuperpos, inp%ll_max,&
-            & inp%iXC, inp%camAlpha, inp%camBeta, inp%tGlobalHybrid, inp%tLC, inp%tCam, imap,&
-            & xcfunc_xc, xcfunc_x, xcfunc_c, skhambuffer(:, ir), skoverbuffer(:, ir), denserr(ir))
+            & rr3(:, 1), dots, weights, inp%tDensitySuperpos, inp%ll_max, inp%iXC, inp%camAlpha,&
+            & inp%camBeta, inp%tGlobalHybrid, inp%tLC, inp%tCam, imap, xcfunc_xc, xcfunc_x,&
+            & xcfunc_c, skhambuffer(:, ir), skoverbuffer(:, ir), denserr(ir))
       end do lpDist
       denserrmax = max(denserrmax, maxval(denserr))
       maxabs = max(maxval(abs(skhambuffer)), maxval(abs(skoverbuffer)))
@@ -383,8 +383,8 @@ contains
 
   !> Calculates SK-integrals.
   subroutine getskintegrals(beckeInt, radialHFQuadrature, nRad, nAng, atom1, atom2, grid1, grid2,&
-      & rr3, dots, weights, fullRangeHFWeights, tDensitySuperpos, ll_max, iXC, camAlpha, camBeta,&
-      & tGlobalHybrid, tLC, tCam, imap, xcfunc_xc, xcfunc_x, xcfunc_c, skham, skover, denserr)
+      & rr3, dots, weights, tDensitySuperpos, ll_max, iXC, camAlpha, camBeta, tGlobalHybrid, tLC,&
+      & tCam, imap, xcfunc_xc, xcfunc_x, xcfunc_c, skham, skover, denserr)
 
     !> Becke integrator instances
     type(TBeckeIntegrator), intent(inout) :: beckeInt
@@ -408,7 +408,7 @@ contains
     real(dp), intent(in) :: dots(:)
 
     !> integration weights
-    real(dp), intent(in) :: weights(:), fullRangeHFWeights(:)
+    real(dp), intent(in) :: weights(:)
 
     !> true, if density superposition is requested, otherwise potential superposition is applied
     logical, intent(in) :: tDensitySuperpos
@@ -540,6 +540,10 @@ contains
         ! care about correct 4pi normalization of density and compute sigma
         sigma = getLibxcSigma(densval1p, densval2p, dots)
       end if
+      if (tGlobalHybrid .or. tCam) then
+        allocate(vxc(nGrid))
+        allocate(vxcsigma(nGrid))
+      end if
 
       select case (iXC)
       ! 1: LDA-PW91
@@ -598,7 +602,7 @@ contains
       if (tGlobalHybrid) then
         ! full-range Hartree-Fock exchange contribution
         frx = 0.5_dp * getFullRangeHFContribution(radialHFQuadrature%xx, rr3, ll_max, atom1, atom2,&
-            & imap, ii, r1, theta1, r2, theta2, fullRangeHFWeights)
+            & imap, ii, r1, theta1, r2, theta2, weights)
         ! add up full-range exchange to the Hamiltonian
         integ1 = integ1 - frx
       elseif (tLC) then
@@ -610,7 +614,7 @@ contains
       elseif (tCam) then
         ! full-range Hartree-Fock exchange contribution
         frx = 0.5_dp * camAlpha * getFullRangeHFContribution(radialHFQuadrature%xx, rr3, ll_max,&
-            & atom1, atom2, imap, ii, r1, theta1, r2, theta2, fullRangeHFWeights)
+            & atom1, atom2, imap, ii, r1, theta1, r2, theta2, weights)
         ! long-range Hartree-Fock exchange contribution
         lrx = 0.5_dp * camBeta * getLongRangeHFContribution(beckeInt, atom1, atom2, imap, ii, r1,&
             & theta1, r2, theta2, weights)
@@ -960,6 +964,7 @@ contains
     ll_nu = atom1%angmoms(imap%type(1, iInt))
     mm_nu = imap%type(3, iInt) - 1
     rrin2(:) = atom1%rad(imap%type(1, iInt))%getValue(rr3)
+
     zi(:) = acos(radialQuadratureXx) / pi
 
     allocate(V_sum(nGrid))
@@ -1147,6 +1152,7 @@ contains
     ll_nu = atom1%angmoms(imap%type(1, iInt))
     mm_nu = imap%type(3, iInt) - 1
     rrin2(:) = atom1%rad(imap%type(1, iInt))%getValue(rr3)
+
     zi(:) = acos(beckeInt%radialQuadrature%xx) / pi
 
     allocate(V_sum(nGrid))
