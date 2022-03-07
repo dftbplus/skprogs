@@ -57,8 +57,7 @@ contains
         stop
       end if
 
-      deallocate(overlap)
-      deallocate(eigenvalues)
+      deallocate(overlap, eigenvalues)
 
     end do
     write(*,*) ' '
@@ -122,47 +121,6 @@ contains
         eigval(iSpin, ll, :) = eigenvalues
 
         deallocate(fock, overlap, eigenvalues)
-
-        ! Debug:
-        ! real(dp), allocatable :: res1(:,:), res2(:,:)
-        ! integer, allocatable :: loc(:)
-        ! integer :: i, j, alpha, beta
-
-        ! allocate(res1(diagsize, diagsize))
-        ! allocate(res2(diagsize, diagsize))
-
-        ! res1(:,:) = 0.0_dp
-        ! res2(:,:) = 0.0_dp
-        ! do alpha = 1, diagsize
-        !   do beta = 1, diagsize
-        !     do i = 1, diagsize
-        !       do j = 1, diagsize
-        !         res2(alpha, beta) = res2(alpha, beta)&
-        !             & + fock(i, alpha) * ss(ll, i, j) * fock(j, beta)
-        !         res1(alpha, beta) = res1(alpha, beta)&
-        !             & + temp1(i, alpha) * ss(ll, i, j) * temp1(j, beta)
-        !       end do
-        !     end do
-        !   end do
-        ! end do
-        ! loc = maxloc(abs(res1 - res2))
-        ! print *, loc, res1(loc(1), loc(2)), res2(loc(1), loc(2))
-        ! deallocate(res1, res2)
-
-        ! print '(12F10.6)', matmul(reshape(fock(:, 1), [diagsize, 1]),&
-        !     & reshape(matmul(ss(ll, :,:), fock(:, 1)), [1, diagsize]))
-
-        ! do alpha = 1, diagsize
-        !   print *, maxval((matmul(ff(iSpin, ll, :,:), temp1(:, alpha)) / matmul(ss(ll, :,:),&
-        !       & temp1(:, alpha))) - temp2(alpha))
-        !   print *, (matmul(ff(iSpin, ll, :,:), fock(:, alpha)) / matmul(ss(ll, :,:), fock(:, alpha)))&
-        !       & - eigenvalues(alpha)
-        ! end do
-
-        ! print *, matmul(fock(:, 1), transpose(matmul(overlap, fock(:, 1))))
-
-        ! print *, 'eigprec: ', maxval(abs(abs(eigenvalues) - abs(temp2)))
-        ! print *, 'vecprec: ', maxval(abs(abs(fock) - abs(temp1)))
 
       end do
     end do
