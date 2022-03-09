@@ -3,7 +3,7 @@ module twocnt
 
   use common_accuracy, only : dp
   use common_constants, only : pi, rec4pi
-  use common_anglib, only : realGaunt
+  use common_anglib, only : initGaunt, freeGaunt, realGaunt
   use common_coordtrans, only : coordtrans_becke_12, coordtrans_radial_becke2
   use common_sphericalharmonics, only : TRealTessY, TRealTessY_init
   use common_quadratures, only : TQuadrature, gauss_legendre_quadrature, gauss_chebyshev_quadrature
@@ -306,6 +306,10 @@ contains
       call gengrid1_1(radialHFQuadrature, inp%rm, coordtrans_radial_becke2, rr3, dummyWeights)
     end if
 
+    if (inp%tGlobalHybrid) then
+      call initGaunt(inp%ll_max)
+    end if
+
     call gauss_legendre_quadrature(inp%ninteg1, quads(1))
     call gauss_legendre_quadrature(inp%ninteg2, quads(2))
 
@@ -338,6 +342,7 @@ contains
           & inp%r0 + inp%dr * real(nBatch * nBatchline, dp), " dr = ", inp%dr
       lpDist: do ir = 1, nBatchline
         dist = inp%r0 + inp%dr * real(nBatch * nBatchline + ir - 1, dp)
+        write(*, "(A,F6.2,A)") 'Calculating dimer distance: ', dist, ' Bohr'
         call gengrid2_2(quads, coordtrans_becke_12, partition_becke_homo, beckepars, dist, grid1,&
             & grid2, dots, weights)
         nRad = size(quads(1)%xx)
@@ -374,9 +379,18 @@ contains
     call hamfifo%popall_concat(skham)
     call overfifo%popall_concat(skover)
 
-    ! finalize libXC objects
-    call xc_f03_func_end(xcfunc_x)
-    call xc_f03_func_end(xcfunc_c)
+    ! finalize libxc objects
+    if (inp%tGlobalHybrid .or. inp%tCam) then
+      call xc_f03_func_end(xcfunc_xc)
+    else
+      call xc_f03_func_end(xcfunc_x)
+      call xc_f03_func_end(xcfunc_c)
+    end if
+
+    ! finalize anglib (global Hybrids only)
+    if (inp%tGlobalHybrid) then
+      call freeGaunt()
+    end if
 
   end subroutine get_twocenter_integrals
 

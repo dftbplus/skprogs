@@ -220,7 +220,7 @@ class SktwocntInput:
             # hardcoded parameters for the Becke integration,
             # -> should probably be moved to skdef.hsd
             becke = '2000 194 11 1.0'
-            fp.write("{:f}\n".format(becke))
+            fp.write("{:s}\n".format(becke))
         # CAM functionals
         elif self._functional.type in ('camy-b3lyp', 'camy-pbeh'):
             becke = '2000 194 11 1.0'

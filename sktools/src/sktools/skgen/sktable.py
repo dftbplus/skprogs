@@ -158,8 +158,11 @@ class SkgenSktableAssembly:
                                                             myinput.xcf.alpha,
                                                             myinput.xcf.beta)
             extra_tag = [rsh_tag]
-        if xcn in ('pbe0', 'b3lyp'):
-            rsh_tag = "GlobalHybrid"
+        if xcn == 'pbe0':
+            rsh_tag = "GlobalHybrid\nHF {:f}".format(0.25)
+            extra_tag = [rsh_tag]
+        if xcn == 'b3lyp':
+            rsh_tag = "GlobalHybrid\nHF {:f}".format(0.20)
             extra_tag = [rsh_tag]
 
         if self._input.homo:

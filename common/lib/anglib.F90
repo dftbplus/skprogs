@@ -7,7 +7,7 @@ module common_anglib
   implicit none
   private
 
-  public :: initGaunt, realGaunt
+  public :: initGaunt, freeGaunt, realGaunt
 
   !> true, if Gaunt is initialized
   logical :: tGauntInit_ = .false.

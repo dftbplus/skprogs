@@ -10,8 +10,7 @@ module dft
       & xc_f03_func_get_info, xc_f03_lda_exc_vxc, xc_f03_gga_exc_vxc, xc_f03_gga_fxc,&
       & xc_f03_func_set_ext_params, XC_LDA_X, XC_LDA_X_YUKAWA, XC_LDA_C_PW, XC_GGA_X_PBE,&
       & XC_GGA_X_B88, XC_GGA_X_SFAT_PBE, XC_HYB_GGA_XC_PBEH, XC_HYB_GGA_XC_B3LYP,&
-      & XC_HYB_GGA_XC_CAMY_B3LYP, XC_HYB_GGA_XC_CAMY_PBEH, XC_GGA_C_PBE, XC_GGA_C_LYP,&
-      & XC_POLARIZED
+      & XC_HYB_GGA_XC_CAMY_B3LYP, XC_GGA_C_PBE, XC_GGA_C_LYP, XC_POLARIZED
 
   implicit none
   private
@@ -135,17 +134,17 @@ contains
     real(dp) :: rhodiff
 
     !! libxc related objects
-    type(xc_f03_func_t) :: xcfunc_xc, xcfunc_x, xcfunc_c
+    type(xc_f03_func_t) :: xcfunc_xc, xcfunc_x, xcfunc_xsr, xcfunc_c
     type(xc_f03_func_info_t) :: xcinfo
 
     !! number of density grid points
     integer(c_size_t) :: nn
 
     !! exchange and correlation energy on grid
-    real(dp), allocatable :: ex(:), ec(:)
+    real(dp), allocatable :: ex(:), ex_sr(:), ec(:)
 
     !! exchange and correlation potential on grid
-    real(dp), allocatable :: vx(:,:), vc(:,:)
+    real(dp), allocatable :: vx(:,:), vx_sr(:,:), vc(:,:)
 
     !! density in libxc compatible format, i.e. rho/(4pi)
     real(dp), allocatable :: rhor(:,:)
@@ -167,7 +166,7 @@ contains
 
     !! temporary storage
     real(dp), allocatable :: tmpv1(:), tmpv2(:), exc_tmp(:), vxc_tmp(:,:)
-    real(dp), allocatable :: sigma(:,:), vxsigma(:,:), vcsigma(:,:), vxcsigma(:,:)
+    real(dp), allocatable :: sigma(:,:), vxsigma(:,:), vxsigma_sr(:,:), vcsigma(:,:), vxcsigma(:,:)
 
     !! auxiliary variables
     integer :: ii, iSpin, iSpin2, iSigma
@@ -234,13 +233,16 @@ contains
       xcinfo = xc_f03_func_get_info(xcfunc_xc)
     elseif (xcnr == 10) then
       tCam = .true.
-      call xc_f03_func_init(xcfunc_xc, XC_HYB_GGA_XC_CAMY_PBEH, XC_POLARIZED)
-      call xc_f03_func_set_ext_params(xcfunc_xc, [camAlpha + camBeta, -camBeta, omega])
-      ! those calls seems to be equivalent to the statement above (note the underscores):
-      ! call xc_f03_func_set_ext_params_name(xcfunc_xc, '_alpha', ...)
-      ! call xc_f03_func_set_ext_params_name(xcfunc_xc, '_beta', ...)
-      ! call xc_f03_func_set_ext_params_name(xcfunc_xc, '_omega', ...)
-      xcinfo = xc_f03_func_get_info(xcfunc_xc)
+      ! short-range xpbe96
+      call xc_f03_func_init(xcfunc_xsr, XC_GGA_X_SFAT_PBE, XC_POLARIZED)
+      call xc_f03_func_set_ext_params(xcfunc_xsr, [omega])
+      xcinfo = xc_f03_func_get_info(xcfunc_xsr)
+      ! xpbe96
+      call xc_f03_func_init(xcfunc_x, XC_GGA_X_PBE, XC_POLARIZED)
+      xcinfo = xc_f03_func_get_info(xcfunc_x)
+      ! cpbe96
+      call xc_f03_func_init(xcfunc_c, XC_GGA_C_PBE, XC_POLARIZED)
+      xcinfo = xc_f03_func_get_info(xcfunc_c)
     end if
 
     nn = size(rho, dim=1)
@@ -257,20 +259,36 @@ contains
     end if
 
     if (tGGA .or. tLC) then
-       allocate(sigma(3, nn))
-       allocate(vxsigma(3, nn))
-       vxsigma(:,:) = 0.0_dp
-       allocate(vcsigma(3, nn))
-       vcsigma(:,:) = 0.0_dp
-       allocate(tmpv1(nn))
-       allocate(tmpv2(nn))
-     elseif (tGlobalHybrid .or. tCam) then
-       allocate(sigma(3, nn))
-       allocate(vxcsigma(3, nn))
-       vxcsigma(:,:) = 0.0_dp
-       allocate(tmpv1(nn))
-       allocate(tmpv2(nn))
-     end if
+      allocate(sigma(3, nn))
+      allocate(vxsigma(3, nn))
+      vxsigma(:,:) = 0.0_dp
+      allocate(vcsigma(3, nn))
+      vcsigma(:,:) = 0.0_dp
+      allocate(tmpv1(nn))
+      allocate(tmpv2(nn))
+    elseif (tGlobalHybrid .or. tCam) then
+      allocate(sigma(3, nn))
+      allocate(vxcsigma(3, nn))
+      vxcsigma(:,:) = 0.0_dp
+      allocate(tmpv1(nn))
+      allocate(tmpv2(nn))
+    end if
+
+    ! CAMY-PBEh is assembled manually
+    if (xcnr == 10) then
+      allocate(vxsigma(3, nn))
+      vxsigma(:,:) = 0.0_dp
+      allocate(vxsigma_sr(3, nn))
+      vxsigma_sr(:,:) = 0.0_dp
+      allocate(vcsigma(3, nn))
+      vcsigma(:,:) = 0.0_dp
+      allocate(ex_sr(nn))
+      allocate(ex(nn))
+      allocate(ec(nn))
+      allocate(vx_sr(2, nn))
+      allocate(vx(2, nn))
+      allocate(vc(2, nn))
+    end if
 
     do ii = 1, num_mesh_points
       rho(ii, 1) = density_at_point(pp(1, :,:,:), max_l, num_alpha, poly_order, alpha, abcissa(ii))
@@ -353,11 +371,38 @@ contains
     !! -------- Exchange + Correlation energy and potential -----------
 
     select case (xcnr)
-    ! PBE0, B3LYP (global hybrids), CAMY-B3LYP, CAMY-PBEh (CAMY-functionals)
-    case(7:10)
+    ! PBE0, B3LYP (global hybrids), CAMY-B3LYP (CAMY-functional)
+    case(7:9)
       call xc_f03_gga_exc_vxc(xcfunc_xc, nn, rhor(1, 1), sigma(1, 1), exc_tmp(1), vxc_tmp(1, 1),&
           & vxcsigma(1, 1))
       vxc(:,:) = transpose(vxc_tmp)
+      ! derivative of E vs. grad n
+      do iSpin = 1, 2
+        ! the other spin
+        iSpin2 = 3 - iSpin
+        ! 1 for spin up, 3 for spin down
+        iSigma = 2 * iSpin - 1
+        tmpv1(:) = vxcsigma(iSigma, :) * drho(:, iSpin) * rec4pi
+        call radial_divergence(tmpv1, abcissa, dz, tmpv2, dzdr)
+        vxc(:, iSpin) = vxc(:, iSpin) - 2.0_dp * tmpv2
+        tmpv1(:) = vxcsigma(2, :) * drho(:, iSpin2) * rec4pi
+        call radial_divergence(tmpv1, abcissa, dz, tmpv2, dzdr)
+        vxc(:, iSpin) = vxc(:, iSpin) - tmpv2
+      end do
+    ! CAMY-PBEh (CAMY-functional)
+    case(10)
+      ! short-range exchange
+      call xc_f03_gga_exc_vxc(xcfunc_xsr, nn, rhor(1, 1), sigma(1, 1), ex_sr(1), vx_sr(1, 1),&
+          & vxsigma_sr(1, 1))
+      ! full-range exchange
+      call xc_f03_gga_exc_vxc(xcfunc_x, nn, rhor(1, 1), sigma(1, 1), ex(1), vx(1, 1),&
+          & vxsigma(1, 1))
+      ! correlation
+      call xc_f03_gga_exc_vxc(xcfunc_c, nn, rhor(1, 1), sigma(1, 1), ec(1), vc(1, 1), vcsigma(1, 1))
+      ! build CAMY-PBEh functional
+      vxcsigma(:,:) = camBeta * vxsigma_sr + (1.0_dp - (camAlpha + camBeta)) * vxsigma + vcsigma
+      vxc(:,:) = transpose(camBeta * vx_sr + (1.0_dp - (camAlpha + camBeta)) * vx + vc)
+      exc_tmp(:) = camBeta * ex_sr + (1.0_dp - (camAlpha + camBeta)) * ex + ec
       ! derivative of E vs. grad n
       do iSpin = 1, 2
         ! the other spin
@@ -383,7 +428,13 @@ contains
     ! finalize libxc objects
     if (xcnr > 1) then
       if (tGlobalHybrid .or. tCam) then
-        call xc_f03_func_end(xcfunc_xc)
+        if (xcnr == 10) then
+          call xc_f03_func_end(xcfunc_xsr)
+          call xc_f03_func_end(xcfunc_x)
+          call xc_f03_func_end(xcfunc_c)
+        else
+          call xc_f03_func_end(xcfunc_xc)
+        end if
       else
         call xc_f03_func_end(xcfunc_x)
         call xc_f03_func_end(xcfunc_c)
