@@ -4,6 +4,7 @@ module dft
   use, intrinsic :: iso_c_binding, only : c_size_t
   use common_accuracy, only : dp
   use common_constants, only : pi, rec4pi
+  use xcfunctionals, only : xcFunctional
   use density, only : basis, basis_times_basis_times_r2, density_at_point, density_at_point_1st,&
       & density_at_point_2nd
   use xc_f03_lib_m, only : xc_f03_func_t, xc_f03_func_info_t, xc_f03_func_init, xc_f03_func_end,&
@@ -179,41 +180,41 @@ contains
     exc(:) = 0.0_dp
     vxc(:,:) = 0.0_dp
 
-    if (xcnr == 0) return
-    !  X-Alpha (xcnr = 1) handled by in-house routine
-    if (xcnr == 2) then
+    if (xcnr == xcFunctional%HF_Exchange) return
+    !  X-Alpha (xcnr = xcFunctional%X_Alpha) handled by in-house routine
+    if (xcnr == xcFunctional%LDA_PW91) then
       tLDA = .true.
       call xc_f03_func_init(xcfunc_x, XC_LDA_X, XC_POLARIZED)
       xcinfo = xc_f03_func_get_info(xcfunc_x)
       call xc_f03_func_init(xcfunc_c, XC_LDA_C_PW, XC_POLARIZED)
       xcinfo = xc_f03_func_get_info(xcfunc_c)
-    elseif (xcnr == 3) then
+    elseif (xcnr == xcFunctional%GGA_PBE96) then
       tGGA = .true.
       call xc_f03_func_init(xcfunc_x, XC_GGA_X_PBE, XC_POLARIZED)
       xcinfo = xc_f03_func_get_info(xcfunc_x)
       call xc_f03_func_init(xcfunc_c, XC_GGA_C_PBE, XC_POLARIZED)
       xcinfo = xc_f03_func_get_info(xcfunc_c)
-    elseif (xcnr == 4) then
+    elseif (xcnr == xcFunctional%GGA_BLYP) then
       tGGA = .true.
       call xc_f03_func_init(xcfunc_x, XC_GGA_X_B88, XC_POLARIZED)
       xcinfo = xc_f03_func_get_info(xcfunc_x)
       call xc_f03_func_init(xcfunc_c, XC_GGA_C_LYP, XC_POLARIZED)
       xcinfo = xc_f03_func_get_info(xcfunc_c)
-    elseif (xcnr == 5) then
+    elseif (xcnr == xcFunctional%LCY_PBE96) then
       tLC = .true.
       call xc_f03_func_init(xcfunc_x, XC_GGA_X_SFAT_PBE, XC_POLARIZED)
       call xc_f03_func_set_ext_params(xcfunc_x, [kappa])
       xcinfo = xc_f03_func_get_info(xcfunc_x)
       call xc_f03_func_init(xcfunc_c, XC_GGA_C_PBE, XC_POLARIZED)
       xcinfo = xc_f03_func_get_info(xcfunc_c)
-    elseif (xcnr == 6) then
+    elseif (xcnr == xcFunctional%LCY_BNL) then
       tLC = .true.
       call xc_f03_func_init(xcfunc_x, XC_LDA_X_YUKAWA, XC_POLARIZED)
       call xc_f03_func_set_ext_params(xcfunc_x, [kappa])
       xcinfo = xc_f03_func_get_info(xcfunc_x)
       call xc_f03_func_init(xcfunc_c, XC_GGA_C_PBE, XC_POLARIZED)
       xcinfo = xc_f03_func_get_info(xcfunc_c)
-    elseif (xcnr > 6) then
+    else
       write(*, '(A,I2,A)') 'XCNR=', xcnr, ' not implemented!'
       stop
     end if
@@ -246,7 +247,7 @@ contains
 
     rho = max(rho, 0.0_dp)
 
-    if (xcnr > 2) then
+    if (xcFunctional%isGGA(xcnr) .or. xcFunctional%isLongRangeCorrected(xcnr)) then
 
       do ii = 1, num_mesh_points
 
@@ -265,7 +266,7 @@ contains
 
     ! case Xalpha treated seperatly:
     ! divide by 4*pi to catch different normalization of spherical harmonics
-    if (xcnr == 1) then
+    if (xcnr == xcFunctional%X_Alpha) then
       do ii = 1, num_mesh_points
         rhotot = (rho(ii, 1) + rho(ii, 2)) * rec4pi
         rhodiff = (rho(ii, 1) - rho(ii, 2)) * rec4pi
@@ -286,29 +287,30 @@ contains
     end if
 
     select case (xcnr)
-    case(2)
+    case(xcFunctional%LDA_PW91)
       call xc_f03_lda_exc_vxc(xcfunc_x, nn, rhor(1, 1), ex(1), vx(1, 1))
-    case(3:5)
+    case(xcFunctional%GGA_PBE96, xcFunctional%GGA_BLYP, xcFunctional%LCY_PBE96)
       call xc_f03_gga_exc_vxc(xcfunc_x, nn, rhor(1, 1), sigma(1, 1), ex(1), vx(1,1), vxsigma(1,1))
       call xc_f03_gga_fxc(xcfunc_x, nn, rhor(1, 1), sigma(1, 1), vx2rho2(1, 1), vx2rhosigma(1, 1),&
           & vx2sigma2(1, 1))
     !! exchange of BNL (Slater exchange with Yukawa screening) treated by Vitalijs code
-    case(6)
+    case(xcFunctional%LCY_BNL)
       call xc_f03_lda_exc_vxc(xcfunc_x, nn, rhor(1, 1), ex(1), vx(1, 1))
       !! important to set to zero, used below for E vs. grad n in GGA
       vxsigma(:,:) = 0.0_dp
     case default
-      write(*, '(A,I2,A)') 'XCNR=', xcnr, ' not implemented'
+      write(*, '(A,I2,A)') 'XCNR=', xcnr, ' not implemented!'
       stop
     end select
 
    !! -------- Correlation energy and potential -----------------------
 
     select case (xcnr)
-    case(2)
+    case(xcFunctional%LDA_PW91)
       call xc_f03_lda_exc_vxc(xcfunc_c, nn, rhor(1, 1), ec(1), vc(1, 1))
       vxc(:,:) = transpose(vx + vc)
-    case(3:6)
+    case(xcFunctional%GGA_PBE96, xcFunctional%GGA_BLYP, xcFunctional%LCY_PBE96,&
+        & xcFunctional%LCY_BNL)
       call xc_f03_gga_exc_vxc(xcfunc_c, nn, rhor(1, 1), sigma(1, 1), ec(1), vc(1, 1), vcsigma(1, 1))
       vxc(:,:) = transpose(vx + vc)
       !! derivative of E vs. grad n, treat x and c at the same time
@@ -330,7 +332,7 @@ contains
     exc(:) = ec + ex
 
     ! finalize libxc objects
-    if (xcnr > 1) then
+    if (.not. (xcnr == xcFunctional%X_Alpha)) then
       call xc_f03_func_end(xcfunc_x)
       call xc_f03_func_end(xcfunc_c)
     end if

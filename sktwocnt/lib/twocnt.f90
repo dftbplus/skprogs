@@ -17,6 +17,7 @@ module twocnt
       & integrator_get_coords, integrator_solve_helmholz
 
   use gridorbital, only : TGridorb2
+  use xcfunctionals, only : xcFunctional
 
   use, intrinsic :: iso_c_binding, only : c_size_t
 
@@ -105,7 +106,7 @@ module twocnt
     logical :: tXchyb
 
     !> xc-functional type
-    !! (1: LDA-PW91, 2: GGA-PBE, 3: GGA-BLYP, 4: LCY-PBE, 5: LCY-BNL)
+    !! (1: LDA-PW91, 2: GGA-PBE96, 3: GGA-BLYP, 4: LCY-PBE96, 5: LCY-BNL)
     integer :: iXC
 
     !> atomic properties of slateratom code, in the homonuclear case only atom1 is read
@@ -213,28 +214,28 @@ contains
     !! number of radial and angular integration abscissas
     integer :: nRad, nAng
 
-    if (inp%iXC == 1) then
+    if (inp%iXC == xcFunctional%LDA_PW91) then
       call xc_f03_func_init(xcfunc_x, XC_LDA_X, XC_UNPOLARIZED)
       xcinfo = xc_f03_func_get_info(xcfunc_x)
       call xc_f03_func_init(xcfunc_c, XC_LDA_C_PW, XC_UNPOLARIZED)
       xcinfo = xc_f03_func_get_info(xcfunc_c)
-    elseif (inp%iXC == 2) then
+    elseif (inp%iXC == xcFunctional%GGA_PBE96) then
       call xc_f03_func_init(xcfunc_x, XC_GGA_X_PBE, XC_UNPOLARIZED)
       xcinfo = xc_f03_func_get_info(xcfunc_x)
       call xc_f03_func_init(xcfunc_c, XC_GGA_C_PBE, XC_UNPOLARIZED)
       xcinfo = xc_f03_func_get_info(xcfunc_c)
-    elseif (inp%iXC == 3) then
+    elseif (inp%iXC == xcFunctional%GGA_BLYP) then
       call xc_f03_func_init(xcfunc_x, XC_GGA_X_B88, XC_UNPOLARIZED)
       xcinfo = xc_f03_func_get_info(xcfunc_x)
       call xc_f03_func_init(xcfunc_c, XC_GGA_C_LYP, XC_UNPOLARIZED)
       xcinfo = xc_f03_func_get_info(xcfunc_c)
-    elseif (inp%iXC == 4) then
+    elseif (inp%iXC == xcFunctional%LCY_PBE96) then
       call xc_f03_func_init(xcfunc_x, XC_GGA_X_SFAT_PBE, XC_UNPOLARIZED)
       call xc_f03_func_set_ext_params(xcfunc_x, [inp%kappa])
       xcinfo = xc_f03_func_get_info(xcfunc_x)
       call xc_f03_func_init(xcfunc_c, XC_GGA_C_PBE, XC_UNPOLARIZED)
       xcinfo = xc_f03_func_get_info(xcfunc_c)
-    elseif (inp%iXC == 5) then
+    elseif (inp%iXC == xcFunctional%LCY_BNL) then
       call xc_f03_func_init(xcfunc_x, XC_LDA_X_YUKAWA, XC_UNPOLARIZED)
       call xc_f03_func_set_ext_params(xcfunc_x, [inp%kappa])
       xcinfo = xc_f03_func_get_info(xcfunc_x)
@@ -369,7 +370,7 @@ contains
     logical, intent(in) :: tDensitySuperpos
 
     !> xc-functional type
-    !! (1: LDA-PW91, 2: GGA-PBE, 3: GGA-BLYP, 4: LCY-PBE, 5: LCY-BNL)
+    !! (1: LDA-PW91, 2: GGA-PBE96, 3: GGA-BLYP, 4: LCY-PBE96, 5: LCY-BNL)
     integer, intent(in) :: iXC
 
     !> true, if a hybrid functional is present
@@ -474,7 +475,7 @@ contains
       rhor = getLibxcRho(densval)
       allocate(vx(nGrid))
       allocate(vc(nGrid))
-      if (iXC /= 1) then
+      if (iXC /= xcFunctional%LDA_PW91) then
         allocate(vxsigma(nGrid))
         allocate(vcsigma(nGrid))
         densval1p = atom1%drho%getValue(r1)
@@ -485,19 +486,19 @@ contains
 
       select case (iXC)
       ! 1: LDA-PW91
-      case(1)
+      case(xcFunctional%LDA_PW91)
         call xc_f03_lda_vxc(xcfunc_x, nGridLibxc, rhor(1), vx(1))
         call xc_f03_lda_vxc(xcfunc_c, nGridLibxc, rhor(1), vc(1))
         potval = vx + vc
-      ! 2: GGA-PBE, 3: GGA-BLYP, 4: LCY-PBE
-      case(2:4)
+      ! 2: GGA-PBE96, 3: GGA-BLYP, 4: LCY-PBE96
+      case(xcFunctional%GGA_PBE96, xcFunctional%GGA_BLYP, xcFunctional%LCY_PBE96)
         call xc_f03_gga_vxc(xcfunc_x, nGridLibxc, rhor(1), sigma(1), vx(1), vxsigma(1))
         call xc_f03_gga_vxc(xcfunc_c, nGridLibxc, rhor(1), sigma(1), vc(1), vcsigma(1))
         call getDivergence(nRad, nAng, densval1p, densval2p, r1, r2, theta1, theta2, vxsigma, divvx)
         call getDivergence(nRad, nAng, densval1p, densval2p, r1, r2, theta1, theta2, vcsigma, divvc)
         potval = vx + vc + divvx + divvc
       ! 5: LCY-BNL
-      case(5)
+      case(xcFunctional%LCY_BNL)
         call xc_f03_lda_vxc(xcfunc_x, nGridLibxc, rhor(1), vx(1))
         call xc_f03_gga_vxc(xcfunc_c, nGridLibxc, rhor(1), sigma(1), vc(1), vcsigma(1))
         call getDivergence(nRad, nAng, densval1p, densval2p, r1, r2, theta1, theta2, vcsigma, divvc)

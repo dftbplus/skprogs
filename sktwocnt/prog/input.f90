@@ -4,6 +4,7 @@ module input
   use common_accuracy, only : dp
   use gridorbital, only : TGridorb2_init
   use twocnt, only : TTwocntInp, TAtomdata
+  use xcfunctionals, only : xcFunctional
 
   implicit none
   private
@@ -44,7 +45,7 @@ contains
     integer :: iErr
 
     !! xc-functional type
-    !! (1: LDA-PW91, 2: GGA-PBE, 3: GGA-BLYP, 4: LCY-PBE, 5: LCY-BNL)
+    !! (1: LDA-PW91, 2: GGA-PBE96, 3: GGA-BLYP, 4: LCY-PBE96, 5: LCY-BNL)
     integer :: iXC
 
     !! potential data columns, summed up in order to receive the total atomic potential
@@ -77,19 +78,19 @@ contains
     end select
 
     select case (iXC)
-    case(1)
+    case(xcFunctional%LDA_PW91)
       ! LDA-PW91
       inp%tXchyb = .false.
-    case(2)
-      ! GGA-PBE
+    case(xcFunctional%GGA_PBE96)
+      ! GGA-PBE96
       inp%tXchyb = .false.
-    case(3)
+    case(xcFunctional%GGA_BLYP)
       ! GGA-BLYP
       inp%tXchyb = .false.
-    case(4)
-      ! LCY-PBE (long-range corrected)
+    case(xcFunctional%LCY_PBE96)
+      ! LCY-PBE96 (long-range corrected)
       inp%tXchyb = .true.
-    case(5)
+    case(xcFunctional%LCY_BNL)
       ! LCY-BNL (long-range corrected)
       inp%tXchyb = .true.
     case default
