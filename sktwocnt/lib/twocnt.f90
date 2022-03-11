@@ -23,8 +23,8 @@ module twocnt
   use xc_f03_lib_m, only : xc_f03_func_t, xc_f03_func_info_t, xc_f03_func_init, xc_f03_func_end,&
       & xc_f03_func_get_info, xc_f03_lda_vxc, xc_f03_gga_vxc, XC_LDA_X, XC_LDA_X_YUKAWA,&
       & XC_LDA_C_PW, XC_GGA_X_PBE, XC_GGA_C_PBE, XC_GGA_X_B88, XC_GGA_C_LYP, XC_GGA_X_SFAT_PBE,&
-      & XC_HYB_GGA_XC_PBEH, XC_HYB_GGA_XC_B3LYP, XC_HYB_GGA_XC_CAMY_B3LYP,&
-      & XC_HYB_GGA_XC_CAMY_PBEH, XC_UNPOLARIZED, xc_f03_func_set_ext_params
+      & XC_HYB_GGA_XC_PBEH, XC_HYB_GGA_XC_B3LYP, XC_HYB_GGA_XC_CAMY_B3LYP, XC_UNPOLARIZED,&
+      & xc_f03_func_set_ext_params
 
   implicit none
   private
@@ -218,7 +218,7 @@ contains
     logical :: tConverged
 
     !! libxc related objects
-    type(xc_f03_func_t) :: xcfunc_xc, xcfunc_x, xcfunc_c
+    type(xc_f03_func_t) :: xcfunc_xc, xcfunc_x, xcfunc_xsr, xcfunc_c
     type(xc_f03_func_info_t) :: xcinfo
 
     !! Becke integrator instances
@@ -270,10 +270,16 @@ contains
           & inp%omega, 0.81_dp])
       xcinfo = xc_f03_func_get_info(xcfunc_xc)
     elseif (inp%iXC == 9) then
-      call xc_f03_func_init(xcfunc_xc, XC_HYB_GGA_XC_CAMY_PBEH, XC_UNPOLARIZED)
-      call xc_f03_func_set_ext_params(xcfunc_xc, [inp%camAlpha + inp%camBeta, -inp%camBeta,&
-          & inp%omega])
-      xcinfo = xc_f03_func_get_info(xcfunc_xc)
+      ! short-range xpbe96
+      call xc_f03_func_init(xcfunc_xsr, XC_GGA_X_SFAT_PBE, XC_UNPOLARIZED)
+      call xc_f03_func_set_ext_params(xcfunc_xsr, [inp%omega])
+      xcinfo = xc_f03_func_get_info(xcfunc_xsr)
+      ! xpbe96
+      call xc_f03_func_init(xcfunc_x, XC_GGA_X_PBE, XC_UNPOLARIZED)
+      xcinfo = xc_f03_func_get_info(xcfunc_x)
+      ! cpbe96
+      call xc_f03_func_init(xcfunc_c, XC_GGA_C_PBE, XC_UNPOLARIZED)
+      xcinfo = xc_f03_func_get_info(xcfunc_c)
     end if
 
     if (inp%tLC .or. inp%tCam) then
@@ -350,7 +356,7 @@ contains
         call getskintegrals(beckeInt, radialHFQuadrature, nRad, nAng, atom1, atom2, grid1, grid2,&
             & rr3(:, 1), dots, weights, inp%tDensitySuperpos, inp%ll_max, inp%iXC, inp%camAlpha,&
             & inp%camBeta, inp%tGlobalHybrid, inp%tLC, inp%tCam, imap, xcfunc_xc, xcfunc_x,&
-            & xcfunc_c, skhambuffer(:, ir), skoverbuffer(:, ir), denserr(ir))
+            & xcfunc_xsr, xcfunc_c, skhambuffer(:, ir), skoverbuffer(:, ir), denserr(ir))
       end do lpDist
       denserrmax = max(denserrmax, maxval(denserr))
       maxabs = max(maxval(abs(skhambuffer)), maxval(abs(skoverbuffer)))
@@ -381,7 +387,13 @@ contains
 
     ! finalize libxc objects
     if (inp%tGlobalHybrid .or. inp%tCam) then
-      call xc_f03_func_end(xcfunc_xc)
+      if (inp%iXC == 9) then
+        call xc_f03_func_end(xcfunc_xsr)
+        call xc_f03_func_end(xcfunc_x)
+        call xc_f03_func_end(xcfunc_c)
+      else
+        call xc_f03_func_end(xcfunc_xc)
+      end if
     else
       call xc_f03_func_end(xcfunc_x)
       call xc_f03_func_end(xcfunc_c)
@@ -398,7 +410,7 @@ contains
   !> Calculates SK-integrals.
   subroutine getskintegrals(beckeInt, radialHFQuadrature, nRad, nAng, atom1, atom2, grid1, grid2,&
       & rr3, dots, weights, tDensitySuperpos, ll_max, iXC, camAlpha, camBeta, tGlobalHybrid, tLC,&
-      & tCam, imap, xcfunc_xc, xcfunc_x, xcfunc_c, skham, skover, denserr)
+      & tCam, imap, xcfunc_xc, xcfunc_x, xcfunc_xsr, xcfunc_c, skham, skover, denserr)
 
     !> Becke integrator instances
     type(TBeckeIntegrator), intent(inout) :: beckeInt
@@ -454,7 +466,7 @@ contains
     type(TIntegMap), intent(in) :: imap
 
     !! libxc related objects for exchange and correlation
-    type(xc_f03_func_t), intent(in) :: xcfunc_xc, xcfunc_x, xcfunc_c
+    type(xc_f03_func_t), intent(in) :: xcfunc_xc, xcfunc_x, xcfunc_xsr, xcfunc_c
 
     !> resulting Hamiltonian and overlap matrix
     real(dp), intent(out) :: skham(:), skover(:)
@@ -505,8 +517,8 @@ contains
     integer :: ii
 
     !! libxc related objects
-    real(dp), allocatable :: vxc(:), vx(:), vc(:)
-    real(dp), allocatable :: rhor(:), sigma(:), vxcsigma(:), vxsigma(:), vcsigma(:)
+    real(dp), allocatable :: vxc(:), vx(:), vx_sr(:), vc(:)
+    real(dp), allocatable :: rhor(:), sigma(:), vxcsigma(:), vxsigma(:), vxsigma_sr(:), vcsigma(:)
     real(dp), allocatable :: divvxc(:), divvx(:), divvc(:)
 
     r1 => grid1(:, 1)
@@ -545,10 +557,14 @@ contains
       ! care about correct 4pi normalization of density
       rhor = getLibxcRho(densval)
       allocate(vx(nGrid))
+      vx(:) = 0.0_dp
       allocate(vc(nGrid))
+      vc(:) = 0.0_dp
       if (iXC /= 1) then
         allocate(vxsigma(nGrid))
+        vxsigma(:) = 0.0_dp
         allocate(vcsigma(nGrid))
+        vcsigma(:) = 0.0_dp
         densval1p = atom1%drho%getValue(r1)
         densval2p = atom2%drho%getValue(r2)
         ! care about correct 4pi normalization of density and compute sigma
@@ -556,7 +572,17 @@ contains
       end if
       if (tGlobalHybrid .or. tCam) then
         allocate(vxc(nGrid))
+        vxc(:) = 0.0_dp
         allocate(vxcsigma(nGrid))
+        vxcsigma(:) = 0.0_dp
+      end if
+
+      ! CAMY-PBEh is assembled manually
+      if (iXC == 9) then
+        allocate(vxsigma_sr(nGrid))
+        vxsigma_sr(:) = 0.0_dp
+        allocate(vx_sr(nGrid))
+        vx_sr(:) = 0.0_dp
       end if
 
       select case (iXC)
@@ -578,9 +604,23 @@ contains
         call xc_f03_gga_vxc(xcfunc_c, nGridLibxc, rhor(1), sigma(1), vc(1), vcsigma(1))
         call getDivergence(nRad, nAng, densval1p, densval2p, r1, r2, theta1, theta2, vcsigma, divvc)
         potval = vx + vc + divvc
-      ! 6: PBE0, 7: B3LYP, 8: CAMY-B3LYP, 9: CAMY-PBEh
-      case(6:9)
+      ! 6: PBE0, 7: B3LYP, 8: CAMY-B3LYP
+      case(6:8)
         call xc_f03_gga_vxc(xcfunc_xc, nGridLibxc, rhor(1), sigma(1), vxc(1), vxcsigma(1))
+        call getDivergence(nRad, nAng, densval1p, densval2p, r1, r2, theta1, theta2, vxcsigma,&
+            & divvxc)
+        potval = vxc + divvxc
+      ! 9: CAMY-PBEh
+      case(9)
+        ! short-range exchange
+        call xc_f03_gga_vxc(xcfunc_xsr, nGridLibxc, rhor(1), sigma(1), vx_sr(1), vxsigma_sr(1))
+        ! full-range exchange
+        call xc_f03_gga_vxc(xcfunc_x, nGridLibxc, rhor(1), sigma(1), vx(1), vxsigma(1))
+        ! correlation
+        call xc_f03_gga_vxc(xcfunc_c, nGridLibxc, rhor(1), sigma(1), vc(1), vcsigma(1))
+        ! build CAMY-PBEh functional
+        vxcsigma(:) = camBeta * vxsigma_sr + (1.0_dp - (camAlpha + camBeta)) * vxsigma + vcsigma
+        vxc(:) = camBeta * vx_sr + (1.0_dp - (camAlpha + camBeta)) * vx + vc
         call getDivergence(nRad, nAng, densval1p, densval2p, r1, r2, theta1, theta2, vxcsigma,&
             & divvxc)
         potval = vxc + divvxc
