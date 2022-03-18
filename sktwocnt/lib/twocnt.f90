@@ -16,15 +16,15 @@ module twocnt
       & integrator_set_kernel_param, integrator_precomp_fdmat, integrator_build_LU,&
       & integrator_get_coords, integrator_solve_helmholz
 
-  use dftxc, only : getxcpot_ldapw91, getxcpot_ggapbe
   use gridorbital, only : TGridorb2
+  use xcfunctionals, only : xcFunctional
 
   use, intrinsic :: iso_c_binding, only : c_size_t
 
   use xc_f03_lib_m, only : xc_f03_func_t, xc_f03_func_info_t, xc_f03_func_init, xc_f03_func_end,&
-      & xc_f03_func_get_info, xc_f03_lda_vxc, xc_f03_gga_vxc, XC_LDA_X, XC_LDA_C_PW, XC_GGA_X_PBE,&
-      & XC_GGA_C_PBE, XC_GGA_X_B88, XC_GGA_C_LYP, XC_GGA_X_SFAT_PBE, XC_UNPOLARIZED,&
-      & xc_f03_func_set_ext_params
+      & xc_f03_func_get_info, xc_f03_lda_vxc, xc_f03_gga_vxc, XC_LDA_X, XC_LDA_X_YUKAWA,&
+      & XC_LDA_C_PW, XC_GGA_X_PBE, XC_GGA_C_PBE, XC_GGA_X_B88, XC_GGA_C_LYP, XC_GGA_X_SFAT_PBE,&
+      & XC_UNPOLARIZED, xc_f03_func_set_ext_params
 
   implicit none
   private
@@ -99,9 +99,6 @@ module twocnt
     !> maximum angular momentum for Becke integration
     integer :: ll_max
 
-    !> verbosity level
-    integer :: verbosity
-
     !> scaling factor of Becke transformation
     real(dp) :: rm
 
@@ -109,7 +106,7 @@ module twocnt
     logical :: tXchyb
 
     !> xc-functional type
-    !! (2: LDA-PW91, 3: GGA-PBE, 4: BNL, 5: LDA/libXC, 6:PBE/libXC, 7: BLYP/libXC, 8: LCY-PBE/libXC)
+    !! (1: LDA-PW91, 2: GGA-PBE96, 3: GGA-BLYP, 4: LCY-PBE96, 5: LCY-BNL)
     integer :: iXC
 
     !> atomic properties of slateratom code, in the homonuclear case only atom1 is read
@@ -217,53 +214,58 @@ contains
     !! number of radial and angular integration abscissas
     integer :: nRad, nAng
 
-    if (inp%iXC == 5) then
+    if (inp%iXC == xcFunctional%LDA_PW91) then
       call xc_f03_func_init(xcfunc_x, XC_LDA_X, XC_UNPOLARIZED)
       xcinfo = xc_f03_func_get_info(xcfunc_x)
       call xc_f03_func_init(xcfunc_c, XC_LDA_C_PW, XC_UNPOLARIZED)
       xcinfo = xc_f03_func_get_info(xcfunc_c)
-    elseif (inp%iXC == 6) then
+    elseif (inp%iXC == xcFunctional%GGA_PBE96) then
       call xc_f03_func_init(xcfunc_x, XC_GGA_X_PBE, XC_UNPOLARIZED)
       xcinfo = xc_f03_func_get_info(xcfunc_x)
       call xc_f03_func_init(xcfunc_c, XC_GGA_C_PBE, XC_UNPOLARIZED)
       xcinfo = xc_f03_func_get_info(xcfunc_c)
-    elseif (inp%iXC == 7) then
+    elseif (inp%iXC == xcFunctional%GGA_BLYP) then
       call xc_f03_func_init(xcfunc_x, XC_GGA_X_B88, XC_UNPOLARIZED)
       xcinfo = xc_f03_func_get_info(xcfunc_x)
       call xc_f03_func_init(xcfunc_c, XC_GGA_C_LYP, XC_UNPOLARIZED)
       xcinfo = xc_f03_func_get_info(xcfunc_c)
-    elseif (inp%iXC == 8) then
+    elseif (inp%iXC == xcFunctional%LCY_PBE96) then
       call xc_f03_func_init(xcfunc_x, XC_GGA_X_SFAT_PBE, XC_UNPOLARIZED)
       call xc_f03_func_set_ext_params(xcfunc_x, [inp%kappa])
       xcinfo = xc_f03_func_get_info(xcfunc_x)
       call xc_f03_func_init(xcfunc_c, XC_GGA_C_PBE, XC_UNPOLARIZED)
       xcinfo = xc_f03_func_get_info(xcfunc_c)
-    elseif (inp%iXC > 8) then
-      write(*, '(A,I2,A)') 'Functional = ', inp%iXC, ' not implemented!'
-      stop
+    elseif (inp%iXC == xcFunctional%LCY_BNL) then
+      call xc_f03_func_init(xcfunc_x, XC_LDA_X_YUKAWA, XC_UNPOLARIZED)
+      call xc_f03_func_set_ext_params(xcfunc_x, [inp%kappa])
+      xcinfo = xc_f03_func_get_info(xcfunc_x)
+      call xc_f03_func_init(xcfunc_c, XC_GGA_C_PBE, XC_UNPOLARIZED)
+      xcinfo = xc_f03_func_get_info(xcfunc_c)
     end if
 
-    grid_params%N_radial = inp%nradial
-    grid_params%N_angular = inp%nangular
-    grid_params%ll_max = inp%ll_max
-    grid_params%rm = inp%rm
+    if (inp%tXchyb) then
+      grid_params%N_radial = inp%nradial
+      grid_params%N_angular = inp%nangular
+      grid_params%ll_max = inp%ll_max
+      grid_params%rm = inp%rm
 
-    ! inititalize the becke_integrator
-    call integrator_init(t_integ, grid_params)
-    t_integ%verbosity = inp%verbosity
+      ! inititalize the becke_integrator
+      call integrator_init(t_integ, grid_params)
+      t_integ%verbosity = 0
 
-    call integrator_set_kernel_param(t_integ, 0.1e-16_dp)
-    call integrator_precomp_fdmat(t_integ)
-    call integrator_build_LU(t_integ)
+      call integrator_set_kernel_param(t_integ, 0.1e-16_dp)
+      call integrator_precomp_fdmat(t_integ)
+      call integrator_build_LU(t_integ)
 
-    !== Note: this is a workaround! ==
-    ! we generate the LU decomposition for \kappa \approx 0 and copy the LU decomposition into H4
-    ! and permutation matrix into ipiv4
-    t_integ%fdmat%H4 = t_integ%fdmat%H3
-    t_integ%fdmat%ipiv4 = t_integ%fdmat%ipiv2
-    call integrator_set_kernel_param(t_integ, inp%kappa)
-    call integrator_precomp_fdmat(t_integ)
-    call integrator_build_LU(t_integ)
+      !== Note: this is a workaround! ==
+      ! we generate the LU decomposition for \kappa \approx 0 and copy the LU decomposition into H4
+      ! and permutation matrix into ipiv4
+      t_integ%fdmat%H4 = t_integ%fdmat%H3
+      t_integ%fdmat%ipiv4 = t_integ%fdmat%ipiv2
+      call integrator_set_kernel_param(t_integ, inp%kappa)
+      call integrator_precomp_fdmat(t_integ)
+      call integrator_build_LU(t_integ)
+    end if
 
     call gauss_legendre_quadrature(inp%ninteg1, quads(1))
     call gauss_legendre_quadrature(inp%ninteg2, quads(2))
@@ -274,6 +276,7 @@ contains
     else
       atom2 => inp%atom1
     end if
+
     call TIntegMap_init(imap, atom1, atom2)
 
     ! calculate lines for 1 Bohr in one batch.
@@ -332,10 +335,8 @@ contains
     call overfifo%popall_concat(skover)
 
     ! finalize libXC objects
-    if ((inp%iXC >= 5) .and. (inp%iXC <= 8)) then
-      call xc_f03_func_end(xcfunc_x)
-      call xc_f03_func_end(xcfunc_c)
-    end if
+    call xc_f03_func_end(xcfunc_x)
+    call xc_f03_func_end(xcfunc_c)
 
   end subroutine get_twocenter_integrals
 
@@ -369,7 +370,7 @@ contains
     logical, intent(in) :: tDensitySuperpos
 
     !> xc-functional type
-    !! (2: LDA-PW91, 3: GGA-PBE, 4: BNL, 5: LDA/libXC, 6:PBE/libXC, 7: BLYP/libXC, 8: LCY-PBE/libXC)
+    !! (1: LDA-PW91, 2: GGA-PBE96, 3: GGA-BLYP, 4: LCY-PBE96, 5: LCY-BNL)
     integer, intent(in) :: iXC
 
     !> true, if a hybrid functional is present
@@ -463,76 +464,45 @@ contains
       radval2pp(:, ii) = atom2%ddrad(ii)%getValue(r2)
     end do
 
-    allocate(potval(nGrid))
     ifPotSup: if (.not. tDensitySuperpos) then
-      potval(:) = atom1%pot%getValue(r1) + atom2%pot%getValue(r2)
+      potval = atom1%pot%getValue(r1) + atom2%pot%getValue(r2)
     else
       allocate(densval(nGrid))
       densval(:) = atom1%rho%getValue(r1) + atom2%rho%getValue(r2)
 
       ! prepare xc-functional specific arrays
-      select case(iXC)
-      case(2)
-        ! LDA needs just density
-      ! case(3:4) with in-house code
-      case(3:4)
-        allocate(densval1p(nGrid))
-        allocate(densval1pp(nGrid))
-        allocate(densval2p(nGrid))
-        allocate(densval2pp(nGrid))
-        densval1p = atom1%drho%getValue(r1)
-        densval1pp = atom1%ddrho%getValue(r1)
-        densval2p = atom2%drho%getValue(r2)
-        densval2pp = atom2%ddrho%getValue(r2)
-        allocate(absgr(nGrid))
-        allocate(laplace(nGrid))
-        allocate(gr_grabsgr(nGrid))
-        ! calculate derivatives for combined density
-        call getDerivs(densval1p, densval1pp, densval2p, densval2pp, r1, r2, dots, absgr, laplace,&
-            & gr_grabsgr)
-        deallocate(densval1p, densval1pp, densval2p, densval2pp)
-      ! libXC treatment requires sigma = (nabla n).(nabla n) for GGA/LC
-      case(5:8)
-        allocate(densval1p(nGrid))
-        allocate(densval2p(nGrid))
-        densval1p = atom1%drho%getValue(r1)
-        densval2p = atom2%drho%getValue(r2)
-        allocate(rhor(nGrid))
-        ! to simplify code, allocate sigma also for LDA (though not needed later)
-        allocate(sigma(nGrid))
-        ! care about correct 4pi normalization of density and compute sigma
-        call getLibxcRhoAndSigma(densval, densval1p, densval2p, r1, r2, dots, rhor, sigma)
-        allocate(vx(nGrid))
-        allocate(vc(nGrid))
+      ! care about correct 4pi normalization of density
+      rhor = getLibxcRho(densval)
+      allocate(vx(nGrid))
+      allocate(vc(nGrid))
+      if (iXC /= xcFunctional%LDA_PW91) then
         allocate(vxsigma(nGrid))
         allocate(vcsigma(nGrid))
-        allocate(divvx(nGrid))
-        allocate(divvc(nGrid))
-      end select
+        densval1p = atom1%drho%getValue(r1)
+        densval2p = atom2%drho%getValue(r2)
+        ! care about correct 4pi normalization of density and compute sigma
+        sigma = getLibxcSigma(densval, densval1p, densval2p, r1, r2, dots)
+      end if
 
       select case (iXC)
-      case(2)
-        ! LDA-PW91 xc-functional
-        call getxcpot_ldapw91(densval, potval)
-      case(3)
-        ! get xc-potential, polymorphic, if kappa is present => screened PBE
-        call getxcpot_ggapbe(densval, absgr, laplace, gr_grabsgr, potval)
-        deallocate(absgr, laplace, gr_grabsgr)
-      case(4)
-        call getxcpot_ggapbe(densval, absgr, laplace, gr_grabsgr, potval, kappa=kappa)
-        deallocate(absgr, laplace, gr_grabsgr)
-      case(5)
+      ! 1: LDA-PW91
+      case(xcFunctional%LDA_PW91)
         call xc_f03_lda_vxc(xcfunc_x, nGridLibxc, rhor(1), vx(1))
         call xc_f03_lda_vxc(xcfunc_c, nGridLibxc, rhor(1), vc(1))
-        potval(:) = vx + vc
-        deallocate(rhor, sigma, densval1p, densval2p, vx, vc, vxsigma, vcsigma, divvx, divvc)
-      case(6:8)
+        potval = vx + vc
+      ! 2: GGA-PBE96, 3: GGA-BLYP, 4: LCY-PBE96
+      case(xcFunctional%GGA_PBE96, xcFunctional%GGA_BLYP, xcFunctional%LCY_PBE96)
         call xc_f03_gga_vxc(xcfunc_x, nGridLibxc, rhor(1), sigma(1), vx(1), vxsigma(1))
         call xc_f03_gga_vxc(xcfunc_c, nGridLibxc, rhor(1), sigma(1), vc(1), vcsigma(1))
         call getDivergence(nRad, nAng, densval1p, densval2p, r1, r2, theta1, theta2, vxsigma, divvx)
         call getDivergence(nRad, nAng, densval1p, densval2p, r1, r2, theta1, theta2, vcsigma, divvc)
-        potval(:) = vx + vc + divvx + divvc
-        deallocate(rhor, sigma, densval1p, densval2p, vx, vc, vxsigma, vcsigma, divvx, divvc)
+        potval = vx + vc + divvx + divvc
+      ! 5: LCY-BNL
+      case(xcFunctional%LCY_BNL)
+        call xc_f03_lda_vxc(xcfunc_x, nGridLibxc, rhor(1), vx(1))
+        call xc_f03_gga_vxc(xcfunc_c, nGridLibxc, rhor(1), sigma(1), vc(1), vcsigma(1))
+        call getDivergence(nRad, nAng, densval1p, densval2p, r1, r2, theta1, theta2, vcsigma, divvc)
+        potval = vx + vc + divvc
       end select
       ! add nuclear and coulomb potential to obtain the effective potential
       potval(:) = potval + atom1%pot%getValue(r1) + atom2%pot%getValue(r2)
@@ -561,11 +531,14 @@ contains
       integ2 = getOverlap(radval1(:, i1), radval2(:, i2), spherval1, spherval2, weights)
       ! total density: \int (|\phi_1|^2 + |\phi_2|^2)
       dens = getDensity(radval1(:, i1), radval2(:, i2), spherval1, spherval2, weights)
-      ! long-range exchange contribution
-      lrx = 0.5_dp * getLcContribution(t_integ, atom1, atom2, imap, ii, kappa, r1, theta1, r2,&
-          & theta2, weights)
-      ! add up long-range exchange to the Hamiltonian
-      if (tXchyb) integ1 = integ1 - lrx
+
+      if (tXchyb) then
+        ! long-range exchange contribution
+        lrx = 0.5_dp * getLcContribution(t_integ, atom1, atom2, imap, ii, kappa, r1, theta1, r2,&
+            & theta2, weights)
+        ! add up long-range exchange to the Hamiltonian
+        integ1 = integ1 - lrx
+      end if
 
       if (mm == 0) then
         prefac = 2.0_dp * pi
@@ -581,8 +554,23 @@ contains
   end subroutine getskintegrals
 
 
-  !> Calculates libXC sigma and renormalized density superposition of dimer.
-  subroutine getLibxcRhoAndSigma(rho, drho1, drho2, r1, r2, dots, rhor, sigma)
+  !> Calculates libXC renormalized density superposition of dimer.
+  pure function getLibxcRho(rho) result(rhor)
+
+    !> superposition of atomic densities of atom 1 and atom 2
+    real(dp), intent(in) :: rho(:)
+
+    !> renormalized density
+    real(dp), allocatable :: rhor(:)
+
+    ! renorm rho (incoming quantities are 4pi normed)
+    rhor = rho * rec4pi
+
+  end function getLibxcRho
+
+
+  !> Calculates libXC sigma of dimer.
+  pure function getLibxcSigma(rho, drho1, drho2, r1, r2, dots) result(sigma)
 
     !> superposition of atomic densities of atom 1 and atom 2
     real(dp), intent(in) :: rho(:)
@@ -596,11 +584,8 @@ contains
     !> dot product of unit distance vectors
     real(dp), intent(in) :: dots(:)
 
-    !> renormalized density
-    real(dp), intent(out) :: rhor(:)
-
     !! libXC's contracted gradients of the density
-    real(dp), intent(out) :: sigma(:)
+    real(dp), allocatable :: sigma(:)
 
     !! number of tabulated grid points
     integer :: nn
@@ -610,16 +595,13 @@ contains
 
     nn = size(drho1)
 
-    ! renorm rho (incoming quantities are 4pi normed)
-    rhor = rho * rec4pi
-
     f1 = drho1 + dots * drho2
     f2 = drho2 + dots * drho1
 
     ! get dot product of density gradients
     sigma = (drho1 * f1 + drho2 * f2) * rec4pi**2
 
-  end subroutine getLibxcRhoAndSigma
+  end function getLibxcSigma
 
 
   !> Computes contribution div(v) to the xc-potential due to vsigma = deps/dsigma returned by libxc.
@@ -658,7 +640,7 @@ contains
     real(dp), intent(in) :: vsigma(:)
 
     !> -2 div(vsigma grad(n)) on grid
-    real(dp), intent(out) :: divv(:)
+    real(dp), intent(out), allocatable :: divv(:)
 
     integer :: nn, ia, ir
 
@@ -667,6 +649,7 @@ contains
 
     real(dp), allocatable :: aa(:,:), dar(:), dat(:), bb(:,:)
 
+    allocate(divv(size(drho1)))
     divv(:) = 0.0_dp
     nn = size(drho1) / 2
 

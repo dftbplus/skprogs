@@ -17,6 +17,7 @@ program HFAtom
   use zora_routines, only : scaled_zora
   use cmdargs, only : parse_command_arguments
   use common_poisson, only : becke_grid_params
+  use xcfunctionals, only : xcFunctional
   use globals
 
   implicit none
@@ -83,17 +84,20 @@ program HFAtom
   ! build supermatrices
   write(*, '(A)') 'Startup: Building Supermatrices'
   call coulomb(jj, max_l, num_alpha, alpha, poly_order, uu, ss)
-  if (xcnr == 0) call hfex(kk, max_l, num_alpha, alpha, poly_order, problemsize)
+  if (xcnr == xcFunctional%HF_Exchange) then
+    call hfex(kk, max_l, num_alpha, alpha, poly_order, problemsize)
+  end if
 
   ! convergence flag
   tConverged = .false.
 
   ! dft start potential for (semi-) local functionals
-  if ((xcnr > 0) .and. (xcnr <= 4)) call dft_start_pot(abcissa, num_mesh_points, nuc, vxc)
+  if (xcnr == xcFunctional%X_Alpha .or. xcFunctional%isLDA(xcnr) .or. xcFunctional%isGGA(xcnr)) then
+    call dft_start_pot(abcissa, num_mesh_points, nuc, vxc)
+  end if
 
   ! dft start potential for range-separated functionals
-  if (xcnr >= 5) then
-     write(*, '(A,E12.4)') 'RS-DFT, range-separation parameter kappa=', kappa
+  if (xcFunctional%isLongRangeCorrected(xcnr)) then
      call hfex_lr(kk, max_l, num_alpha, alpha, poly_order, problemsize, kappa, grid_params)
   end if
   call dft_start_pot(abcissa, num_mesh_points, nuc, vxc)

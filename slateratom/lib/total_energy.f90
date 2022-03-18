@@ -3,6 +3,7 @@ module totalenergy
 
   use common_accuracy, only : dp
   use dft, only : dft_exc_energy, dft_vxc_energy
+  use xcfunctionals, only : xcFunctional
 
   implicit none
   private
@@ -101,17 +102,18 @@ contains
     ! pure HF
     ! coulomb = P^Tot J P^Tot. The Coulomb energy is half of that.
     ! exchange = -P^up K P^up - -P^dn K P^dn. The Exchange energy is half of that.
-    if (xcnr > 0) then
+    if (.not. (xcnr == xcFunctional%HF_Exchange)) then
       xc_energy = 0.0_dp
       call dft_exc_energy(num_mesh_points, rho, exc, weight, abcissa, xc_energy)
     end if
 
     ! HF
     ! make sure total energy breakdown agrees with total energy
-    if (xcnr == 0) then
+    if (xcnr == xcFunctional%HF_Exchange) then
       etot = dummy1 + 0.5_dp * coulomb + 0.5_dp * exchange
     ! Local/semi-local xc
-    elseif ((xcnr > 0) .and. (xcnr <= 4)) then
+    elseif ((xcnr == xcFunctional%X_Alpha) .or. xcFunctional%isLDA(xcnr)&
+        & .or. xcFunctional%isGGA(xcnr)) then
       etot = dummy1 + 0.5_dp * coulomb + xc_energy
     ! LC functionals
     else
@@ -233,10 +235,11 @@ contains
     xc_pot = dummy(1) + dummy(2)
 
     !! HF
-    if (xcnr == 0) then
+    if (xcnr == xcFunctional%HF_Exchange) then
       etot = eigsum - 0.5_dp * coulomb - 0.5_dp * exchange
     !! Local/semi-local xc
-    elseif ((xcnr > 0) .and. (xcnr <= 4)) then
+    elseif (xcnr == xcFunctional%X_Alpha .or. xcFunctional%isLDA(xcnr)&
+        & .or. xcFunctional%isGGA(xcnr)) then
       etot = eigsum - 0.5_dp * coulomb + xc_energy - xc_pot
     !! LC functionals
     else
@@ -303,7 +306,8 @@ contains
                         coulomb = coulomb + p_total(ii, ss, tt) * jj(ii, ss, tt, nn, uu, vv)&
                             & * p_total(nn, uu, vv)
 
-                        if ((xcnr == 0) .or. (xcnr >= 5)) then
+                        if ((xcnr == xcFunctional%HF_Exchange)&
+                            & .or. xcFunctional%isLongRangeCorrected(xcnr)) then
                           exchange = exchange - pp(1, ii, ss, tt) * kk(ii, ss, tt, nn, uu, vv)&
                               & * pp(1, nn, uu, vv)
                           exchange = exchange - pp(2, ii, ss, tt) * kk(ii, ss, tt, nn, uu, vv)&

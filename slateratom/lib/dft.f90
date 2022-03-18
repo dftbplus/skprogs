@@ -4,12 +4,13 @@ module dft
   use, intrinsic :: iso_c_binding, only : c_size_t
   use common_accuracy, only : dp
   use common_constants, only : pi, rec4pi
+  use xcfunctionals, only : xcFunctional
   use density, only : basis, basis_times_basis_times_r2, density_at_point, density_at_point_1st,&
       & density_at_point_2nd
   use xc_f03_lib_m, only : xc_f03_func_t, xc_f03_func_info_t, xc_f03_func_init, xc_f03_func_end,&
       & xc_f03_func_get_info, xc_f03_lda_exc_vxc, xc_f03_gga_exc_vxc, xc_f03_gga_fxc,&
-      & xc_f03_func_set_ext_params, XC_LDA_X, XC_LDA_C_PW, XC_GGA_X_PBE, XC_GGA_X_B88,&
-      & XC_GGA_X_SFAT_PBE, XC_GGA_C_PBE, XC_GGA_C_LYP, XC_POLARIZED
+      & xc_f03_func_set_ext_params, XC_LDA_X, XC_LDA_X_YUKAWA, XC_LDA_C_PW, XC_GGA_X_PBE,&
+      & XC_GGA_X_B88, XC_GGA_X_SFAT_PBE, XC_GGA_C_PBE, XC_GGA_C_LYP, XC_POLARIZED
 
   implicit none
   private
@@ -179,38 +180,41 @@ contains
     exc(:) = 0.0_dp
     vxc(:,:) = 0.0_dp
 
-    if (xcnr == 0) return
-    !  Xalpha (xcnr = 1) handled by in-house routine
-    if (xcnr == 2) then
+    if (xcnr == xcFunctional%HF_Exchange) return
+    !  X-Alpha (xcnr = xcFunctional%X_Alpha) handled by in-house routine
+    if (xcnr == xcFunctional%LDA_PW91) then
       tLDA = .true.
       call xc_f03_func_init(xcfunc_x, XC_LDA_X, XC_POLARIZED)
       xcinfo = xc_f03_func_get_info(xcfunc_x)
       call xc_f03_func_init(xcfunc_c, XC_LDA_C_PW, XC_POLARIZED)
       xcinfo = xc_f03_func_get_info(xcfunc_c)
-    elseif (xcnr == 3) then
+    elseif (xcnr == xcFunctional%GGA_PBE96) then
       tGGA = .true.
       call xc_f03_func_init(xcfunc_x, XC_GGA_X_PBE, XC_POLARIZED)
       xcinfo = xc_f03_func_get_info(xcfunc_x)
       call xc_f03_func_init(xcfunc_c, XC_GGA_C_PBE, XC_POLARIZED)
       xcinfo = xc_f03_func_get_info(xcfunc_c)
-    elseif (xcnr == 4) then
+    elseif (xcnr == xcFunctional%GGA_BLYP) then
       tGGA = .true.
       call xc_f03_func_init(xcfunc_x, XC_GGA_X_B88, XC_POLARIZED)
       xcinfo = xc_f03_func_get_info(xcfunc_x)
       call xc_f03_func_init(xcfunc_c, XC_GGA_C_LYP, XC_POLARIZED)
       xcinfo = xc_f03_func_get_info(xcfunc_c)
-    elseif (xcnr == 5) then
+    elseif (xcnr == xcFunctional%LCY_PBE96) then
       tLC = .true.
       call xc_f03_func_init(xcfunc_x, XC_GGA_X_SFAT_PBE, XC_POLARIZED)
       call xc_f03_func_set_ext_params(xcfunc_x, [kappa])
       xcinfo = xc_f03_func_get_info(xcfunc_x)
       call xc_f03_func_init(xcfunc_c, XC_GGA_C_PBE, XC_POLARIZED)
       xcinfo = xc_f03_func_get_info(xcfunc_c)
-    elseif (xcnr == 6) then
+    elseif (xcnr == xcFunctional%LCY_BNL) then
       tLC = .true.
+      call xc_f03_func_init(xcfunc_x, XC_LDA_X_YUKAWA, XC_POLARIZED)
+      call xc_f03_func_set_ext_params(xcfunc_x, [kappa])
+      xcinfo = xc_f03_func_get_info(xcfunc_x)
       call xc_f03_func_init(xcfunc_c, XC_GGA_C_PBE, XC_POLARIZED)
       xcinfo = xc_f03_func_get_info(xcfunc_c)
-    elseif (xcnr > 6) then
+    else
       write(*, '(A,I2,A)') 'XCNR=', xcnr, ' not implemented!'
       stop
     end if
@@ -243,7 +247,7 @@ contains
 
     rho = max(rho, 0.0_dp)
 
-    if (xcnr > 2) then
+    if (xcFunctional%isGGA(xcnr) .or. xcFunctional%isLongRangeCorrected(xcnr)) then
 
       do ii = 1, num_mesh_points
 
@@ -262,7 +266,7 @@ contains
 
     ! case Xalpha treated seperatly:
     ! divide by 4*pi to catch different normalization of spherical harmonics
-    if (xcnr == 1) then
+    if (xcnr == xcFunctional%X_Alpha) then
       do ii = 1, num_mesh_points
         rhotot = (rho(ii, 1) + rho(ii, 2)) * rec4pi
         rhodiff = (rho(ii, 1) - rho(ii, 2)) * rec4pi
@@ -283,49 +287,31 @@ contains
     end if
 
     select case (xcnr)
-    case(2)
+    case(xcFunctional%LDA_PW91)
       call xc_f03_lda_exc_vxc(xcfunc_x, nn, rhor(1, 1), ex(1), vx(1, 1))
-    case(3:5)
+    case(xcFunctional%GGA_PBE96, xcFunctional%GGA_BLYP, xcFunctional%LCY_PBE96)
       call xc_f03_gga_exc_vxc(xcfunc_x, nn, rhor(1, 1), sigma(1, 1), ex(1), vx(1,1), vxsigma(1,1))
       call xc_f03_gga_fxc(xcfunc_x, nn, rhor(1, 1), sigma(1, 1), vx2rho2(1, 1), vx2rhosigma(1, 1),&
           & vx2sigma2(1, 1))
     !! exchange of BNL (Slater exchange with Yukawa screening) treated by Vitalijs code
-    case(6)
-      do ii = 1, num_mesh_points
-        do iSpin = 1, 2
-          if (abs(rho(ii, iSpin)) .lt. DNS_TRESHOLD) then
-            exlda(iSpin) = 0.0_dp
-            vx(iSpin, ii) = 0.0_dp
-          else
-            call exchange_pbe_sr(2.0_dp * rho(ii, iSpin) * rec4pi, 0.0_dp, 0.0_dp, 0.0_dp, kappa,&
-                & iGGA, exlda(iSpin), vxlda(iSpin))
-            vx(iSpin, ii) = vxlda(iSpin)
-          end if
-        end do
-
-        if (abs(rho4pitot) .lt. DNS_TRESHOLD) then
-          ex(ii) = 0.0_dp
-        else
-          ex(ii) = (exlda(1) * rho(ii, 1) + exlda(2) * rho(ii, 2)) / rho4pitot
-        end if
-      end do
+    case(xcFunctional%LCY_BNL)
+      call xc_f03_lda_exc_vxc(xcfunc_x, nn, rhor(1, 1), ex(1), vx(1, 1))
       !! important to set to zero, used below for E vs. grad n in GGA
       vxsigma(:,:) = 0.0_dp
     case default
-      write(*, '(A,I2,A)') 'XCNR=', xcnr, ' not implemented'
+      write(*, '(A,I2,A)') 'XCNR=', xcnr, ' not implemented!'
       stop
     end select
 
    !! -------- Correlation energy and potential -----------------------
 
     select case (xcnr)
-    case(2)
+    case(xcFunctional%LDA_PW91)
       call xc_f03_lda_exc_vxc(xcfunc_c, nn, rhor(1, 1), ec(1), vc(1, 1))
       vxc(:,:) = transpose(vx + vc)
-    case(3:6)
+    case(xcFunctional%GGA_PBE96, xcFunctional%GGA_BLYP, xcFunctional%LCY_PBE96,&
+        & xcFunctional%LCY_BNL)
       call xc_f03_gga_exc_vxc(xcfunc_c, nn, rhor(1, 1), sigma(1, 1), ec(1), vc(1, 1), vcsigma(1, 1))
-      call xc_f03_gga_fxc(xcfunc_c, nn, rhor(1, 1), sigma(1, 1), vc2rho2(1, 1), vc2rhosigma(1, 1),&
-          & vc2sigma2(1, 1))
       vxc(:,:) = transpose(vx + vc)
       !! derivative of E vs. grad n, treat x and c at the same time
       do iSpin = 1, 2
@@ -342,163 +328,16 @@ contains
       end do
     end select
 
+    ! sum up exchange and correlation energy on the grid
     exc(:) = ec + ex
 
-    ! vanderhe: superfluous in my opinion, but maybe interesting for later modifications
-    ! vc2rho2(:,:) = vx2rho2 + vc2rho2
-    ! vc2rhosigma(:,:) = vx2rhosigma + vc2rhosigma
-    ! vc2sigma2(:,:) = vx2sigma2 + vc2sigma2
-
-    !! check if potential or energy are out of bounds
-    ! do ii = 1, num_mesh_points
-    !   if ((vxc(ii, 1) /= vxc(ii, 1)) .or. (vxc(ii, 2) /= vxc(ii, 2)) .or. (exc(ii) /= exc(ii))) then
-    !     print *, 'Error in dft.f90: potential or energy out of bounds.'
-    !     print *, 'Recompilation with larger DNS_TRESHOLD might help.'
-    !     stop
-    !   end if
-    ! end do
-
-   if (xcnr > 1 .and. xcnr /= 6) call xc_f03_func_end(xcfunc_x)
-   if (xcnr > 1) call xc_f03_func_end(xcfunc_c)
+    ! finalize libxc objects
+    if (.not. (xcnr == xcFunctional%X_Alpha)) then
+      call xc_f03_func_end(xcfunc_x)
+      call xc_f03_func_end(xcfunc_c)
+    end if
 
  end subroutine density_grid
-
-
- !> Oh man...
- subroutine exchange_pbe_sr(rho, s, u, t, kappa, igga, EX, VX)
-   real(dp), intent(in) :: rho, s, u, t, kappa
-   integer, intent(in) :: igga
-   real(dp), intent(out) :: EX, VX
-
-   real(dp), parameter :: thrd = 1.0_dp/3.0_dp
-   real(dp), parameter :: thrd4 = 4.0_dp/3.0_dp
-   real(dp), parameter :: thrd2 = 2.0_dp/3.0_dp
-   real(dp), parameter :: pi = 3.14159265358979323846264338327950_dp
-   real(dp), parameter :: ax = -0.738558766382022405884230032680836_dp
-   real(dp), parameter :: um=0.21951_dp, uk=0.8040_dp, ul=um/uk
-   real(dp), parameter :: eps=1.0e-15_dp
-
-   !! In Vitalijs version this was set to 900, P(a) is not regular for this choice
-   !! for a > 200. In his thesis he mentions AATRESH=200.0_dp
-   real(dp), parameter :: AATRESH=200.0_dp
-
-   real(dp) :: aa, EXL,EXN, exunif,alpha
-   real(dp) :: P, Pa, Paa, p0
-   real(dp) :: f, fs, fss, fsqrt
-   real(dp) :: tmp, v, aarec, g, gs, aasq, aasqp1, loga
-
-   !----------------------------------------------------------------------
-   !  GGA EXCHANGE FOR A SPIN-UNPOLARIZED ELECTRONIC SYSTEM
-   !----------------------------------------------------------------------
-   !  INPUT rho : DENSITY
-   !  INPUT S:  ABS(GRAD rho)/(2*KF*rho), where kf=(3 pi^2 rho)^(1/3)
-   !  INPUT U:  (GRAD rho)*GRAD(ABS(GRAD rho))/(rho**2 * (2*KF)**3)
-   !  INPUT V: (LAPLACIAN rho)/(rho*(2*KF)**2)  (for U,V, see PW86(24))
-   !  input igga:  (=0=>don't put in gradient corrections, just LDA)
-   !  OUTPUT:  EXCHANGE ENERGY PER ELECTRON (LOCAL: EXL, NONLOCAL: EXN,
-   !           TOTAL: EX) AND POTENTIAL (VX)
-   !----------------------------------------------------------------------
-   ! References:
-   ! [a]J.P.~Perdew, K.~Burke, and M.~Ernzerhof, submiited to PRL, May96
-   ! [b]J.P. Perdew and Y. Wang, Phys. Rev.  B {\bf 33},  8800  (1986);
-   !     {\bf 40},  3399  (1989) (E).
-   !----------------------------------------------------------------------
-   ! Formulas: e_x[unif]=ax*rho^(4/3)  [LDA]
-   !           ax = -0.75*(3/pi)^(1/3)
-   !	    e_x[PBE]=e_x[unif]*FxPBE(s)
-   !	    FxPBE(s)=1+uk-uk/(1+ul*s*s)                 [a](13)
-   !           uk, ul defined after [a](13)
-   !----------------------------------------------------------------------
-   !----------------------------------------------------------------------
-   !     construct LDA exchange energy density
-
-   alpha=kappa/(2.0_dp*(3.0_dp*pi*pi)**thrd)!(6.0_dp*sqrt(pi))
-
-   exunif = ax*rho**thrd
-   if ((igga .eq. 0) .or. (s .lt. eps)) then
-     aa = alpha/(rho**thrd)
-     aarec = 1.0_dp/aa
-     if(aa > AATRESH) then
-       P = 1.0_dp/9.0_dp * aarec*aarec - 1.0_dp/30.0_dp * aarec**4
-       Pa = -2.0_dp/9.0_dp * aarec**3 + 4.0_dp/30.0_dp * aarec**5
-     else
-       aasq=aa*aa
-       aasqp1 = aasq + 1.0_dp
-       loga = dlog(1+aarec*aarec)
-       P = 1.0_dp  + 4.0_dp*aarec*datan(aarec)
-       P = thrd2*aa*(P - (aasqp1 + 2.0_dp)* loga)
-       Pa = P
-       P = 1.0_dp - P*aa
-       Pa = Pa + 2.0_dp*aa*(1.0_dp - aasqp1*loga)
-     end if
-
-     if(abs(P) > 2.0_dp) print*, "WARNING!!!!"
-     !
-     EXL=exunif*P
-     EXN=0.0_dp
-     EX=EXL+EXN
-     VX= exunif*thrd4*P + alpha*ax/3.0_dp*Pa
-
-     return
-   end if
-
-   !----------------------------------------------------------------------
-   !     construct GGA enhancement factor
-   !     find first and second derivatives of f and:
-   !     fs=(1/s)*df/ds  and  fss=dfs/ds = (d2f/ds2 - (1/s)*df/ds)/s
-
-   !
-   ! PBE enhancement factors checked against NRLMOL
-   !
-   if(igga .eq. 1)then
-
-     p0 =1.d0+ul*s**2
-     f  = (1.d0+uk)
-     f = f - uk/p0
-     fs =2.d0*uk*ul/p0**2
-     fss=-4.d0*ul*s*fs/p0
-
-     fsqrt = sqrt(f)
-     G=fs/s
-     Gs = (fss-G)/s
-
-     !============================================
-     ! construct the screening factor P(a),
-     ! as well as first and secod derivatives Pa=dP/da, Paa=d^2P/da^2
-     aa = alpha*fsqrt/(rho**thrd)
-     aarec = 1.0_dp/aa
-     if (aa > 600.0_dp) then
-       P = 1.0_dp/9.0_dp * aarec*aarec - 1.0_dp/30.0_dp*aarec**4
-       Pa = -2.0_dp/9.0_dp * aarec**3 + 4.0_dp/30.0_dp * aarec**5
-       Paa = 2.0_dp/3.0_dp*aarec**4
-     else
-       aasq=aa*aa
-       aasqp1 = aasq + 1.0_dp
-       loga = dlog(1+aarec*aarec)
-       P = 1.0_dp + 4.0_dp*aarec*datan(aarec)
-       P = thrd2*aa*(P - (aasqp1 + 2.0_dp)* loga)
-       Pa = -P
-       P = 1.0_dp - P*aa
-       Pa = Pa - 2.0_dp*aa*(1.0_dp - aasqp1*loga)
-       Paa = 8.0_dp*((aasqp1-0.5_dp)*loga - 1.0_dp)
-     end if
-
-     EX = exunif*f*P
-
-     !----------------------------------------------------------------------
-     !     energy done. calculate potential from [b](24)
-     !
-     VX = (0.25_dp*u*s - thrd*s**4)*G*G - s*s*G*f / 6.0_dp
-     VX = -alpha*alpha*Paa*VX/rho**thrd
-
-     tmp = (v*rho**thrd*0.5_dp - s*s/6.0_dp)*fsqrt*G
-     tmp=tmp+(u*s*0.25_dp - thrd*s**4)*G*G/fsqrt
-     tmp=tmp + 0.5_dp*(u - thrd4*s*s)*fsqrt*Gs + f*fsqrt*thrd
-     VX=VX - alpha*tmp*Pa
-     VX = exunif*(thrd4*f-(u-thrd4*s**3)*fss-t*fs )*P + VX*ax
-   end if
-
-  end subroutine exchange_pbe_sr
 
 
   !> Calculates DFT xc-energy from energy density and electron density on grid.

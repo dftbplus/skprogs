@@ -129,12 +129,10 @@ class SlateratomInput:
             xcfkey = functional.type
             self._functional = SUPPORTED_FUNCTIONALS[xcfkey]
 
-            if self._functional >= 5:
+            if xcfkey in ('lc-pbe', 'lc-bnl'):
                 self._omega = functional.omega
-            # sktwocnt ignores kappa for non-LC functionals
-            # (nevertheless poor solution)
             else:
-                self._omega = 0.1e-16
+                self._omega = None
 
         else:
             msg = 'Invalid xc-functional type for slateratom'
@@ -197,14 +195,23 @@ class SlateratomInput:
                 int(self._atomconfig.atomicnumber), maxang, 120,
                 self._LOGICALSTRS[self._relativistic], self._COMMENT),
 
-            # numerical interator
-            # hardcoded parameters for the Becke integration
-            # --> should be moved to skdef.hsd!
-            "2000 194 11 1.0 \t{:s} Becke integrator settings"
-            .format(self._COMMENT),
-            "{:d} {:g} \t{:s} functional, omega".format(
-                self._functional, self._omega, self._COMMENT)
+            "{:d} \t{:s} functional".format(
+                self._functional, self._COMMENT)
         ]
+
+        # range-separated functionals
+        if list(SUPPORTED_FUNCTIONALS.keys())[
+                list(SUPPORTED_FUNCTIONALS.values()).index(self._functional)] \
+            in ('lc-pbe', 'lc-bnl'):
+            out += [
+                "{:g} \t{:s} range-separation parameter (omega)".format(
+                    self._omega, self._COMMENT),
+
+                # numerical interator
+                # hardcoded parameters for the Becke integration
+                # --> should be moved to skdef.hsd!
+                "2000 194 11 1.0 \t{:s} Becke integrator settings"
+                .format(self._COMMENT)]
 
         # Compressions
         if len(self._compressions) == 0:

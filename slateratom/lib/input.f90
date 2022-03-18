@@ -4,6 +4,8 @@ module input
   use common_accuracy, only : dp
   use common_poisson, only : becke_grid_params
 
+  use xcfunctionals, only : xcFunctional
+
   implicit none
   private
 
@@ -92,19 +94,22 @@ contains
     write(*, '(A)') 'Enter nuclear charge, maximal angular momentum (s=0), max. SCF, ZORA'
     read(*,*) nuc, max_l, maxiter, tZora
 
-    write(*, '(A)') 'NRadial NAngular ll_max rm'
-    read(*,*) grid_params%N_radial, grid_params%N_angular, grid_params%ll_max, grid_params%rm
-
     write(*, '(A)') 'Enter XC functional:&
-        & 0=HF, 1=X-Alpha, 2=PW-LDA, 3=PBE, 4=BLYP, 5=LCY-PBE, 6=BNL'
-    read(*,*) xcnr, kappa
+        & 0: HF, 1: X-Alpha, 2: LDA-PW91, 3: GGA-PBE96, 4: GGA-BLYP, 5: LCY-PBE96, 6: LCY-BNL'
+    read(*,*) xcnr
 
-    if (xcnr == 0) write(*, '(A)') 'WARNING: ONLY CORRECT FOR CLOSED SHELL 1S !'
-    if ((xcnr == 0) .and. tZora) then
+    if (xcFunctional%isLongRangeCorrected(xcnr)) then
+      write(*, '(A)') 'Enter range-separation parameter:'
+      read(*,*) kappa
+      write(*, '(A)') 'NRadial NAngular ll_max rm'
+      read(*,*) grid_params%N_radial, grid_params%N_angular, grid_params%ll_max, grid_params%rm
+    end if
+
+    if ((xcnr == xcFunctional%HF_Exchange) .and. tZora) then
       write(*, '(A)') 'ZORA only available for DFT!'
       stop
     end if
-    if (xcnr == 1) then
+    if (xcnr == xcFunctional%X_Alpha) then
       write(*, '(A)') 'Enter empirical parameter for X-Alpha exchange.'
       read(*,*) xalpha_const
     end if
@@ -292,13 +297,13 @@ contains
 
     write(*, '(A,I3)') 'Nuclear Charge: ', nuc
 
-    if (xcnr == 0) write(*, '(A,I3)') 'HF Exchange, only correct for closed shell !'
-    if (xcnr == 1) write(*, '(A,F12.8)') 'X-Alpha, alpha= ', xalpha_const
-    if (xcnr == 2) write(*, '(A,I3)') 'LDA, Perdew-Wang Parametrization'
-    if (xcnr == 3) write(*, '(A,I3)') 'PBE'
-    if (xcnr == 4) write(*, '(A,I3)') 'BLYP'
-    if (xcnr == 5) write(*, '(A,I3)') 'Range-separated: LCY-PBE'
-    if (xcnr == 6) write(*, '(A,I3)') 'Range-separated: BNL, LCY-LDA for exchange + PBE correlation'
+    if (xcnr == xcFunctional%HF_Exchange) write(*, '(A,I3)') 'HF Exchange, spherical symmetric'
+    if (xcnr == xcFunctional%X_Alpha) write(*, '(A,F12.8)') 'X-Alpha, alpha= ', xalpha_const
+    if (xcnr == xcFunctional%LDA_PW91) write(*, '(A,I3)') 'LDA, Perdew-Wang Parametrization'
+    if (xcnr == xcFunctional%GGA_PBE96) write(*, '(A,I3)') 'PBE'
+    if (xcnr == xcFunctional%GGA_BLYP) write(*, '(A,I3)') 'BLYP'
+    if (xcnr == xcFunctional%LCY_PBE96) write(*, '(A,I3)') 'Range-separated: LCY-PBE'
+    if (xcnr == xcFunctional%LCY_BNL) write(*, '(A,I3)') 'Range-separated: LCY-BNL'
 
     write(*, '(A,I1)') 'Max. angular momentum: ', max_l
     write(*, '(A,I5)') 'Number of points for numerical radial integration: ', num_mesh_points
@@ -314,7 +319,7 @@ contains
     end do
 
     do ii = 1, max_l
-      if ((poly_order(ii) /= poly_order(0)) .and. (xcnr >= 5)) then
+      if ((poly_order(ii) /= poly_order(0)) .and. (xcFunctional%isLongRangeCorrected(xcnr))) then
         write(*,*) 'LC functionals: polynomial orders need to be same for all shells.'
         stop
       end if

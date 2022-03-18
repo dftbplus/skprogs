@@ -4,6 +4,7 @@ module input
   use common_accuracy, only : dp
   use gridorbital, only : TGridorb2_init
   use twocnt, only : TTwocntInp, TAtomdata
+  use xcfunctionals, only : xcFunctional
 
   implicit none
   private
@@ -44,11 +45,8 @@ contains
     integer :: iErr
 
     !! xc-functional type
-    !! (2: LDA-PW91, 3: GGA-PBE, 4: BNL, 5: LDA/libXC, 6:PBE/libXC, 7: BLYP/libXC, 8: LCY-PBE/libXC)
+    !! (1: LDA-PW91, 2: GGA-PBE96, 3: GGA-BLYP, 4: LCY-PBE96, 5: LCY-BNL)
     integer :: iXC
-
-    !! xc-functional string
-    character(len=:), allocatable :: stringXC
 
     !! potential data columns, summed up in order to receive the total atomic potential
     integer, allocatable :: potcomps(:)
@@ -80,41 +78,35 @@ contains
     end select
 
     select case (iXC)
-    case(2)
-      stringXC = "PW-LDA"
+    case(xcFunctional%LDA_PW91)
+      ! LDA-PW91
       inp%tXchyb = .false.
-    case(3)
-      stringXC = "PBE"
+    case(xcFunctional%GGA_PBE96)
+      ! GGA-PBE96
       inp%tXchyb = .false.
-    case(4)
-      stringXC = "BNL (long-range corrected)"
+    case(xcFunctional%GGA_BLYP)
+      ! GGA-BLYP
+      inp%tXchyb = .false.
+    case(xcFunctional%LCY_PBE96)
+      ! LCY-PBE96 (long-range corrected)
       inp%tXchyb = .true.
-    case(5)
-      stringXC = "LDA/libXC"
-      inp%tXchyb = .false.
-    case(6)
-      stringXC = "PBE/libXC"
-      inp%tXchyb = .false.
-    case(7)
-      stringXC = "BLYP/libXC"
-      inp%tXchyb = .false.
-    case(8)
-      stringXC = "LCY-PBE/libXC (long-range corrected)"
+    case(xcFunctional%LCY_BNL)
+      ! LCY-BNL (long-range corrected)
       inp%tXchyb = .true.
     case default
       call error_("Unknown exchange-correlation potential!", fname, line, iline)
     end select
     inp%iXC = iXC
-    write(*, '(A,A)') '==> Chosen exchange-correlation potential is ', stringXC, '.'
 
-    call nextline_(fp, iLine, line)
-    read(line, *, iostat=iErr) inp%kappa, inp%nRadial, inp%nAngular, inp%ll_max, inp%rm,&
-        & inp%verbosity
-    if (inp%tXchyb .and. (inp%kappa < 1.0e-08_dp)) then
-      write(*,'(a)') 'Chosen kappa too small.'
-      stop
+    if (inp%tXchyb) then
+      call nextline_(fp, iLine, line)
+      read(line, *, iostat=iErr) inp%kappa, inp%nRadial, inp%nAngular, inp%ll_max, inp%rm
+      if (inp%kappa < 1.0e-08_dp) then
+        write(*,'(a)') 'Chosen kappa too small!'
+        stop
+      end if
+      call checkerror_(fname, line, iLine, iErr)
     end if
-    call checkerror_(fname, line, iLine, iErr)
 
     call nextline_(fp, iLine, line)
     read(line, *, iostat=iErr) inp%r0, inp%dr, inp%epsilon, inp%maxdist

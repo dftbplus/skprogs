@@ -1,9 +1,9 @@
 set(sources-f90
   bisection.f90
-  dftbxc.f90
   gridorbital.f90
   quadrature.f90
-  twocnt.f90)
+  twocnt.f90
+  xcfunctionals.f90)
 
 add_library(skprogs-sktwocnt ${sources-f90})
 

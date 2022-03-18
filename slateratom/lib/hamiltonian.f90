@@ -5,6 +5,7 @@ module hamiltonian
   use dft, only : dft_exc_matrixelement
   use broyden, only : mixing_driver
   use zora_routines, only : zora_t_correction
+  use xcfunctionals, only : xcFunctional
 
   implicit none
   private
@@ -122,18 +123,18 @@ contains
     ! build exchange(-correlation) potential matrices:
 
     ! pure Hartree-Fock
-    if (xcnr == 0) then
+    if (xcnr == xcFunctional%HF_Exchange) then
       call build_hf_ex_matrix(kk, pp, max_l, num_alpha, poly_order, k_matrix)
     end if
 
     ! pure DFT
-    if ((xcnr > 0) .and. (xcnr <= 4)) then
+    if (xcFunctional%isLDA(xcnr) .or. xcFunctional%isGGA(xcnr)) then
       call build_dft_exc_matrix(max_l, num_alpha, poly_order, alpha, num_mesh_points, abcissa,&
           & weight, vxc, k_matrix)
     end if
 
     ! HF - DFT hybrid
-    if (xcnr >= 5) then
+    if (xcFunctional%isLongRangeCorrected(xcnr)) then
        call build_hf_ex_matrix(kk, pp, max_l, num_alpha, poly_order, k_matrix)
        call build_dft_exc_matrix(max_l, num_alpha, poly_order, alpha, num_mesh_points, abcissa,&
            & weight, vxc, k_matrix2)
