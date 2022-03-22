@@ -4,6 +4,7 @@ module dft
   use, intrinsic :: iso_c_binding, only : c_size_t
   use common_accuracy, only : dp
   use common_constants, only : pi, rec4pi
+  use xcfunctionals, only : xcFunctional
   use density, only : basis, basis_times_basis_times_r2, density_at_point, density_at_point_1st,&
       & density_at_point_2nd
   use xc_f03_lib_m, only : xc_f03_func_t, xc_f03_func_info_t, xc_f03_func_init, xc_f03_func_end,&
@@ -149,21 +150,6 @@ contains
     !! density in libxc compatible format, i.e. rho/(4pi)
     real(dp), allocatable :: rhor(:,:)
 
-    !! true, if LDA functional is desired
-    logical :: tLDA
-
-    !! true, if GGA functional is desired
-    logical :: tGGA
-
-    !! true, if long-range corrected functional is desired
-    logical :: tLC
-
-    !! true, if a global hybrid functional is requested
-    logical :: tGlobalHybrid
-
-    !! true, if a CAM functional is requested
-    logical :: tCam
-
     !! temporary storage
     real(dp), allocatable :: tmpv1(:), tmpv2(:), exc_tmp(:), vxc_tmp(:,:)
     real(dp), allocatable :: sigma(:,:), vxsigma(:,:), vxsigma_sr(:,:), vcsigma(:,:), vxcsigma(:,:)
@@ -171,68 +157,53 @@ contains
     !! auxiliary variables
     integer :: ii, iSpin, iSpin2, iSigma
 
-    tLDA = .false.
-    tGGA = .false.
-    tLC = .false.
-    tGlobalHybrid = .false.
-    tCam = .false.
-
     rho(:,:) = 0.0_dp
     drho(:,:) = 0.0_dp
     ddrho(:,:) = 0.0_dp
     exc(:) = 0.0_dp
     vxc(:,:) = 0.0_dp
 
-    if (xcnr == 0) return
-    !  X-Alpha (xcnr = 1) handled by in-house routine
-    if (xcnr == 2) then
-      tLDA = .true.
+    if (xcnr == xcFunctional%HF_Exchange) return
+    !  X-Alpha (xcnr = xcFunctional%X_Alpha) handled by in-house routine
+    if (xcnr == xcFunctional%LDA_PW91) then
       call xc_f03_func_init(xcfunc_x, XC_LDA_X, XC_POLARIZED)
       xcinfo = xc_f03_func_get_info(xcfunc_x)
       call xc_f03_func_init(xcfunc_c, XC_LDA_C_PW, XC_POLARIZED)
       xcinfo = xc_f03_func_get_info(xcfunc_c)
-    elseif (xcnr == 3) then
-      tGGA = .true.
+    elseif (xcnr == xcFunctional%GGA_PBE96) then
       call xc_f03_func_init(xcfunc_x, XC_GGA_X_PBE, XC_POLARIZED)
       xcinfo = xc_f03_func_get_info(xcfunc_x)
       call xc_f03_func_init(xcfunc_c, XC_GGA_C_PBE, XC_POLARIZED)
       xcinfo = xc_f03_func_get_info(xcfunc_c)
-    elseif (xcnr == 4) then
-      tGGA = .true.
+    elseif (xcnr == xcFunctional%GGA_BLYP) then
       call xc_f03_func_init(xcfunc_x, XC_GGA_X_B88, XC_POLARIZED)
       xcinfo = xc_f03_func_get_info(xcfunc_x)
       call xc_f03_func_init(xcfunc_c, XC_GGA_C_LYP, XC_POLARIZED)
       xcinfo = xc_f03_func_get_info(xcfunc_c)
-    elseif (xcnr == 5) then
-      tLC = .true.
+    elseif (xcnr == xcFunctional%LCY_PBE96) then
       call xc_f03_func_init(xcfunc_x, XC_GGA_X_SFAT_PBE, XC_POLARIZED)
       call xc_f03_func_set_ext_params(xcfunc_x, [omega])
       xcinfo = xc_f03_func_get_info(xcfunc_x)
       call xc_f03_func_init(xcfunc_c, XC_GGA_C_PBE, XC_POLARIZED)
       xcinfo = xc_f03_func_get_info(xcfunc_c)
-    elseif (xcnr == 6) then
-      tLC = .true.
+    elseif (xcnr == xcFunctional%LCY_BNL) then
       call xc_f03_func_init(xcfunc_x, XC_LDA_X_YUKAWA, XC_POLARIZED)
       call xc_f03_func_set_ext_params(xcfunc_x, [omega])
       xcinfo = xc_f03_func_get_info(xcfunc_x)
       call xc_f03_func_init(xcfunc_c, XC_GGA_C_PBE, XC_POLARIZED)
       xcinfo = xc_f03_func_get_info(xcfunc_c)
-    elseif (xcnr == 7) then
-      tGlobalHybrid = .true.
+    elseif (xcnr == xcFunctional%HYB_PBE0) then
       call xc_f03_func_init(xcfunc_xc, XC_HYB_GGA_XC_PBEH, XC_POLARIZED)
       xcinfo = xc_f03_func_get_info(xcfunc_xc)
-    elseif (xcnr == 8) then
-      tGlobalHybrid = .true.
+    elseif (xcnr == xcFunctional%HYB_B3LYP) then
       call xc_f03_func_init(xcfunc_xc, XC_HYB_GGA_XC_B3LYP, XC_POLARIZED)
       call xc_f03_func_set_ext_params(xcfunc_xc, [0.20_dp, 0.72_dp, 0.81_dp])
       xcinfo = xc_f03_func_get_info(xcfunc_xc)
-    elseif (xcnr == 9) then
-      tCam = .true.
+    elseif (xcnr == xcFunctional%CAMY_B3LYP) then
       call xc_f03_func_init(xcfunc_xc, XC_HYB_GGA_XC_CAMY_B3LYP, XC_POLARIZED)
       call xc_f03_func_set_ext_params(xcfunc_xc, [camAlpha + camBeta, -camBeta, omega, 0.81_dp])
       xcinfo = xc_f03_func_get_info(xcfunc_xc)
-    elseif (xcnr == 10) then
-      tCam = .true.
+    elseif (xcnr == xcFunctional%CAMY_PBEh) then
       ! short-range xpbe96
       call xc_f03_func_init(xcfunc_xsr, XC_GGA_X_SFAT_PBE, XC_POLARIZED)
       call xc_f03_func_set_ext_params(xcfunc_xsr, [omega])
@@ -243,22 +214,26 @@ contains
       ! cpbe96
       call xc_f03_func_init(xcfunc_c, XC_GGA_C_PBE, XC_POLARIZED)
       xcinfo = xc_f03_func_get_info(xcfunc_c)
+    else
+      write(*, '(A,I2,A)') 'XCNR=', xcnr, ' not implemented!'
+      stop
     end if
 
     nn = size(rho, dim=1)
     allocate(rhor(2, nn))
 
-    if (tLDA .or. tGGA .or. tLC) then
+    if (xcFunctional%isLDA(xcnr) .or. xcFunctional%isGGA(xcnr)&
+        & .or. xcFunctional%isLongRangeCorrected(xcnr)) then
       allocate(ex(nn))
       allocate(ec(nn))
       allocate(vx(2, nn))
       allocate(vc(2, nn))
-    elseif (tGlobalHybrid .or. tCam) then
+    elseif (xcFunctional%isGlobalHybrid(xcnr) .or. xcFunctional%isCAMY(xcnr)) then
       allocate(vxc_tmp(2, nn))
       allocate(exc_tmp(nn))
     end if
 
-    if (tGGA .or. tLC) then
+    if (xcFunctional%isGGA(xcnr) .or. xcFunctional%isLongRangeCorrected(xcnr)) then
       allocate(sigma(3, nn))
       allocate(vxsigma(3, nn))
       vxsigma(:,:) = 0.0_dp
@@ -266,7 +241,7 @@ contains
       vcsigma(:,:) = 0.0_dp
       allocate(tmpv1(nn))
       allocate(tmpv2(nn))
-    elseif (tGlobalHybrid .or. tCam) then
+    elseif (xcFunctional%isGlobalHybrid(xcnr) .or. xcFunctional%isCAMY(xcnr)) then
       allocate(sigma(3, nn))
       allocate(vxcsigma(3, nn))
       vxcsigma(:,:) = 0.0_dp
@@ -275,7 +250,7 @@ contains
     end if
 
     ! CAMY-PBEh is assembled manually
-    if (xcnr == 10) then
+    if (xcnr == xcFunctional%CAMY_PBEh) then
       allocate(vxsigma(3, nn))
       vxsigma(:,:) = 0.0_dp
       allocate(vxsigma_sr(3, nn))
@@ -297,7 +272,8 @@ contains
 
     rho = max(rho, 0.0_dp)
 
-    if (xcnr > 2) then
+    if (xcFunctional%isGGA(xcnr) .or. xcFunctional%isLongRangeCorrected(xcnr)&
+        & .or. xcFunctional%isGlobalHybrid(xcnr) .or. xcFunctional%isCAMY(xcnr)) then
       do ii = 1, num_mesh_points
 
         drho(ii, 1) = density_at_point_1st(pp(1, :,:,:), max_l, num_alpha, poly_order, alpha,&
@@ -314,7 +290,7 @@ contains
 
     ! case Xalpha treated separately:
     ! divide by 4*pi to catch different normalization of spherical harmonics
-    if (xcnr == 1) then
+    if (xcnr == xcFunctional%X_Alpha) then
       do ii = 1, num_mesh_points
         rhotot = (rho(ii, 1) + rho(ii, 2)) * rec4pi
         rhodiff = (rho(ii, 1) - rho(ii, 2)) * rec4pi
@@ -327,7 +303,8 @@ contains
 
     ! divide by 4*pi to catch different normalization of spherical harmonics
     rhor(:,:) = transpose(rho) * rec4pi
-    if (tGGA .or. tLC .or. tGlobalHybrid .or. tCam) then
+    if (xcFunctional%isGGA(xcnr) .or. xcFunctional%isLongRangeCorrected(xcnr)&
+        & .or. xcFunctional%isGlobalHybrid(xcnr) .or. xcFunctional%isCAMY(xcnr)) then
       sigma(1, :) = drho(:, 1) * drho(:, 1) * rec4pi**2
       sigma(2, :) = drho(:, 1) * drho(:, 2) * rec4pi**2
       sigma(3, :) = drho(:, 2) * drho(:, 2) * rec4pi**2
@@ -335,10 +312,10 @@ contains
 
     select case (xcnr)
     ! LDA-PW91, BNL (long-range corrected)
-    case(2, 6)
+    case(xcFunctional%LDA_PW91, xcFunctional%LCY_BNL)
       call xc_f03_lda_exc_vxc(xcfunc_x, nn, rhor(1, 1), ex(1), vx(1, 1))
-    ! GGA-PBE, GGA-BLYP, LCY-PBE (long-range corrected)
-    case(3:5)
+    ! GGA-PBE96, GGA-BLYP, LCY-PBE96 (long-range corrected)
+    case(xcFunctional%GGA_PBE96, xcFunctional%GGA_BLYP, xcFunctional%LCY_PBE96)
       call xc_f03_gga_exc_vxc(xcfunc_x, nn, rhor(1, 1), sigma(1, 1), ex(1), vx(1,1), vxsigma(1,1))
     end select
 
@@ -346,11 +323,12 @@ contains
 
     select case (xcnr)
     ! LDA-PW91
-    case(2)
+    case(xcFunctional%LDA_PW91)
       call xc_f03_lda_exc_vxc(xcfunc_c, nn, rhor(1, 1), ec(1), vc(1, 1))
       vxc(:,:) = transpose(vx + vc)
-    ! GGA-PBE, GGA-BLYP, LCY-PBE, LCY-BNL
-    case(3:6)
+    ! GGA-PBE96, GGA-BLYP, LCY-PBE96, LCY-BNL
+    case(xcFunctional%GGA_PBE96, xcFunctional%GGA_BLYP, xcFunctional%LCY_PBE96,&
+        & xcFunctional%LCY_BNL)
       call xc_f03_gga_exc_vxc(xcfunc_c, nn, rhor(1, 1), sigma(1, 1), ec(1), vc(1, 1), vcsigma(1, 1))
       vxc(:,:) = transpose(vx + vc)
       ! derivative of E vs. grad n
@@ -419,16 +397,16 @@ contains
     end select
 
     ! sum up exchange and correlation energy on the grid
-    if (.not. (tGlobalHybrid .or. tCam)) then
+    if (.not. (xcFunctional%isGlobalHybrid(xcnr) .or. xcFunctional%isCAMY(xcnr))) then
       exc(:) = ec + ex
     else
       exc(:) = exc_tmp
     end if
 
     ! finalize libxc objects
-    if (xcnr > 1) then
-      if (tGlobalHybrid .or. tCam) then
-        if (xcnr == 10) then
+    if (.not. (xcnr == xcFunctional%X_Alpha)) then
+      if (xcFunctional%isGlobalHybrid(xcnr) .or. xcFunctional%isCAMY(xcnr)) then
+        if (xcnr == xcFunctional%CAMY_PBEh) then
           call xc_f03_func_end(xcfunc_xsr)
           call xc_f03_func_end(xcfunc_x)
           call xc_f03_func_end(xcfunc_c)

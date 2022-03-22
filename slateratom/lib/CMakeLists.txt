@@ -15,6 +15,7 @@ set(sources-f90
   output.f90
   total_energy.f90
   utilities.f90
+  xcfunctionals.f90
   zora_routines.f90)
 
 add_library(skprogs-slateratom ${sources-f90})

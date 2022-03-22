@@ -5,6 +5,7 @@ module hamiltonian
   use dft, only : dft_exc_matrixelement
   use broyden, only : mixing_driver
   use zora_routines, only : zora_t_correction
+  use xcfunctionals, only : xcFunctional
 
   implicit none
   private
@@ -107,21 +108,8 @@ contains
     !> auxiliary matrices for (CAM) hybrids
     real(dp), allocatable :: k_matrix2(:,:,:,:), k_matrix3(:,:,:,:)
 
-    !! true, if a (long-range corrected) range-separated hybrid functional is requested
-    logical :: tLC
-
-    !! true, if a CAM functional is requested
-    logical :: tCam
-
-    !! true, if a global hybrid functional is requested
-    logical :: tGlobalHybrid
-
     !! auxiliary variables
     integer :: ii, jjj, kkk, ll, mm, ss, ttt, iMix
-
-    tLC = ((xcnr == 5) .or. (xcnr == 6))
-    tCam = ((xcnr == 9) .or. (xcnr == 10))
-    tGlobalHybrid = ((xcnr == 7) .or. (xcnr == 8))
 
     ff(:,:,:,:) = 0.0_dp
 
@@ -145,44 +133,44 @@ contains
     ! build exchange(-correlation) potential matrices:
 
     ! pure Hartree-Fock
-    if (xcnr == 0) then
+    if (xcnr == xcFunctional%HF_Exchange) then
       call build_hf_ex_matrix(kk, pp, max_l, num_alpha, poly_order, k_matrix)
     end if
 
     ! pure DFT
-    if ((xcnr > 0) .and. (xcnr <= 4)) then
+    if (xcFunctional%isLDA(xcnr) .or. xcFunctional%isGGA(xcnr)) then
       call build_dft_exc_matrix(max_l, num_alpha, poly_order, alpha, num_mesh_points, abcissa,&
           & weight, vxc, k_matrix)
     end if
 
     ! HF - DFT hybrid
-    if (tLC) then
+    if (xcFunctional%isLongRangeCorrected(xcnr)) then
        call build_hf_ex_matrix(kk_lr, pp, max_l, num_alpha, poly_order, k_matrix)
        call build_dft_exc_matrix(max_l, num_alpha, poly_order, alpha, num_mesh_points, abcissa,&
            & weight, vxc, k_matrix2)
        k_matrix(:,:,:,:) = k_matrix + k_matrix2
-     elseif (tGlobalHybrid) then
+     elseif (xcFunctional%isGlobalHybrid(xcnr)) then
        call build_hf_ex_matrix(kk, pp, max_l, num_alpha, poly_order, k_matrix)
        call build_dft_exc_matrix(max_l, num_alpha, poly_order, alpha, num_mesh_points, abcissa,&
            & weight, vxc, k_matrix2)
-       if (xcnr == 7) then
+       if (xcnr == xcFunctional%HYB_PBE0) then
          ! PBE0 requires 1/4 Hartree-Fock exchange and 3/4 PBE-DFT exchange
          ! --> 1/4 HF exchange + full libXC PBE-DFT exchange (3/4 included)
          k_matrix(:,:,:,:) = 1.0_dp / 4.0_dp * k_matrix + k_matrix2
-       elseif (xcnr == 8) then
+       elseif (xcnr == xcFunctional%HYB_B3LYP) then
          ! B3LYP parameters a=0.20, b=0.72, c=0.81 (libXC defaults)
          ! --> 0.20 * HF exchange + full libXC DFT exchange
          k_matrix(:,:,:,:) = 0.20_dp * k_matrix + k_matrix2
        end if
-     elseif (tCam) then
+     elseif (xcFunctional%isCAMY(xcnr)) then
        call build_hf_ex_matrix(kk, pp, max_l, num_alpha, poly_order, k_matrix)
        call build_hf_ex_matrix(kk_lr, pp, max_l, num_alpha, poly_order, k_matrix2)
        call build_dft_exc_matrix(max_l, num_alpha, poly_order, alpha, num_mesh_points, abcissa,&
            & weight, vxc, k_matrix3)
-       if (xcnr == 9) then
+       if (xcnr == xcFunctional%CAMY_B3LYP) then
          ! CAMY-B3LYP parameters (libXC defaults)
          k_matrix(:,:,:,:) = camAlpha * k_matrix + camBeta * k_matrix2 + k_matrix3
-       elseif (xcnr == 10) then
+       elseif (xcnr == xcFunctional%CAMY_PBEh) then
          ! CAMY-PBEh
          k_matrix(:,:,:,:) = camAlpha * k_matrix + camBeta * k_matrix2 + k_matrix3
        end if

@@ -17,6 +17,7 @@ program HFAtom
   use zora_routines, only : scaled_zora
   use cmdargs, only : parse_command_arguments
   use common_poisson, only : TBeckeGridParams
+  use xcfunctionals, only : xcFunctional
   use globals
 
   implicit none
@@ -40,15 +41,6 @@ program HFAtom
   !! CAM beta parameter
   real(dp) :: camBeta
 
-  !! true, if a (long-range corrected) range-separated hybrid functional is requested
-  logical :: tLC
-
-  !! true, if a CAM functional is requested
-  logical :: tCam
-
-  !! true, if a global hybrid functional is requested
-  logical :: tGlobalHybrid
-
   !! holds parameters, defining a Becke integration grid
   type(TBeckeGridParams) :: grid_params
 
@@ -57,10 +49,6 @@ program HFAtom
       & tAutoAlphas, alpha, conf_r0, conf_power, num_occ, num_power, num_alphas, xcnr,&
       & tPrintEigvecs, tZora, tBroyden, mixing_factor, xalpha_const, omega, camAlpha, camBeta,&
       & grid_params)
-
-  tLC = ((xcnr == 5) .or. (xcnr == 6))
-  tCam = ((xcnr == 9) .or. (xcnr == 10))
-  tGlobalHybrid = ((xcnr == 7) .or. (xcnr == 8))
 
   problemsize = num_power * num_alphas
 
@@ -102,13 +90,13 @@ program HFAtom
   ! build supermatrices
   write(*, '(A)') 'Startup: Building Supermatrices'
   call coulomb(jj, max_l, num_alpha, alpha, poly_order, uu, ss)
-  if (xcnr == 0) then
+  if (xcnr == xcFunctional%HF_Exchange) then
     call hfex(kk, max_l, num_alpha, alpha, poly_order, problemsize)
-  elseif (tLC) then
+  elseif (xcFunctional%isLongRangeCorrected(xcnr)) then
     call hfex_lr(kk_lr, max_l, num_alpha, alpha, poly_order, problemsize, omega, grid_params)
-  elseif (tGlobalHybrid) then
+  elseif (xcFunctional%isGlobalHybrid(xcnr)) then
     call hfex(kk, max_l, num_alpha, alpha, poly_order, problemsize)
-  elseif (tCam) then
+  elseif (xcFunctional%isCAMY(xcnr)) then
     call hfex(kk, max_l, num_alpha, alpha, poly_order, problemsize)
     call hfex_lr(kk_lr, max_l, num_alpha, alpha, poly_order, problemsize, omega, grid_params)
   end if
@@ -116,8 +104,10 @@ program HFAtom
   ! convergence flag
   tConverged = .false.
 
-  ! dft start potential
-  if (xcnr > 0) call dft_start_pot(abcissa, num_mesh_points, nuc, vxc)
+  ! DFT start potential
+  if (.not. (xcnr == xcFunctional%HF_Exchange)) then
+    call dft_start_pot(abcissa, num_mesh_points, nuc, vxc)
+  end if
 
   ! build initial fock matrix, core hamiltonian only
   write(*, '(A)') 'Startup: Building Initial Fock Matrix'

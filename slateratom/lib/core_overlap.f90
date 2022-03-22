@@ -70,9 +70,9 @@ contains
             do mm = 1, poly_order(ii)
               oo = oo + 1
               nlq = mm + ii
-              ! use ll+ii and mm+ii becaue of DFTB basis function definition
-              ss(ii, nn, oo) = 1.0_dp / sqrt(v(alpha(ii, jj), 2 * nlp) *&
-                  &v(alpha(ii, kk), 2 * nlq)) * v(alpha1, nlp + nlq)
+              ! use ll+ii and mm+ii because of DFTB basis function definition
+              ss(ii, nn, oo) = 1.0_dp / sqrt(v(alpha(ii, jj), 2 * nlp)&
+                  & * v(alpha(ii, kk), 2 * nlq)) * v(alpha1, nlp + nlq)
             end do
           end do
         end do

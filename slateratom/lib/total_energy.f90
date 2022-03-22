@@ -3,6 +3,7 @@ module totalenergy
 
   use common_accuracy, only : dp
   use dft, only : dft_exc_energy, dft_vxc_energy
+  use xcfunctionals, only : xcFunctional
 
   implicit none
   private
@@ -86,25 +87,8 @@ contains
     !! density matrix supervector (spins summed up)
     real(dp), allocatable :: p_total(:,:,:)
 
-    !! true, if a (semi-)local functional is requested
-    logical :: tGgaLda
-
-    !! true, if a (long-range corrected) range-separated hybrid functional is requested
-    logical :: tLC
-
-    !! true, if a CAM functional is requested
-    logical :: tCam
-
-    !! true, if a global hybrid functional is requested
-    logical :: tGlobalHybrid
-
     !! auxiliary variable, i.e. (nuclear + kinetic + confinement)
     real(dp) :: dummy1
-
-    tGgaLda = ((xcnr > 0) .and. (xcnr <= 4))
-    tLC = ((xcnr == 5) .or. (xcnr == 6))
-    tCam = ((xcnr == 9) .or. (xcnr == 10))
-    tGlobalHybrid = ((xcnr == 7) .or. (xcnr == 8))
 
     total_energy = 0.0_dp
     kinetic = 0.0_dp
@@ -126,28 +110,28 @@ contains
 
     ! get Coulomb and HF exchange contributions
     coulomb = coulomb_energy(jj, p_total, max_l, num_alpha, poly_order)
-    if (xcnr == 0) then
+    if (xcnr == xcFunctional%HF_Exchange) then
       hf_x_energy = hf_ex_energy(kk, pp, max_l, num_alpha, poly_order)
-    elseif (tLC) then
+    elseif (xcFunctional%isLongRangeCorrected(xcnr)) then
       hf_x_energy = hf_ex_energy(kk_lr, pp, max_l, num_alpha, poly_order)
-    elseif (tGlobalHybrid) then
+    elseif (xcFunctional%isGlobalHybrid(xcnr)) then
       hf_x_energy = hf_ex_energy(kk, pp, max_l, num_alpha, poly_order)
-      if (xcnr == 7) then
+      if (xcnr == xcFunctional%HYB_PBE0) then
         ! PBE0 requires 1/4 Hartree-Fock exchange
         hf_x_energy = 1.0_dp / 4.0_dp * hf_x_energy
-      elseif (xcnr == 8) then
+      elseif (xcnr == xcFunctional%HYB_B3LYP) then
         ! B3LYP requires 0.20 * HF exchange
         hf_x_energy = 0.20_dp * hf_x_energy
       end if
-    elseif (tCam) then
+    elseif (xcFunctional%isCAMY(xcnr)) then
       hf_x_energy = hf_ex_energy(kk, pp, max_l, num_alpha, poly_order)
       hf_x_energy_lr = hf_ex_energy(kk_lr, pp, max_l, num_alpha, poly_order)
-      if (xcnr == 9) then
+      if (xcnr == xcFunctional%CAMY_B3LYP) then
         ! CAMY-B3LYP parameters a=0.20, b=0.72, c=0.81 (libXC defaults)
         hf_x_energy = camAlpha * hf_x_energy
         hf_x_energy_lr = camBeta * hf_x_energy_lr
         hf_x_energy = hf_x_energy + hf_x_energy_lr
-      elseif (xcnr == 10) then
+      elseif (xcnr == xcFunctional%CAMY_PBEh) then
         ! CAMY-PBEh
         hf_x_energy = camAlpha * hf_x_energy
         hf_x_energy_lr = camBeta * hf_x_energy_lr
@@ -160,15 +144,16 @@ contains
     ! exchange = -P^up K P^up - -P^dn K P^dn. The exchange energy is half of that.
 
     ! DFT exchange-correlation energy
-    if (xcnr > 0) then
+    if (.not. (xcnr == xcFunctional%HF_Exchange)) then
       call dft_exc_energy(num_mesh_points, rho, exc, weight, abcissa, dft_xc_energy)
     end if
 
     ! pure HF
-    if (xcnr == 0) then
+    if (xcnr == xcFunctional%HF_Exchange) then
       total_energy = dummy1 + 0.5_dp * coulomb + 0.5_dp * hf_x_energy
     ! (semi-)local functionals
-    elseif ((xcnr > 0) .and. (xcnr <= 4)) then
+    elseif ((xcnr == xcFunctional%X_Alpha) .or. xcFunctional%isLDA(xcnr)&
+        & .or. xcFunctional%isGGA(xcnr)) then
       total_energy = dummy1 + 0.5_dp * coulomb + dft_xc_energy
     ! global hybrids, LC, CAM functionals
     else
@@ -265,26 +250,9 @@ contains
     !! density matrix supervector (spins summed up)
     real(dp), allocatable :: p_total(:,:,:)
 
-    !! true, if a (semi-)local functional is requested
-    logical :: tGgaLda
-
-    !! true, if a (long-range corrected) range-separated hybrid functional is requested
-    logical :: tLC
-
-    !! true, if a CAM functional is requested
-    logical :: tCam
-
-    !! true, if a global hybrid functional is requested
-    logical :: tGlobalHybrid
-
     !> auxiliary variables
     integer :: mm, nn, oo
     real(dp) :: xc_pot, dummy(2), eigsum
-
-    tGgaLda = ((xcnr > 0) .and. (xcnr <= 4))
-    tLC = ((xcnr == 5) .or. (xcnr == 6))
-    tCam = ((xcnr == 9) .or. (xcnr == 10))
-    tGlobalHybrid = ((xcnr == 7) .or. (xcnr == 8))
 
     total_energy = 0.0_dp
     kinetic = 0.0_dp
@@ -316,28 +284,28 @@ contains
 
     ! get Coulomb and HF exchange contributions
     coulomb = coulomb_energy(jj, p_total, max_l, num_alpha, poly_order)
-    if (xcnr == 0) then
+    if (xcnr == xcFunctional%HF_Exchange) then
       hf_x_energy = hf_ex_energy(kk, pp, max_l, num_alpha, poly_order)
-    elseif (tLC) then
+    elseif (xcFunctional%isLongRangeCorrected(xcnr)) then
       hf_x_energy = hf_ex_energy(kk_lr, pp, max_l, num_alpha, poly_order)
-    elseif (tGlobalHybrid) then
+    elseif (xcFunctional%isGlobalHybrid(xcnr)) then
       hf_x_energy = hf_ex_energy(kk, pp, max_l, num_alpha, poly_order)
-      if (xcnr == 7) then
+      if (xcnr == xcFunctional%HYB_PBE0) then
         ! PBE0 requires 1/4 Hartree-Fock exchange
         hf_x_energy = 1.0_dp / 4.0_dp * hf_x_energy
-      elseif (xcnr == 8) then
+      elseif (xcnr == xcFunctional%HYB_B3LYP) then
         ! B3LYP requires 0.20 * HF exchange
         hf_x_energy = 0.20_dp * hf_x_energy
       end if
-    elseif (tCam) then
+    elseif (xcFunctional%isCAMY(xcnr)) then
       hf_x_energy = hf_ex_energy(kk, pp, max_l, num_alpha, poly_order)
       hf_x_energy_lr = hf_ex_energy(kk_lr, pp, max_l, num_alpha, poly_order)
-      if (xcnr == 9) then
+      if (xcnr == xcFunctional%CAMY_B3LYP) then
         ! CAMY-B3LYP parameters a=0.20, b=0.72, c=0.81 (libXC defaults)
         hf_x_energy = camAlpha * hf_x_energy
         hf_x_energy_lr = camBeta * hf_x_energy_lr
         hf_x_energy = hf_x_energy + hf_x_energy_lr
-      elseif (xcnr == 10) then
+      elseif (xcnr == xcFunctional%CAMY_PBEh) then
         ! CAMY-PBEh
         hf_x_energy = camAlpha * hf_x_energy
         hf_x_energy_lr = camBeta * hf_x_energy_lr
@@ -352,17 +320,18 @@ contains
     xc_pot = dummy(1) + dummy(2)
 
     ! pure Hartree-Fock
-    if (xcnr == 0) then
+    if (xcnr == xcFunctional%HF_Exchange) then
       total_energy = eigsum - 0.5_dp * coulomb - 0.5_dp * hf_x_energy
     ! (semi-)local functionals
-    elseif (tGgaLda) then
+    elseif (xcnr == xcFunctional%X_Alpha .or. xcFunctional%isLDA(xcnr)&
+        & .or. xcFunctional%isGGA(xcnr)) then
       total_energy = eigsum - 0.5_dp * coulomb + dft_xc_energy - xc_pot
     ! range-separated (long-range corrected) hybrid functionals
-    elseif (tLC) then
+    elseif (xcFunctional%isLongRangeCorrected(xcnr)) then
       total_energy = eigsum - 0.5_dp * coulomb - 0.5_dp * hf_x_energy + dft_xc_energy - xc_pot
-    elseif (tGlobalHybrid) then
+    elseif (xcFunctional%isGlobalHybrid(xcnr)) then
       total_energy = eigsum - 0.5_dp * coulomb - 0.5_dp * hf_x_energy + dft_xc_energy - xc_pot
-    elseif (tCam) then
+    elseif (xcFunctional%isCAMY(xcnr)) then
       total_energy = eigsum - 0.5_dp * coulomb - 0.5_dp * hf_x_energy + dft_xc_energy - xc_pot
     end if
 

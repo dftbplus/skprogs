@@ -4,6 +4,8 @@ module input
   use common_accuracy, only : dp
   use common_poisson, only : TBeckeGridParams
 
+  use xcfunctionals, only : xcFunctional
+
   implicit none
   private
 
@@ -93,15 +95,6 @@ contains
     !> holds parameters, defining a Becke integration grid
     type(TBeckeGridParams), intent(out) :: grid_params
 
-    !! true, if a (long-range corrected) range-separated hybrid functional is requested
-    logical :: tLC
-
-    !! true, if a CAM functional is requested
-    logical :: tCam
-
-    !! true, if a global hybrid functional is requested
-    logical :: tGlobalHybrid
-
     !! auxiliary variables
     integer :: ii, jj
 
@@ -109,38 +102,34 @@ contains
     read(*,*) nuc, max_l, maxiter, tZora
 
     write(*, '(A)') 'Enter XC functional:&
-        & 0: HF, 1: X-Alpha, 2: LDA-PW91, 3: GGA-PBE, 4: GGA-BLYP, 5: LCY-PBE, 6: LCY-BNL, 7: PBE0,&
-        & 8: B3LYP, 9: CAMY-B3LYP, 10: CAMY-PBEh'
+        & 0: HF, 1: X-Alpha, 2: LDA-PW91, 3: GGA-PBE96, 4: GGA-BLYP, 5: LCY-PBE96, 6: LCY-BNL,&
+        & 7: PBE0, 8: B3LYP, 9: CAMY-B3LYP, 10: CAMY-PBEh'
     read(*,*) xcnr
 
-    if ((xcnr < 0) .or. (xcnr > 10)) then
+    if (xcFunctional%isNotImplemented(xcnr)) then
       write(*, '(A,I2,A)') 'XCNR=', xcnr, ' not implemented!'
       stop
     end if
 
-    tLC = ((xcnr == 5) .or. (xcnr == 6))
-    tCam = ((xcnr == 9) .or. (xcnr == 10))
-    tGlobalHybrid = ((xcnr == 7) .or. (xcnr == 8))
-
-    if (tLC) then
+    if (xcFunctional%isLongRangeCorrected(xcnr)) then
       write(*, '(A)') 'Enter range-separation parameter:'
       read(*,*) omega
-    elseif (tCam) then
+    elseif (xcFunctional%isCAMY(xcnr)) then
       write(*, '(A)') 'Enter range-separation parameter, CAM alpha, CAM beta:'
       read(*,*) omega, camAlpha, camBeta
     end if
 
-    if (tLC .or. tCam .or. tGlobalHybrid) then
+    if (xcFunctional%isLongRangeCorrected(xcnr) .or. xcFunctional%isCAMY(xcnr)&
+        & .or. xcFunctional%isGlobalHybrid(xcnr)) then
       write(*, '(A)') 'NRadial NAngular ll_max rm'
       read(*,*) grid_params%nRadial, grid_params%nAngular, grid_params%ll_max, grid_params%rm
     end if
 
-    if (xcnr == 0) write(*, '(A)') 'WARNING: ONLY CORRECT FOR CLOSED SHELL 1S !'
-    if ((xcnr == 0) .and. tZora) then
+    if ((xcnr == xcFunctional%HF_Exchange) .and. tZora) then
       write(*, '(A)') 'ZORA only available for DFT!'
       stop
     end if
-    if (xcnr == 1) then
+    if (xcnr == xcFunctional%X_Alpha) then
       write(*, '(A)') 'Enter empirical parameter for X-Alpha exchange.'
       read(*,*) xalpha_const
     end if
@@ -328,17 +317,18 @@ contains
 
     write(*, '(A,I3)') 'Nuclear Charge: ', nuc
 
-    if (xcnr == 0) write(*, '(A)') 'Hartree-Fock exchange'
-    if (xcnr == 1) write(*, '(A,F12.8)') 'X-Alpha, alpha= ', xalpha_const
-    if (xcnr == 2) write(*, '(A)') 'LDA, Perdew-Wang Parametrization'
-    if (xcnr == 3) write(*, '(A)') 'PBE'
-    if (xcnr == 4) write(*, '(A)') 'BLYP'
-    if (xcnr == 5) write(*, '(A)') 'Range-separated: LCY-PBE'
-    if (xcnr == 6) write(*, '(A)') 'Range-separated: BNL, LCY-LDA for exchange + PBE correlation'
-    if (xcnr == 7) write(*, '(A)') 'Global hybrid: PBE0'
-    if (xcnr == 8) write(*, '(A)') 'Global hybrid: B3LYP'
-    if (xcnr == 9) write(*, '(A)') 'CAM: CAMY-B3LYP'
-    if (xcnr == 10) write(*, '(A)') 'CAM: CAMY-PBEh'
+    if (xcnr == xcFunctional%HF_Exchange) write(*, '(A)') 'Hartree-Fock exchange'
+    if (xcnr == xcFunctional%X_Alpha) write(*, '(A,F12.8)') 'X-Alpha, alpha= ', xalpha_const
+    if (xcnr == xcFunctional%LDA_PW91) write(*, '(A)') 'LDA, Perdew-Wang Parametrization'
+    if (xcnr == xcFunctional%GGA_PBE96) write(*, '(A)') 'PBE96'
+    if (xcnr == xcFunctional%GGA_BLYP) write(*, '(A)') 'BLYP'
+    if (xcnr == xcFunctional%LCY_PBE96) write(*, '(A)') 'Range-separated: LCY-PBE96'
+    if (xcnr == xcFunctional%LCY_BNL) write(*, '(A)') 'Range-separated: BNL,&
+        & LCY-LDA for exchange + PBE correlation'
+    if (xcnr == xcFunctional%HYB_PBE0) write(*, '(A)') 'Global hybrid: PBE0'
+    if (xcnr == xcFunctional%HYB_B3LYP) write(*, '(A)') 'Global hybrid: B3LYP'
+    if (xcnr == xcFunctional%CAMY_B3LYP) write(*, '(A)') 'CAM: CAMY-B3LYP'
+    if (xcnr == xcFunctional%CAMY_PBEh) write(*, '(A)') 'CAM: CAMY-PBEh'
 
     write(*, '(A,I6)') 'Max. number of SCF iterations: ', maxiter
 
@@ -356,8 +346,8 @@ contains
     end do
 
     do ii = 1, max_l
-      if ((poly_order(ii) /= poly_order(0)) .and. ((xcnr == 5) .or. (xcnr == 6))) then
-        write(*,*) 'LC functionals: polynomial orders need to be the same for all shells.'
+      if ((poly_order(ii) /= poly_order(0)) .and. (xcFunctional%isLongRangeCorrected(xcnr))) then
+        write(*,*) 'LC functionals: polynomial orders need to be same for all shells.'
         stop
       end if
     end do

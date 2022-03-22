@@ -4,6 +4,7 @@ module input
   use common_accuracy, only : dp
   use gridorbital, only : TGridorb2_init
   use twocnt, only : TTwocntInp, TAtomdata
+  use xcfunctionals, only : xcFunctional
 
   implicit none
   private
@@ -44,7 +45,7 @@ contains
     integer :: iErr
 
     !! xc-functional type
-    !! (1: LDA-PW91, 2: GGA-PBE, 3: GGA-BLYP, 4: LCY-PBE, 5: LCY-BNL, 6: PBE0, 7: B3LYP,
+    !! (1: LDA-PW91, 2: GGA-PBE96, 3: GGA-BLYP, 4: LCY-PBE96, 5: LCY-BNL, 6: PBE0, 7: B3LYP,
     !! 8: CAMY-B3LYP, 9: CAMY-PBEh)
     integer :: iXC
 
@@ -82,28 +83,28 @@ contains
     end select
 
     select case (iXC)
-    case(1)
+    case(xcFunctional%LDA_PW91)
       ! LDA-PW91
-    case(2)
-      ! GGA-PBE
-    case(3)
+    case(xcFunctional%GGA_PBE96)
+      ! GGA-PBE96
+    case(xcFunctional%GGA_BLYP)
       ! GGA-BLYP
-    case(4)
-      ! LCY-PBE (long-range corrected)
+    case(xcFunctional%LCY_PBE96)
+      ! LCY-PBE96 (long-range corrected)
       inp%tLC = .true.
-    case(5)
+    case(xcFunctional%LCY_BNL)
       ! LCY-BNL (long-range corrected)
       inp%tLC = .true.
-    case(6)
+    case(xcFunctional%HYB_PBE0)
       ! PBE0 (global hybrid)
       inp%tGlobalHybrid = .true.
-    case(7)
+    case(xcFunctional%HYB_B3LYP)
       ! B3LYP (global hybrid)
       inp%tGlobalHybrid = .true.
-    case(8)
+    case(xcFunctional%CAMY_B3LYP)
       ! CAMY-B3LYP (CAM-functional)
       inp%tCam = .true.
-    case(9)
+    case(xcFunctional%CAMY_PBEh)
       ! CAMY-PBEh (CAM-functional)
       inp%tCam = .true.
     case default
