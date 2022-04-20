@@ -55,6 +55,8 @@ contains
 
     if (change_max < 1.0e-10_dp) then
       tConverged = .true.
+    else
+      tConverged = .false.
     end if
 
   end subroutine check_convergence
