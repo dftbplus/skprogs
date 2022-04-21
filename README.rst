@@ -14,10 +14,14 @@ risk!
 Installing
 ==========
 
+|build status|
+
 Prerequisites
 -------------
 
 * Fortran 2003 compliant compiler
+
+* C compiler (for automatic toolchain selection)
 
 * CMake (>= 3.16)
 
@@ -25,8 +29,8 @@ Prerequisites
 
 * LAPACK/BLAS libraries (or compatible equivalents)
 
-* libXC library with f03 interface (tested with version 5.1.7, version 4.x does
-  not work due to interface changes in libXC)
+* libXC library with f03 interface (tested with version >= 5.1.7, version 4.x
+  does not work due to interface changes in libXC)
 
 
 Building the code
@@ -34,26 +38,32 @@ Building the code
 
 Follow the usual CMake build workflow:
 
-* Configure the project, specify your compiler (e.g. ``gfortran``), the install
-  location (e.g. ``$HOME/opt/skprogs``) and the build directory
+* Configure the project, specify your compilers (e.g. ``gfortran`` and ``gcc``),
+  the install location (e.g. ``$HOME/opt/skprogs``) and the build directory
   (e.g. ``_build``)::
 
-    FC=gfortran cmake -DCMAKE_INSTALL_PREFIX=$HOME/opt/skprogs -B _build .
+    FC=gfortran CC=gcc cmake -DCMAKE_INSTALL_PREFIX=$HOME/opt/skprogs -B _build .
 
   If libXC is installed in a non-standard location, you may need to specify
   either the ``CMAKE_PREFIX_PATH`` environment variable (if libXC was built with
   CMake) or the ``PKG_CONFIG_PATH`` environment variable (if libXC was built
   with autotools) in order to guide the library search::
 
-    CMAKE_PREFIX_PATH=YOUR_LIBXC_INSTALL_FOLDER FC=gfortan cmake [...]
+    CMAKE_PREFIX_PATH=YOUR_LIBXC_INSTALL_FOLDER FC=gfortan CC=gcc cmake [...]
 
-    PKG_CONFIG_PATH=FOLDER_WITH_LIBXC_PC_FILES FC=gfortran cmake [...]
+    PKG_CONFIG_PATH=FOLDER_WITH_LIBXC_PC_FILES FC=gfortran CC=gcc cmake [...]
 
 * If the configuration was successful, build the code ::
 
     cmake --build _build -- -j
 
-* If the build was successful, install the code ::
+* After successful build, you should test the code by running ::
+
+    pushd _build
+    ctest -j
+    popd
+
+* If the tests were successful, install the package via ::
 
     cmake --install _build
 
@@ -68,6 +78,10 @@ You can override the toolchain file, and select a different provided case,
 passing the ``-DTOOLCHAIN`` option with the relevant name, e.g.::
 
   -DTOOLCHAIN=gnu
+
+or ::
+
+  -DTOOLCHAIN=intel
 
 or by setting the toolchain name in the ``SKPROGS_TOOLCHAIN`` environment
 variable. If you want to load an external toolchain file instead of one from the
@@ -122,3 +136,7 @@ General Public License as published by the Free Software Foundation, either
 version 3 of the License, or (at your option) any later version. See the files
 `COPYING <COPYING>`_ and `COPYING.LESSER <COPYING.LESSER>`_ for the detailed
 licensing conditions.
+
+
+.. |build status| image:: https://img.shields.io/github/workflow/status/dftbplus/skprogs/Build%20and%20Test
+    :target: https://github.com/dftbplus/skprogs/actions/
