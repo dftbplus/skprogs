@@ -311,6 +311,9 @@ contains
       call gauss_chebyshev_quadrature(inp%nRadial, radialHFQuadrature)
       ! generate spherical coordinate (r) for full-range Hartree-Fock contribution to H0
       call gengrid1_1(radialHFQuadrature, inp%rm, coordtrans_radial_becke2, rr3, dummyWeights)
+    else
+      ! stupid workaround: rr3 is always passed as rr3(:, 1) in getskintegrals()
+      allocate(rr3(1, 1))
     end if
 
     if (inp%tGlobalHybrid) then

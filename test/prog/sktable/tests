@@ -1,0 +1,6 @@
+#! This file will be preprocessed using the same preprocessor options as used
+#! for the compilation.
+
+#:include 'common.fypp'
+
+LDA-PW91/Non-Relativistic

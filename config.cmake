@@ -7,6 +7,10 @@
 # automatically default to RelWithDebInfo if used in a single configuration build. Uncomment or
 # override it only if you want a non-default single configuration build.
 
+#
+# Test environment settings
+#
+set(TEST_RUNNER_TEMPLATE " " CACHE STRING "How to run the tests")
 
 #
 # Installation options

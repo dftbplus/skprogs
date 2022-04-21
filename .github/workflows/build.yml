@@ -1,0 +1,165 @@
+name: Build and Test
+on: [push, pull_request]
+
+env:
+  CI: "ON"
+  HOMEBREW_NO_ANALYTICS: "ON"
+  HOMEBREW_NO_AUTO_UPDATE: "ON"
+  HOMEBREW_NO_BOTTLE_SOURCE_FALLBACK: "ON"
+  HOMEBREW_NO_GITHUB_API: "ON"
+  HOMEBREW_NO_INSTALL_CLEANUP: "ON"
+  BUILD_DIR: _build
+  INSTALL_DIR: _install
+
+jobs:
+  gcc-build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-20.04]
+        fc: [gfortran]
+        cc: [gcc]
+        config: [debug]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - uses: actions/setup-python@v1
+      with:
+        python-version: '3.9'
+
+    - name: Set Compiler (gnu)
+      if: contains(matrix.os, 'ubuntu')
+      run: |
+        sudo apt-get update
+        echo "FC=gfortran" >> $GITHUB_ENV
+        echo "CC=gcc" >> $GITHUB_ENV
+
+    - name: Compile and Install libXC
+      if: contains(matrix.os, 'ubuntu')
+      run: |
+        git clone https://gitlab.com/libxc/libxc.git
+        cd libxc/
+        git checkout release-5.3.0
+        FC=gfortran CC=gcc cmake -H. -B ${BUILD_DIR} -DENABLE_FORTRAN=True -DCMAKE_INSTALL_PREFIX=${PWD}/${BUILD_DIR}/${INSTALL_DIR}
+        cd ${BUILD_DIR}
+        make -j
+        make install
+        cd ../../
+
+    - name: Set libXC search path
+      if: contains(matrix.os, 'ubuntu')
+      run: |
+        echo "CMAKE_PREFIX_PATH=./libxc/${BUILD_DIR}/${INSTALL_DIR}/" >> $GITHUB_ENV
+
+    - name: Install requirements (pip)
+      run: |
+        pip3 install wheel
+        pip3 install cmake fypp numpy scipy
+
+    - name: Configure build
+      run: |
+        cmake -B ${BUILD_DIR} -DCMAKE_INSTALL_PREFIX=${PWD}/${BUILD_DIR}/${INSTALL_DIR} -DCMAKE_BUILD_TYPE=Debug -DTOOLCHAIN=gnu .
+
+    - name: Build project
+      run: cmake --build ${BUILD_DIR}
+
+    - name: Run regression tests
+      run: |
+        pushd ${BUILD_DIR}
+        ctest -j --output-on-failure
+        popd
+
+    - name: Install project
+      run: |
+        cmake --install ${BUILD_DIR}
+
+  intel-build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-20.04]
+        fc: [ifort]
+        cc: [icc]
+        config: [debug]
+    env:
+      FC: ${{ matrix.fc }}
+      CC: ${{ matrix.cc }}
+      APT_PACKAGES: >-
+        intel-oneapi-compiler-fortran
+        intel-oneapi-compiler-dpcpp-cpp-and-cpp-classic
+        intel-oneapi-mkl
+        intel-oneapi-mkl-devel
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Setup Python
+      uses: actions/setup-python@v1
+      with:
+        python-version: 3.9
+
+    - name: Set compiler (intel)
+      if: contains(matrix.os, 'ubuntu')
+      run: |
+        echo "FC=ifort" >> $GITHUB_ENV
+        echo "CC=icc" >> $GITHUB_ENV
+
+    - name: Add Intel repository
+      if: contains(matrix.os, 'ubuntu')
+      run: |
+        wget https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS-2023.PUB
+        sudo apt-key add GPG-PUB-KEY-INTEL-SW-PRODUCTS-2023.PUB
+        rm GPG-PUB-KEY-INTEL-SW-PRODUCTS-2023.PUB
+        echo "deb https://apt.repos.intel.com/oneapi all main" | sudo tee /etc/apt/sources.list.d/oneAPI.list
+
+    - name: Install Intel oneAPI compiler
+      if: contains(matrix.os, 'ubuntu')
+      run: |
+        sudo apt-get update
+        sudo apt-get install ${APT_PACKAGES}
+        source /opt/intel/oneapi/setvars.sh
+        printenv >> $GITHUB_ENV
+
+    - name: Compile and install libXC
+      if: contains(matrix.os, 'ubuntu')
+      run: |
+        git clone https://gitlab.com/libxc/libxc.git
+        cd libxc/
+        git checkout release-5.3.0
+        cmake -H. -B ${BUILD_DIR} -DENABLE_FORTRAN=True -DCMAKE_INSTALL_PREFIX=${PWD}/${BUILD_DIR}/${INSTALL_DIR}
+        cd ${BUILD_DIR}
+        make -j
+        make install
+        cd ../../
+
+    - name: Set libXC search path
+      if: contains(matrix.os, 'ubuntu')
+      run: |
+        echo "CMAKE_PREFIX_PATH=./libxc/${BUILD_DIR}/${INSTALL_DIR}/" >> $GITHUB_ENV
+
+    - name: Install requirements (pip)
+      run: |
+        pip3 install wheel
+        pip3 install cmake fypp numpy scipy
+
+    - name: Configure build
+      run: |
+        cmake -B ${BUILD_DIR} -DCMAKE_INSTALL_PREFIX=${PWD}/${BUILD_DIR}/${INSTALL_DIR} -DCMAKE_BUILD_TYPE=Debug -DTOOLCHAIN=intel .
+
+    - name: Build project
+      run: cmake --build ${BUILD_DIR}
+
+    - name: Run regression tests
+      run: |
+        pushd ${BUILD_DIR}
+        ctest -j --output-on-failure
+        popd
+
+    - name: Install project
+      run: |
+        cmake --install ${BUILD_DIR}

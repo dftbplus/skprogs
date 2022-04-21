@@ -1,12 +1,11 @@
 """Contains the representation of the old SK-file."""
 
+
 import os.path
-
+import warnings
 import numpy as np
-
-from . import common as sc
 import sktools.twocenter_grids
-
+from . import common as sc
 
 
 # Dummy null spline
@@ -80,12 +79,12 @@ class OldSKFile:
         else:
             mass = None
         polyrep = np.array(values[1:10], dtype=float)
-        hamiltonian = np.zeros(( nr, ninteg ), dtype=float)
-        overlap = np.zeros(( nr, ninteg ), dtype=float)
+        hamiltonian = np.zeros((nr, ninteg), dtype=float)
+        overlap = np.zeros((nr, ninteg), dtype=float)
         for iline in range(nr - 1):
             values = sc.convert_fortran_floats(fp.readline())
-            hamiltonian[iline,0:ninteg] = values[0:ninteg]
-            overlap[iline,0:ninteg] = values[ninteg:2*ninteg]
+            hamiltonian[iline, 0:ninteg] = values[0:ninteg]
+            overlap[iline, 0:ninteg] = values[ninteg:2*ninteg]
         # Currently, everything after SK table is treated as spline repulsive
         splinerep = fp.read()
         fp.close()
@@ -119,8 +118,8 @@ class OldSKFile:
         fp.write(" 0.0" * 10 + "\n")
         integralfloats = FLOAT_FORMSTR * ninteg
         for ir in range(self.nr):
-            fp.write(integralfloats.format(*self.hamiltonian[ir,:]))
-            fp.write(integralfloats.format(*self.overlap[ir,:]))
+            fp.write(integralfloats.format(*self.hamiltonian[ir, :]))
+            fp.write(integralfloats.format(*self.overlap[ir, :]))
             fp.write("\n")
         if self.splinerep:
             fp.write("\n")
@@ -132,6 +131,88 @@ class OldSKFile:
                 fp.write("\n")
         fp.close()
 
+
+    def equals(self, ref, atol=1e-10, rtol=1e-09):
+        '''Checks equality with another reference instance
+
+        Args:
+
+            ref (Acsf): reference instance to compare with
+            atol (float): required absolute tolerance
+            rtol (float): required relative tolerance
+
+        Returns:
+
+            equal (bool): true, if the two instances are equal within tolerance
+
+        '''
+
+        equal = self.extended == ref.extended
+
+        if not equal:
+            warnings.warn('Mismatch in extended format specifier.')
+            return False
+
+        equal = np.allclose(self.dr, ref.dr, rtol=rtol, atol=atol)
+
+        if not equal:
+            warnings.warn('Mismatch in dimer distance stepwidth.')
+            return False
+
+        equal = np.allclose(self.hamiltonian, ref.hamiltonian, rtol=rtol,
+                            atol=atol)
+
+        if not equal:
+            warnings.warn('Mismatch in Hamiltonian matrix elements.')
+            return False
+
+        equal = np.allclose(self.overlap, ref.overlap, rtol=rtol,
+                            atol=atol)
+
+        if not equal:
+            warnings.warn('Mismatch in overlap matrix elements.')
+            return False
+
+        if ref.onsites is not None:
+            equal = np.allclose(self.onsites, ref.onsites, rtol=rtol,
+                                atol=atol)
+
+            if not equal:
+                warnings.warn('Mismatch in onsite energies.')
+                return False
+
+            equal = np.allclose(self.spinpolerror, ref.spinpolerror, rtol=rtol,
+                                atol=atol)
+
+            if not equal:
+                warnings.warn('Mismatch in spin polarisation error.')
+                return False
+
+            equal = np.allclose(self.hubbardus, ref.hubbardus, rtol=rtol,
+                                atol=atol)
+
+            if not equal:
+                warnings.warn('Mismatch in Hubbard U values.')
+                return False
+
+            equal = np.allclose(self.occupations, ref.occupations, rtol=rtol,
+                                atol=atol)
+
+            if not equal:
+                warnings.warn('Mismatch in electron occupations.')
+                return False
+
+            equal = np.allclose(self.mass, ref.mass, rtol=rtol,
+                                atol=atol)
+
+            if not equal:
+                warnings.warn('Mismatch in nuclear mass.')
+                return False
+
+        # Spline/polynomial repulsive comparison and
+        # Hyb/LC/CAM tag still missing in comparison
+
+        return equal
 
 
 class OldSKFileSet:

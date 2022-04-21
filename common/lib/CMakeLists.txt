@@ -1,3 +1,11 @@
+file(TO_NATIVE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../" projectdir)
+
+#
+# General options for all targets
+#
+set(fypp_flags ${FYPP_BUILD_FLAGS})
+list(APPEND fypp_flags -I${CMAKE_CURRENT_SOURCE_DIR}/../include -DRELEASE="'${RELEASE}'")
+
 set(sources-f90
   accuracy.F90
   anglib.F90
