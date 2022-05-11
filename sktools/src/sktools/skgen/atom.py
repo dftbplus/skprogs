@@ -219,12 +219,12 @@ class SkgenAtomCalculation:
         all_derivs = 0.5 * (all_derivs + np.transpose(all_derivs))
         valence_hubbus = self._get_valence_derivs(all_derivs, ihomo,
                                                   replace_empty_with_homo)
-
         logger.info("Applying the Hubbard correction algorithm")
-        cam_hubb = self._calculate_cam_hubbu(shells[ihomo][1],
-                                              valence_hubbus[ihomo][ihomo])
-        # store corrected value
-        valence_hubbus[ihomo][ihomo] = cam_hubb
+        for ii in range(len(shells)):
+            nn, ll = shells[ii]
+            cam_hubb = self._calculate_cam_hubbu(ll, valence_hubbus[ii][ii])
+            # store corrected value
+            valence_hubbus[ii, ii] = cam_hubb
 
         return valence_hubbus
 
@@ -324,7 +324,7 @@ class SkgenAtomCalculation:
             return all_hubbus
         nvalshells = len(self._atomconfig.valenceshells)
         # noinspection PyNoneFunctionAssignment
-        valence_hubbus = np.empty(( nvalshells, nvalshells ), dtype=float)
+        valence_hubbus = np.empty((nvalshells, nvalshells), dtype=float)
         hubbu_inds = [ihomo if self._valence_shell_empty[ii] else ii
                       for ii in range(nvalshells)]
         for ii, ii_hubbu in enumerate(hubbu_inds):
@@ -345,6 +345,20 @@ class SkgenAtomCalculation:
         spinws = 0.5 * (spinws + np.transpose(spinws))
         valence_spinws = self._get_valence_derivs(spinws, ihomo,
                                                   replace_empty_with_homo)
+        xcn = self._xcf.type
+        if xcn in ('pbe0', 'b3lyp', 'lcy-pbe', 'lcy-bnl', 'camy-b3lyp',
+                   'camy-pbeh'):
+            valence_cam_hubbus = self._calculate_cam_hubbus(
+                result_spinavg, replace_empty_with_homo=True)
+            valence_hubbus = self._calculate_hubbus(
+                result_spinavg, replace_empty_with_homo=True)
+            # apply correction for CAM-functionals
+            logger.info("Apply correction for CAM spinw values")
+            for ll in range(np.shape(valence_spinws)[0]):
+                valence_spinws[ll, ll] += \
+                    valence_cam_hubbus[ll, ll] \
+                    - valence_hubbus[ll, ll]
+
         return valence_spinws
 
 
@@ -380,31 +394,31 @@ class SkgenAtomCalculation:
         # Calculate derivative via finite differences
         tmp = finite_diff_coeff0 * np.array(reference_eigvals)
         if spin_averaged:
-            de_shells_docc = [ tmp, ]
+            de_shells_docc = [tmp,]
         else:
-            de_shells_docc = [ tmp, np.array(tmp) ]
+            de_shells_docc = [tmp, np.array(tmp)]
 
         for ii in range(len(delta_occ_prefacs)):
             localname = "{:d}{:s}_{:d}".format(nvar, sc.ANGMOM_TO_SHELL[lvar],
                                                ii + 1)
             localworkdir = os.path.join(workdir, localname)
             occs = self._atomconfig.occupations[lvar][nvar - lvar - 1]
-            new_occs = ( occs[0] + delta_occ_prefacs[ii] * delta_occ[0],
-                         occs[1] + delta_occ_prefacs[ii] * delta_occ[1] )
+            new_occs = (occs[0] + delta_occ_prefacs[ii] * delta_occ[0],
+                        occs[1] + delta_occ_prefacs[ii] * delta_occ[1])
             atomconfig.occupations[lvar][nvar - lvar - 1] = new_occs
             result = self._oncenter_calculator.do_calculation(
                 atomconfig, self._xcf, None, self._binary, localworkdir)
             for ss in range(len(de_shells_docc)):
-                e_shells = [ result.get_eigenvalue(ss, nn, ll)
-                             for nn, ll in derived_shells]
+                e_shells = [result.get_eigenvalue(ss, nn, ll)
+                            for nn, ll in derived_shells]
                 de_shells_docc[ss] += (finite_diff_coeffs_delta[ii]
                                        * np.array(e_shells, dtype=float))
             atomconfig.occupations = copy.deepcopy(orig_occ)
 
         if spin_averaged:
             return de_shells_docc[0]
-        else:
-            return de_shells_docc
+
+        return de_shells_docc
 
 
     def _log_free_atom_result(self, result):
