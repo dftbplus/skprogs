@@ -1,0 +1,66 @@
+The Hartree-Fock core of the code is a near one-to-one implementation of
+the Roothaan formulas, see especially rmp_32_186_1960.pdf in the
+references directory (Here, only the special case of 1S atoms is
+implemented).
+
+Due to this, the matrix elements of the Coulomb potential are calculated
+directly without recourse to the potential, except in the
+case of a ZORA calculation. For a ZORA calculation the Coulomb
+matrixelements are also calculated directly, but to obtain the ZORA
+kinetic energy operator the Coulomb potential is calcuated explicitely
+using analytical formulas for the spherical symmetric case.
+
+For the exchange-correlation matrix elements and energies a radial
+integration mesh as described by Becke is used. The density and its
+derivatives are calculated from analytical expressions for every
+mesh-point in every iteration. The number of radial points is adjusted
+depending on the nuclear charge, e.g.
+if (nuc>10) num_mesh_points=750
+if (nuc>18) num_mesh_points=1000
+if (nuc>36) num_mesh_points=1250
+if (nuc>54) num_mesh_points=1500
+
+The accuracy of the integration grid (1500 points is crazy!) is tested at
+the start of the calculation by comparing the overlap of the normalized
+primitive Slater functions to one.
+
+Additionally, at the beginning of every calculation the eigenvalues of
+the overlap matrix are calculated. If the eigenavlues are smaller than
+1e-10 linear dependency of the basis set is assumed and the calculation
+is stopped. One may try to converge a calculation with such a linear
+dependent basis set, but usually variational collaps occurs during SCF.
+The new code is not quite as stable as twocnt with respect to this it
+seems.
+
+The Perdew-Wang LDA (PW-LDA), Perdew-Burke-Ernzerhof (PBE) GGA and the
+X-Alpha functional are available. The LDA/GGA routines are basically the
+reference implementations available on the net with some Voodoo to get
+the prefactors (4*pi) right, based on Uwe Gerstmanns implementation in
+the Desclaux code. The X-Alpha routine uses a value of 0.7 for
+alpha with a known issue: Although I am confident I got the prefactor
+right I cannot reproduce literature results. Not sure why.
+
+For the ZORA stuff see vlenthe.pdf in references. Here, I basically use
+the implementation for ADF Band (Chapter 6.2) which explicitely assumes a 
+sphericallysymmetric potential with one more step (which has to be
+checked): Impementing 6.13-6.15 directly leads to an matrix element
+containg the second derivative of the basis function. IMHO one can
+integrate this again by parts as in usual kinetic energy expressions and
+get rid of the second derivative. The routines for both cases are still
+available in the ZORA module and an old version using the second
+derivative has also been checked in (watch out for slightly different
+input !, directory NAIVE_ZORA).
+
+Please note: Due to the point nucleus used here, the logarithmic
+derivative at r=0 is divergent, e.g. cusp values should be infinity and
+our basis sets are no longer good there ! With a finite nucleus the
+expansion of the wavefunction at r=0 would be of Gaussian and not of
+Slater type and one could not do the second integration by parts for
+ZORA as currently implemented.
+
+The confining potential matrix elements are also evaluated analytically.
+The confinig potential does not enter in the ZORA kinetic energy
+operator, since the kinetic energy would then vanish for r->infty which is 
+clearly wrong. Having the confining potential only in the SCF potential but 
+not in the ZORA kinetic energy seems to work reasonanbly judging from the <r>
+expectation values.

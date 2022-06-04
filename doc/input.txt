@@ -1,0 +1,73 @@
+DOCUMENTATION FOR INPUT FILE
+----------------------------
+See also the example inputs in the testing directory !
+
+Line 1:
+  nuc_charge max_ang max_scf ZORA
+    integer :: nuc_charge, nuclear charge of the nucleus
+    integer :: max_ang, maximum angular momentum of atom, max_ang < 5
+    integer :: max_scf, maximum number of SCF iterations
+    logical :: ZORA, switch on (scaled) ZORA for DFT only
+
+Line 2:
+  xc_functional
+    integer :: xc_functional, 0=HF, 1=X-Alpha, 2=PW-LDA, 3=PBE
+
+  NOTE: HF only correct for 1S states, X-Aalpha is untested alpha=0.7
+
+Line 3:
+  r_0 power
+    real(dp) :: r_0, compression radius in Bohr radii
+    integer :: power, power of confining potential
+
+  NOTE: This are in fact max_l+1 lines, one for each angular momentum
+  SPECIAL VALUE: power=0 switches confinement off !
+
+Line 4:
+  num_occ
+    integer :: num_occ, number of occupied shells
+
+  NOTE: This are in fact max_l+1 lines, one for each angular momentum
+
+Line 5:
+  num_exp num_poly
+    integer :: num_exp, number of exponents
+    integer :: number of polynomial coefficients
+
+  NOTE: This are in fact max_l+1 lines, one for each angular momentum
+  WARNING: To get the twocnt input you have to add 1 to num_poly, e.g. if
+           the twocnt input is 5 2 you have to use 5 3 here !
+
+Line 6:
+  gen_alpha
+    logical :: gen_alpha, generate num_exp exponents automatically if
+               .true. according to usual DFTB convention
+
+Line 7:
+  if gen_alpha then
+    alpha_min alpha_max
+      real(dp) :: alpha_min, smallest exponent in generated set
+      real(dp) :: alpha_max, largest exponent in generated set
+  else
+    read in one exponent after another for each angular momentum
+  end if
+
+  NOTE: This are at least max_l+1 lines, one for each angular momentum
+
+Line 8:
+  print_eigen
+    logical :: print_eigen, print egenvectors and moments if true
+
+Line 9:
+  broyden factor
+    logical :: broyden, if true use Broyden mixer, simple mix else
+    real(dp) :: factor, mixing factor for simple mix and first Broyden
+                step
+
+Line 10:
+  occ_up occ_down
+    real(dp) :: occ_up, number of electrons with up spin
+    real(dp) :: occ_down, number of electrons with down spin
+
+  NOTE: These are (max_l+1)*num_occ(l) lines, for each angular momentum
+        num_occ lines are expected.

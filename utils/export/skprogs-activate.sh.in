@@ -1,0 +1,11 @@
+if [ -n "${PATH}" ]; then
+  export PATH=@CMAKE_INSTALL_FULL_BINDIR@:${PATH}
+else
+  export PATH=@CMAKE_INSTALL_FULL_BINDIR@
+fi
+
+if [ -n "${PYTHONPATH}" ]; then
+  export PYTHONPATH=@CMAKE_INSTALL_FULL_LIBDIR@/python@PYTHON_VERSION_MAJOR_MINOR@/site-packages:${PYTHONPATH}
+else
+  export PYTHONPATH=@CMAKE_INSTALL_FULL_LIBDIR@/python@PYTHON_VERSION_MAJOR_MINOR@/site-packages
+fi

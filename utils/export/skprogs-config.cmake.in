@@ -1,0 +1,10 @@
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+
+if(NOT TARGET SkProgs::sktwocnt)
+  if (NOT TARGET Libxc::xc)
+    find_dependency(Libxc)
+  endif()
+  include(${CMAKE_CURRENT_LIST_DIR}/skprogs-targets.cmake)
+endif()
