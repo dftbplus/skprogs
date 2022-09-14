@@ -7,6 +7,7 @@ module dft
   use xcfunctionals, only : xcFunctional
   use density, only : basis, basis_times_basis_times_r2, density_at_point, density_at_point_1st,&
       & density_at_point_2nd
+  use utilities, only : zeroOutCpotOfEmptyDensitySpinChannels
   use xc_f03_lib_m, only : xc_f03_func_t, xc_f03_func_info_t, xc_f03_func_init, xc_f03_func_end,&
       & xc_f03_func_get_info, xc_f03_lda_exc_vxc, xc_f03_gga_exc_vxc, xc_f03_gga_fxc,&
       & xc_f03_func_set_ext_params, XC_LDA_X, XC_LDA_X_YUKAWA, XC_LDA_C_PW, XC_GGA_X_PBE,&
@@ -325,11 +326,13 @@ contains
     ! LDA-PW91
     case(xcFunctional%LDA_PW91)
       call xc_f03_lda_exc_vxc(xcfunc_c, nn, rhor(1, 1), ec(1), vc(1, 1))
+      call zeroOutCpotOfEmptyDensitySpinChannels(rho, vc)
       vxc(:,:) = transpose(vx + vc)
     ! GGA-PBE96, GGA-BLYP, LCY-PBE96, LCY-BNL
     case(xcFunctional%GGA_PBE96, xcFunctional%GGA_BLYP, xcFunctional%LCY_PBE96,&
         & xcFunctional%LCY_BNL)
       call xc_f03_gga_exc_vxc(xcfunc_c, nn, rhor(1, 1), sigma(1, 1), ec(1), vc(1, 1), vcsigma(1, 1))
+      call zeroOutCpotOfEmptyDensitySpinChannels(rho, vc)
       vxc(:,:) = transpose(vx + vc)
       ! derivative of E vs. grad n
       do iSpin = 1, 2
@@ -377,6 +380,7 @@ contains
           & vxsigma(1, 1))
       ! correlation
       call xc_f03_gga_exc_vxc(xcfunc_c, nn, rhor(1, 1), sigma(1, 1), ec(1), vc(1, 1), vcsigma(1, 1))
+      call zeroOutCpotOfEmptyDensitySpinChannels(rho, vc)
       ! build CAMY-PBEh functional
       vxcsigma(:,:) = camBeta * vxsigma_sr + (1.0_dp - (camAlpha + camBeta)) * vxsigma + vcsigma
       vxc(:,:) = transpose(camBeta * vx_sr + (1.0_dp - (camAlpha + camBeta)) * vx + vc)

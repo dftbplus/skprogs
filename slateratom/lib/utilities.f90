@@ -7,10 +7,30 @@ module utilities
   private
 
   public :: check_convergence, check_electron_number
-  public :: vector_length, fak
+  public :: vector_length, fak, zeroOutCpotOfEmptyDensitySpinChannels
 
 
 contains
+
+  pure subroutine zeroOutCpotOfEmptyDensitySpinChannels(rho, vc)
+
+    !> density on grid
+    real(dp), intent(in) :: rho(:,:)
+
+    !> correlation potential on grid, shape: (nSpin, nGridPoints)
+    real(dp), intent(inout) :: vc(:,:)
+
+    !! maximum density in up/down channels
+    real(dp) :: maxSpinUp, maxSpinDn
+
+    maxSpinUp = maxval(abs(rho(:, 1)))
+    maxSpinDn = maxval(abs(rho(:, 2)))
+
+    if (maxSpinUp < 1e-16_dp) vc(1, :) = 0.0_dp
+    if (maxSpinDn < 1e-16_dp) vc(2, :) = 0.0_dp
+
+  end subroutine zeroOutCpotOfEmptyDensitySpinChannels
+
 
   !> Checks SCF convergence by comparing new and old potential.
   pure subroutine check_convergence(pot_old, pot_new, max_l, problemsize, iScf, change_max,&
