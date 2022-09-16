@@ -64,7 +64,7 @@ def main():
     atomconfigs = skdefs.atomconfigs
     elems = atomconfigs.keys()
 
-    with open('wfc.hsd', 'w') as fp:
+    with open('wfc.hsd', 'w', encoding='utf8') as fp:
 
         for elem in elems:
             homoskname = '{elem}-{elem}.skf'.format(elem=elem)

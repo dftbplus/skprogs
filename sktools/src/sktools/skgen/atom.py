@@ -244,7 +244,7 @@ class SkgenAtomCalculation:
         return hubbu_corrected
 
 
-    def _test_cam_hubbu(self, xx_root, ll, hubbu, rtol=1.0e-12, atol=1.0e-14):
+    def _test_cam_hubbu(self, xx_root, ll, hubbu, rtol=1.0e-12, atol=1.0e-12):
         '''Tests fulfillment of CAMY-Hubbard equation.'''
 
         should_be_zero = self._cam_root_equation(
@@ -253,7 +253,8 @@ class SkgenAtomCalculation:
 
         if not np.isclose(should_be_zero, 0.0, rtol=rtol, atol=atol):
             msg = 'Failed to find satisfying root of CAMY-Hubbard equation.' \
-                + '\nObtained {}'.format(root) + ' > specified tolerance ' \
+                + '\nObtained {}'.format(should_be_zero) \
+                + ' > specified tolerance ' \
                 + '(rtol={}, atol={}).'.format(rtol, atol)
             raise sc.SkgenException(msg)
 

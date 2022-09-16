@@ -4,7 +4,7 @@
 
 import argparse
 from sktools.skdef import Skdef
-import sktools.skgen as skgen
+from sktools import skgen
 import sktools.common as sc
 
 
@@ -31,21 +31,21 @@ def main():
     searchdirs = [args.builddir]
     elems = skdef.atomparameters.keys()
 
-    with open(SPINW_FILE_NAME, 'w') as fp:
+    with open(SPINW_FILE_NAME, 'w', encoding='utf8') as spinw_fd:
 
         for elem in elems:
             calculator = skgen.run_atom(skdef, elem, args.builddir, searchdirs,
                                         args.onecnt_binary)
-            fp.write(sc.capitalize_elem_name(elem) + ':\n')
+            spinw_fd.write(sc.capitalize_elem_name(elem) + ':\n')
             results = calculator.get_result()
             spinw = results.get_spinws()
             ndim = spinw.shape[0]
             formstr = '{:13.5f}' * ndim + '\n'
             for line in spinw:
-                fp.write(formstr.format(*line))
-                fp.write('\n')
+                spinw_fd.write(formstr.format(*line))
+                spinw_fd.write('\n')
 
-    logger.info("File '{}' written.".format(SPINW_FILE_NAME))
+    logger.info(f"File '{SPINW_FILE_NAME}' written.")
 
 
 def parseargs():
