@@ -19,10 +19,10 @@ SCRIPTNAME = sc.get_script_name()
 SPINW_FILE_NAME = 'spinw.txt'
 
 
-def main():
+def main(cmdlineargs=None):
     '''Main driver routine.'''
 
-    args = parseargs()
+    args = parseargs(cmdlineargs)
 
     logger = sc.get_script_logger(args.loglevel, SCRIPTNAME)
     logger.info('Collecting spinw constants')
@@ -48,7 +48,7 @@ def main():
     logger.info("File '{}' written.".format(SPINW_FILE_NAME))
 
 
-def parseargs():
+def parseargs(cmdlineargs):
     '''Parses command line arguments and return the parser instance.'''
 
     parser = argparse.ArgumentParser(description=USAGE)
@@ -66,7 +66,7 @@ def parseargs():
     parser.add_argument('-l', '--log-level', dest='loglevel', default='info',
                         choices=['debug', 'info', 'warning', 'error'], help=msg)
 
-    return parser.parse_args()
+    return parser.parse_args(args=cmdlineargs)
 
 
 if __name__ == '__main__':
