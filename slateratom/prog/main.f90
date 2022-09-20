@@ -1,6 +1,7 @@
 program HFAtom
 
   use common_accuracy, only : dp
+  use common_message, only : error
   use integration, only : gauss_chebyshev_becke_mesh
   use input, only : read_input_1, read_input_2, echo_input
   use core_overlap, only : overlap, nuclear, kinetic, confinement
@@ -169,6 +170,11 @@ program HFAtom
     write(*,*) ' '
 
   end do lpScf
+
+  ! handle non-converged calculations
+  if (.not. tConverged) then
+    call error('SCC is NOT converged, maximal SCC iterations exceeded.')
+  end if
 
   ! handle output of requested data
 

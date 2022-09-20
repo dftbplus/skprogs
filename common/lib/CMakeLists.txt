@@ -14,6 +14,7 @@ set(sources-f90
   lapack.F90
   lebedev_laikov.F90
   lebedev_laikov_f77.f
+  message.F90
   partition.F90
   poisson.F90
   quadrature.F90
