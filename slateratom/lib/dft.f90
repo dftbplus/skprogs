@@ -10,9 +10,9 @@ module dft
   use utilities, only : zeroOutCpotOfEmptyDensitySpinChannels
   use xc_f03_lib_m, only : xc_f03_func_t, xc_f03_func_info_t, xc_f03_func_init, xc_f03_func_end,&
       & xc_f03_func_get_info, xc_f03_lda_exc_vxc, xc_f03_gga_exc_vxc, xc_f03_gga_fxc,&
-      & xc_f03_func_set_ext_params, XC_LDA_X, XC_LDA_X_YUKAWA, XC_LDA_C_PW, XC_GGA_X_PBE,&
-      & XC_GGA_X_B88, XC_GGA_X_SFAT_PBE, XC_HYB_GGA_XC_PBEH, XC_HYB_GGA_XC_B3LYP,&
-      & XC_HYB_GGA_XC_CAMY_B3LYP, XC_GGA_C_PBE, XC_GGA_C_LYP, XC_POLARIZED
+      & xc_f03_func_set_ext_params, xc_f03_func_set_ext_params_name, XC_LDA_X, XC_LDA_X_YUKAWA,&
+      & XC_LDA_C_PW, XC_GGA_X_PBE, XC_GGA_X_B88, XC_GGA_X_SFAT_PBE, XC_HYB_GGA_XC_PBEH,&
+      & XC_HYB_GGA_XC_B3LYP, XC_HYB_GGA_XC_CAMY_B3LYP, XC_GGA_C_PBE, XC_GGA_C_LYP, XC_POLARIZED
 
   implicit none
   private
@@ -202,7 +202,10 @@ contains
       xcinfo = xc_f03_func_get_info(xcfunc_xc)
     elseif (xcnr == xcFunctional%CAMY_B3LYP) then
       call xc_f03_func_init(xcfunc_xc, XC_HYB_GGA_XC_CAMY_B3LYP, XC_POLARIZED)
-      call xc_f03_func_set_ext_params(xcfunc_xc, [camAlpha + camBeta, -camBeta, omega, 0.81_dp])
+      call xc_f03_func_set_ext_params_name(xcfunc_xc, '_ac', 0.81_dp)
+      call xc_f03_func_set_ext_params_name(xcfunc_xc, '_alpha', camAlpha + camBeta)
+      call xc_f03_func_set_ext_params_name(xcfunc_xc, '_beta', -camBeta)
+      call xc_f03_func_set_ext_params_name(xcfunc_xc, '_omega', omega)
       xcinfo = xc_f03_func_get_info(xcfunc_xc)
     elseif (xcnr == xcFunctional%CAMY_PBEh) then
       ! short-range xpbe96
