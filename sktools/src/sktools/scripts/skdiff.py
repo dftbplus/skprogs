@@ -17,7 +17,7 @@ USAGE = \
     '''
 
 
-def parseargs():
+def parseargs(cmdlineargs):
     '''Parse the program arguments.'''
 
     parser = argparse.ArgumentParser(description=USAGE)
@@ -36,7 +36,7 @@ def parseargs():
     parser.add_argument('-s', '--skip', dest='nskip', type=int, default=0,
                         help=msg)
 
-    return parser.parse_args()
+    return parser.parse_args(args=cmdlineargs)
 
 
 def compare_atomic_data(sk1, sk2):
@@ -84,10 +84,10 @@ def compare_integral_tables(sk1, sk2, nstart):
         overdiff[maxinds], maxinds[0] + nstart + 1, maxinds[1] + 1))
 
 
-def main():
+def main(cmdlineargs=None):
     '''Main driver routine.'''
 
-    args = parseargs()
+    args = parseargs(cmdlineargs)
 
     sk1 = OldSKFile.fromfile(args.skfile[0], args.homo)
     sk2 = OldSKFile.fromfile(args.skfile[1], args.homo)

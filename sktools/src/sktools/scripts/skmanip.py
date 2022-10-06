@@ -17,7 +17,7 @@ SCRIPTNAME = sc.get_script_name()
 FNAME_PATTERN = re.compile('(?P<elem1>\w+)-(?P<elem2>\w+)\.skf')
 
 
-def main():
+def main(cmdlineargs=None):
     '''Main driver routine.'''
 
     parser, subparsers = get_parser_and_subparser_container()
@@ -25,7 +25,7 @@ def main():
     common = get_common_parser()
     setup_parser_getdoc(subparsers, common, run_getdoc)
     setup_parser_setdoc(subparsers, common, run_setdoc)
-    parse_command_line_and_run_subcommand(parser)
+    parse_command_line_and_run_subcommand(parser, cmdlineargs)
 
 
 def run_getdoc(args):
@@ -126,10 +126,10 @@ def setup_parser_setdoc(subparsers, common, target_function):
     parser.set_defaults(func=target_function)
 
 
-def parse_command_line_and_run_subcommand(parser):
+def parse_command_line_and_run_subcommand(parser, cmdlineargs):
     '''Parses command line arguments and runs skmanip subcommand.'''
 
-    args = parser.parse_args()
+    args = parser.parse_args(args=cmdlineargs)
     args.func(args)
 
 

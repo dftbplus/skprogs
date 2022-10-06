@@ -29,7 +29,7 @@ SCRIPTNAME = sc.get_script_name()
 logger = None
 
 
-def main():
+def main(args=None):
     '''Main driver routine.'''
 
     parser, subparsers = get_parser_and_subparser_container()
@@ -41,7 +41,7 @@ def main():
     twocnt_common = get_twocnt_common_parser()
     setup_parser_twocnt(subparsers, twocnt_common, run_twocnt)
     setup_parser_sktable(subparsers, twocnt_common, run_sktable)
-    parse_command_line_and_run_subcommand(parser)
+    parse_command_line_and_run_subcommand(parser, args)
 
 
 def run_atom(args):
@@ -239,8 +239,8 @@ def setup_parser_sktable(subparsers, twocnt_common, target_function):
     parser_sktable.set_defaults(func=target_function)
 
 
-def parse_command_line_and_run_subcommand(parser):
-    args = parser.parse_args()
+def parse_command_line_and_run_subcommand(parser, cmdlineargs=None):
+    args = parser.parse_args(args=cmdlineargs)
     args.func(args)
 
 
