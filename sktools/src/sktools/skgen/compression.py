@@ -34,6 +34,17 @@ def run_wavecomp(skdefs, elem, builddir, searchdirs, onecnt_binary):
     return calculator
 
 
+def search_wavecomp(skdefs, elem, builddir, searchdirs):
+
+    logger.info('Started for {}'.format(sc.capitalize_elem_name(elem)))
+    calculator = SkgenWavecomp(builddir, searchdirs, None)
+    calculator.set_input(skdefs, elem)
+    calculator.find_calculation()
+    logger.info('Finished')
+
+    return calculator
+
+
 class SkgenDenscomp:
 
     def __init__(self, builddir, searchdirs, onecenter_binary):
@@ -193,6 +204,30 @@ class SkgenWavecomp:
             self._extract_results_if_not_present(myinput, shells, resultdir)
             if recalculation_needed:
                 myinput.store_signature(resultdir)
+            resultdirs.append(resultdir)
+            for nn, ll in shells:
+                resultdir_for_nl[(nn, ll)] = resultdir
+
+        self._resultdirs = resultdirs
+        self._resultdir_for_nl = resultdir_for_nl
+
+
+    def find_calculation(self):
+        resultdirs = []
+        resultdir_for_nl = {}
+        previous_calc_dirs = ssc.get_matching_subdirectories(
+            self._onecenter_searchdirs, ssc.COMPRESSION_WORKDIR_PREFIX)
+        for shells, myinput in self._shells_and_inputs:
+            shellnames = [sc.shell_ind_to_name(nn, ll) for nn, ll in shells]
+            logger.info('Processing compression for shell(s) {}'.format(
+                ' '.join(shellnames)))
+            resultdir = myinput.get_first_dir_with_matching_signature(
+                previous_calc_dirs)
+            recalculation_needed = not resultdir
+            if recalculation_needed:
+                sc.fatalerror('Could not find wavecomp calculation')
+            logger.info(
+                'Matching calculation found ' + sc.log_path(resultdir))
             resultdirs.append(resultdir)
             for nn, ll in shells:
                 resultdir_for_nl[(nn, ll)] = resultdir

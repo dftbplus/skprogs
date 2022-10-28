@@ -4,7 +4,10 @@ import numpy as np
 
 class TaggedFile(OrderedDict):
 
-    CONVERTER = {"real": float, "integer": int, "logical": lambda x: x.lower() == "t"}
+    CONVERTER = { "real": np.float64,
+                  "integer": np.int64,
+                  "logical": lambda x: x.lower() == "t"
+                  }
 
     DTYPE_NAMES = {
         np.dtype("int64"): "integer",
@@ -17,8 +20,7 @@ class TaggedFile(OrderedDict):
     }
 
     DTYPE_FORMATS = {
-        # Numpy 1.6.1 can't format "int64" as integers in Python 3.2
-        np.dtype("int64"): (3, "{:20d}"),
+        np.dtype("int64"): ( 3, "{:20d}"),
         np.dtype("float64"): (3, "{:23.15E}"),
         np.dtype("bool"): (40, "{:2s}"),
         str: (72, "  {:s}"),

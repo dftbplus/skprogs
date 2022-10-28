@@ -55,6 +55,10 @@ class SkgenException(Exception):
     '''Custom exception of the skgen script.'''
 
 
+class CollectwavecoeffsException(Exception):
+    '''Custom exception of the collectwavecoeffs script.'''
+
+
 def openfile(fobj, mode):
     '''Opens a file or passes a file object.
 
