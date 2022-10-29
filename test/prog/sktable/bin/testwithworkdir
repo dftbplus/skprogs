@@ -52,8 +52,9 @@ def main(cmdlineargs=None):
     with open(os.path.join(cwd, 'config'), 'r') as fd:
         config = fd.readline()
 
-    cmd = 'python3 ' + os.path.abspath('../../../../sktools/bin/skgen') + ' ' \
-        + '-c {} '.format(
+    cmd = 'python3 ' \
+        + os.path.abspath('../../../../sktools/src/sktools/scripts/skgen.py') \
+        + ' ' + '-c {} '.format(
             os.path.join(cwd, 'skdef.hsd')) \
         + '-o {} '.format(os.path.abspath(
             '../../../slateratom/prog/slateratom')) \
