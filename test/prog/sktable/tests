@@ -4,3 +4,5 @@
 #:include 'common.fypp'
 
 LDA-PW91/Non-Relativistic
+CAMY-B3LYP/Non-Relativistic
+CAMY-PBEh/Non-Relativistic
