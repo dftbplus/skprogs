@@ -1,4 +1,4 @@
-name: Build and Test
+name: CI
 on: [push, pull_request]
 
 env:
@@ -17,32 +17,60 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-20.04]
+        os: [ubuntu-latest, macos-latest]
         fc: [gfortran]
         cc: [gcc]
         config: [debug]
+        version: [11]
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
 
-    - uses: actions/setup-python@v1
+    - name: Set up python
+      uses: actions/setup-python@v4
       with:
-        python-version: '3.9'
+        python-version: '3.x'
 
-    - name: Set Compiler (gnu)
+    # Note: xcode version 14.0 (default on macos-latest @ 2022-11-23) fails to link gfortran compiled
+    # code. Therefore, 14.1 is selected below (which seems to be installed.)
+    - name: Install GCC (OSX)
+      if: ${{ contains(matrix.os, 'macos') }}
+      run: |
+        brew install gcc@${{ matrix.version }} openblas
+        ln -s /usr/local/bin/gfortran-${{ matrix.version }} /usr/local/bin/gfortran
+        ln -s /usr/local/bin/gcc-${{ matrix.version }} /usr/local/bin/gcc
+        echo "PKG_CONFIG_PATH=/usr/local/opt/openblas/lib/pkgconfig" >> $GITHUB_ENV
+        xcversion select 14.1
+
+    - name: Install GCC (Linux)
+      if: ${{ contains(matrix.os, 'ubuntu') }}
+      run: |
+        sudo add-apt-repository ppa:ubuntu-toolchain-r/test
+        sudo apt-get update
+        sudo apt-get install -y gcc-${{ matrix.version}} gfortran-${{ matrix.version }}
+        sudo update-alternatives \
+          --install /usr/bin/gcc gcc /usr/bin/gcc-${{ matrix.version }} 100 \
+          --slave /usr/bin/gfortran gfortran /usr/bin/gfortran-${{ matrix.version }} \
+          --slave /usr/bin/gcov gcov /usr/bin/gcov-${{ matrix.version }}
+
+    - name: Set Compiler (Linux)
       if: contains(matrix.os, 'ubuntu')
       run: |
-        sudo apt-get update
         echo "FC=gfortran" >> $GITHUB_ENV
         echo "CC=gcc" >> $GITHUB_ENV
 
+    - name: Set Compiler (OSX)
+      if: contains(matrix.os, 'macos')
+      run: |
+        echo "FC=gfortran-${{ matrix.version }}" >> $GITHUB_ENV
+        echo "CC=gcc-${{ matrix.version }}" >> $GITHUB_ENV
+
     - name: Compile and Install libXC
-      if: contains(matrix.os, 'ubuntu')
       run: |
         git clone https://gitlab.com/libxc/libxc.git
         cd libxc/
-        git checkout release-5.3.0
+        git checkout 5.2.3
         FC=gfortran CC=gcc cmake -H. -B ${BUILD_DIR} -DENABLE_FORTRAN=True -DCMAKE_INSTALL_PREFIX=${PWD}/${BUILD_DIR}/${INSTALL_DIR}
         cd ${BUILD_DIR}
         make -j
@@ -50,18 +78,19 @@ jobs:
         cd ../../
 
     - name: Set libXC search path
-      if: contains(matrix.os, 'ubuntu')
+      if: contains(matrix.os, 'ubuntu') || contains(matrix.os, 'macos')
       run: |
         echo "CMAKE_PREFIX_PATH=./libxc/${BUILD_DIR}/${INSTALL_DIR}/" >> $GITHUB_ENV
 
     - name: Install requirements (pip)
       run: |
+        pip3 install --upgrade pip
         pip3 install wheel
         pip3 install cmake fypp numpy scipy
 
     - name: Configure build
       run: |
-        cmake -B ${BUILD_DIR} -DCMAKE_INSTALL_PREFIX=${PWD}/${BUILD_DIR}/${INSTALL_DIR} -DCMAKE_BUILD_TYPE=Debug -DTOOLCHAIN=gnu .
+        cmake -B ${BUILD_DIR} -DCMAKE_INSTALL_PREFIX=${PWD}/${BUILD_DIR}/${INSTALL_DIR} -DCMAKE_BUILD_TYPE=Debug .
 
     - name: Build project
       run: cmake --build ${BUILD_DIR}
@@ -69,7 +98,7 @@ jobs:
     - name: Run regression tests
       run: |
         pushd ${BUILD_DIR}
-        ctest -j --output-on-failure
+        ctest -j 2 --output-on-failure
         popd
 
     - name: Install project
@@ -81,10 +110,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-20.04]
+        os: [ubuntu-latest]
         fc: [ifort]
         cc: [icc]
-        config: [debug]
     env:
       FC: ${{ matrix.fc }}
       CC: ${{ matrix.cc }}
@@ -93,21 +121,17 @@ jobs:
         intel-oneapi-compiler-dpcpp-cpp-and-cpp-classic
         intel-oneapi-mkl
         intel-oneapi-mkl-devel
+      CMAKE_OPTIONS: >-
+        -DCMAKE_BUILD_TYPE=RelWithDebInfo
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
 
     - name: Setup Python
-      uses: actions/setup-python@v1
+      uses: actions/setup-python@v4
       with:
-        python-version: 3.9
-
-    - name: Set compiler (intel)
-      if: contains(matrix.os, 'ubuntu')
-      run: |
-        echo "FC=ifort" >> $GITHUB_ENV
-        echo "CC=icc" >> $GITHUB_ENV
+        python-version: 3.x
 
     - name: Add Intel repository
       if: contains(matrix.os, 'ubuntu')
@@ -116,6 +140,7 @@ jobs:
         sudo apt-key add GPG-PUB-KEY-INTEL-SW-PRODUCTS-2023.PUB
         rm GPG-PUB-KEY-INTEL-SW-PRODUCTS-2023.PUB
         echo "deb https://apt.repos.intel.com/oneapi all main" | sudo tee /etc/apt/sources.list.d/oneAPI.list
+        sudo apt-get update
 
     - name: Install Intel oneAPI compiler
       if: contains(matrix.os, 'ubuntu')
@@ -130,7 +155,7 @@ jobs:
       run: |
         git clone https://gitlab.com/libxc/libxc.git
         cd libxc/
-        git checkout release-5.3.0
+        git checkout 5.2.3
         cmake -H. -B ${BUILD_DIR} -DENABLE_FORTRAN=True -DCMAKE_INSTALL_PREFIX=${PWD}/${BUILD_DIR}/${INSTALL_DIR}
         cd ${BUILD_DIR}
         make -j
@@ -144,12 +169,17 @@ jobs:
 
     - name: Install requirements (pip)
       run: |
+        pip3 install --upgrade pip
         pip3 install wheel
         pip3 install cmake fypp numpy scipy
 
+    - name: Set extra CMake flags (Linux)
+      run: |
+        echo "CMAKE_OPTIONS=${CMAKE_OPTIONS}" >> $GITHUB_ENV
+
     - name: Configure build
       run: |
-        cmake -B ${BUILD_DIR} -DCMAKE_INSTALL_PREFIX=${PWD}/${BUILD_DIR}/${INSTALL_DIR} -DCMAKE_BUILD_TYPE=Debug -DTOOLCHAIN=intel .
+        cmake -B ${BUILD_DIR} -DCMAKE_INSTALL_PREFIX=${PWD}/${BUILD_DIR}/${INSTALL_DIR} .
 
     - name: Build project
       run: cmake --build ${BUILD_DIR}
@@ -157,7 +187,7 @@ jobs:
     - name: Run regression tests
       run: |
         pushd ${BUILD_DIR}
-        ctest -j --output-on-failure
+        ctest -j 2 --output-on-failure
         popd
 
     - name: Install project
