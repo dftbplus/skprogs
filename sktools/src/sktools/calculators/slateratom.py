@@ -1,3 +1,7 @@
+'''
+Module to perform or find atomic DFT calculations, using slateratom.
+'''
+
 import os
 import subprocess as subproc
 import numpy as np
@@ -8,8 +12,9 @@ import sktools.compressions
 import sktools.radial_grid as oc
 
 
-SUPPORTED_FUNCTIONALS = {'lda' : 2, 'pbe' : 3, 'blyp' : 4, 'lc-pbe' : 5,
-                         'lc-bnl' : 6}
+SUPPORTED_FUNCTIONALS = {'lda' : 2, 'pbe' : 3, 'blyp' : 4, 'lcy-pbe' : 5,
+                         'lcy-bnl' : 6, 'pbe0' : 7, 'b3lyp' : 8,
+                         'camy-b3lyp' : 9, 'camy-pbeh' : 10}
 
 INPUT_FILE = "slateratom.in"
 STDOUT_FILE = "output"
@@ -129,10 +134,17 @@ class SlateratomInput:
             xcfkey = functional.type
             self._functional = SUPPORTED_FUNCTIONALS[xcfkey]
 
-            if xcfkey in ('lc-pbe', 'lc-bnl'):
+            if xcfkey in ('lcy-pbe', 'lcy-bnl', 'camy-b3lyp', 'camy-pbeh'):
                 self._omega = functional.omega
             else:
                 self._omega = None
+
+            if xcfkey in ('camy-b3lyp', 'camy-pbeh'):
+                self._alpha = functional.alpha
+                self._beta = functional.beta
+            else:
+                self._alpha = None
+                self._beta = None
 
         else:
             msg = 'Invalid xc-functional type for slateratom'
@@ -200,12 +212,32 @@ class SlateratomInput:
         ]
 
         # range-separated functionals
-        if list(SUPPORTED_FUNCTIONALS.keys())[
-                list(SUPPORTED_FUNCTIONALS.values()).index(self._functional)] \
-            in ('lc-pbe', 'lc-bnl'):
+        xctype = list(SUPPORTED_FUNCTIONALS.keys())[
+            list(SUPPORTED_FUNCTIONALS.values()).index(self._functional)]
+        if xctype in ('lcy-pbe', 'lcy-bnl'):
             out += [
                 "{:g} \t{:s} range-separation parameter (omega)".format(
                     self._omega, self._COMMENT),
+
+                # numerical interator
+                # hardcoded parameters for the Becke integration
+                # --> should be moved to skdef.hsd!
+                "2000 194 11 1.0 \t{:s} Becke integrator settings"
+                .format(self._COMMENT)]
+        # global hybrid functionals
+        elif xctype in ('pbe0', 'b3lyp'):
+            out += [
+                # numerical interator
+                # hardcoded parameters for the Becke integration
+                # --> should be moved to skdef.hsd!
+                "2000 194 11 1.0 \t{:s} Becke integrator settings"
+                .format(self._COMMENT)]
+        # CAM functionals
+        elif xctype in ('camy-b3lyp', 'camy-pbeh'):
+            out += [
+                "{:g} {:g} {:g} \t{:s} ".format(
+                    self._omega, self._alpha, self._beta, self._COMMENT) + \
+                "range-separation parameter (omega), CAM alpha, CAM beta",
 
                 # numerical interator
                 # hardcoded parameters for the Becke integration

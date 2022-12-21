@@ -123,7 +123,7 @@ contains
 
 ! This is the Broyden routine as also implemented in the old DFTB code.
 
-       IMPLICIT REAL*8 (A-H,O-Z)
+       IMPLICIT real(dp) (A-H,O-Z)
        IMPLICIT INTEGER (I-N)
 !
 !************************************************************
@@ -163,7 +163,7 @@ contains
       DIMENSION D(IMATSZ,IMATSZ),W(IMATSZ)
       DIMENSION UNIT31(MAXSIZ,2),UNIT32(MAXSIZ,2,MAXITER+15)
 !      DATA NAMES/'BROYD01','BROYD02','BROYD03'/
-      REAL*8 UAMIX,WTMP
+      real(dp) UAMIX,WTMP
       INTEGER ILASTIT
       common /broyd/ uamix, w, WTMP, unit31, unit32, ilastit
       save
@@ -201,9 +201,10 @@ contains
 !++++++ SET UP THE VECTOR OF THE CURRENT ITERATION FOR MIXING ++++++
 !
 !  FOR THIS METHOD WE HAVE ONLY SAVED INPUT/OUTPUT CHG. DENSITIES,
-      DO 38  K=1,JTOP
+      DO K=1,JTOP
       VECTOR(K,1)= VECIN(K)
-   38 VECTOR(K,2)= VECOUT(K)
+      VECTOR(K,2)= VECOUT(K)
+      END DO
 !++++++ END OF PROGRAM SPECIFIC LOADING OF VECTOR FROM MAIN ++++++++
 !
 !  IVSIZ IS THE LENGTH OF THE VECTOR
@@ -246,19 +247,22 @@ contains
 !  ALPHA(OR AMIX)IS SIMPLE MIXING PARAMETERS
 !      WRITE(66,1002)AMIX,ITER+1
 !
-      DO 104 K=1,IVSIZ
+      DO K=1,IVSIZ
       DUMVI(K)=VECTOR(K,1)-DUMVI(K)
-  104 DF(K)=VECTOR(K,2)-VECTOR(K,1)-F(K)
-      DO 114 K=1,IVSIZ
-  114 F(K)=VECTOR(K,2)-VECTOR(K,1)
+      DF(K)=VECTOR(K,2)-VECTOR(K,1)-F(K)
+      END DO
+      DO K=1,IVSIZ
+        F(K)=VECTOR(K,2)-VECTOR(K,1)
+      END DO
 !
 !  FOR I-TH ITER.,DFNORM IS ( F(I) MINUS F(I-1) ), USED FOR NORMALIZATION
 !
       DFNORM=ZERO
       FNORM=ZERO
-      DO 113 K=1,IVSIZ
-      DFNORM=DFNORM + DF(K)*DF(K)
-  113 FNORM=FNORM + F(K)*F(K)
+      DO K=1,IVSIZ
+        DFNORM=DFNORM + DF(K)*DF(K)
+        FNORM=FNORM + F(K)*F(K)
+      END DO
       DFNORM=SQRT(DFNORM)
       FNORM=SQRT(FNORM)
 !      WRITE(66,'(''  DFNORM '',E12.6,'' FNORM '',E12.6)')DFNORM,FNORM
@@ -266,9 +270,10 @@ contains
       FAC2=ONE/DFNORM
       FAC1=AMIX*FAC2
 !
-      DO 105 K=1,IVSIZ
-      UI(K) = FAC1*DF(K) + FAC2*DUMVI(K)
- 105  VTI(K)= FAC2*DF(K)
+      DO K=1,IVSIZ
+        UI(K) = FAC1*DF(K) + FAC2*DUMVI(K)
+        VTI(K)= FAC2*DF(K)
+      END DO
 !
 !*********** CALCULATION OF COEFFICIENT MATRICES *************
 !***********    AND THE SUM FOR CORRECTIONS      *************
@@ -285,7 +290,7 @@ contains
 !      REWIND(32)
 !      WRITE(66,1003)LASTIT,LASTM1
       IF(LASTIT.GT.2)THEN
-      DO 500 J=1,LASTM2
+      DO J=1,LASTM2
 !      READ(32)(DUMVI(K),K=1,IVSIZ)
       DO k=1,IVSIZ
        DUMVI(k)=UNIT32(k,1,J)
@@ -297,20 +302,22 @@ contains
 !
       AIJ=ZERO
       CMJ=ZERO
-      DO 501 K=1,IVSIZ
-      CMJ=CMJ + T1(K)*F(K)
-  501 AIJ=AIJ + T1(K)*VTI(K)
+      DO  K=1,IVSIZ
+        CMJ=CMJ + T1(K)*F(K)
+        AIJ=AIJ + T1(K)*VTI(K)
+      END DO
       A(LASTM1,J)=AIJ
       A(J,LASTM1)=AIJ
             CM(J)=CMJ
-  500 CONTINUE
+      END DO
       ENDIF
 !
       AIJ=ZERO
       CMJ=ZERO
-      DO 106 K=1,IVSIZ
-      CMJ= CMJ + VTI(K)*F(K)
-  106 AIJ= AIJ + VTI(K)*VTI(K)
+      DO K=1,IVSIZ
+        CMJ= CMJ + VTI(K)*F(K)
+        AIJ= AIJ + VTI(K)*VTI(K)
+      END DO
       A(LASTM1,LASTM1)=AIJ
             CM(LASTM1)=CMJ
 !
@@ -357,33 +364,39 @@ contains
 !      WRITE(31)(W(I),I=1,LASTM1)
 !
 ! SET UP AND CALCULATE BETA MATRIX
-      DO 506 LM=1,LASTM1
-      DO 507 LN=1,LASTM1
-         D(LN,LM)= A(LN,LM)*W(LN)*W(LM)
- 507     B(LN,LM)= ZERO
-         B(LM,LM)= ONE
- 506     D(LM,LM)= W0**2 + A(LM,LM)*W(LM)*W(LM)
+      DO LM=1,LASTM1
+        DO LN=1,LASTM1
+          D(LN,LM)= A(LN,LM)*W(LN)*W(LM)
+          B(LN,LM)= ZERO
+        END DO
+        B(LM,LM)= ONE
+        D(LM,LM)= W0**2 + A(LM,LM)*W(LM)*W(LM)
+      END DO
 !
       CALL INVERSE(D,B,LASTM1)
 !
 !  CALCULATE THE VECTOR FOR THE NEW ITERATION
-      DO 505 K=1,IVSIZ
-  505 DUMVI(K)= VECTOR(K,1) + AMIX*F(K)
+      DO K=1,IVSIZ
+        DUMVI(K)= VECTOR(K,1) + AMIX*F(K)
+      END DO
 !
-      DO 504 I=1,LASTM1
+      DO I=1,LASTM1
 !      READ(32)(UI(K),K=1,IVSIZ)
-      DO k=1,IVSIZ
-       UI(k)=UNIT32(k,1,I)
+        DO k=1,IVSIZ
+         UI(k)=UNIT32(k,1,I)
+        END DO
+!       READ(32)(VTI(K),K=1,IVSIZ)
+        DO k=1,IVSIZ
+         VTI(k)=UNIT32(k,2,I)
+        END DO
+        GMI=ZERO
+        DO IP=1,LASTM1
+          GMI=GMI + CM(IP)*B(IP,I)*W(IP)
+        END DO
+        DO K=1,IVSIZ
+          DUMVI(K)=DUMVI(K)-GMI*UI(K)*W(I)
+        END DO
       END DO
-!      READ(32)(VTI(K),K=1,IVSIZ)
-      DO k=1,IVSIZ
-       VTI(k)=UNIT32(k,2,I)
-      END DO
-      GMI=ZERO
-      DO 503 IP=1,LASTM1
-  503 GMI=GMI + CM(IP)*B(IP,I)*W(IP)
-      DO 504 K=1,IVSIZ
-  504 DUMVI(K)=DUMVI(K)-GMI*UI(K)*W(I)
 !  END OF THE CALCULATION OF DUMVI, THE NEW VECTOR
 !
 !      REWIND(31)
@@ -400,8 +413,9 @@ contains
 !      WRITE(31)AMIX,LASTIT
       UAMIX=AMIX
       ILASTIT=LASTIT
-      DO 101 K=1,IVSIZ
-  101 F(K)=VECTOR(K,2)-VECTOR(K,1)
+      DO K=1,IVSIZ
+        F(K)=VECTOR(K,2)-VECTOR(K,1)
+      END DO
 !      WRITE(31)(F(K),K=1,IVSIZ)
       DO k=1,IVSIZ
         UNIT31(K,1)=F(k)
@@ -412,8 +426,9 @@ contains
       END DO
 !
 ! SINCE WE ARE ON THE FIRST ITERATION, SIMPLE MIX THE VECTOR.
-      DO 102 K=1,IVSIZ
-  102 DUMVI(K)= VECTOR(K,1) + AMIX*F(K)
+      DO K=1,IVSIZ
+       DUMVI(K)= VECTOR(K,1) + AMIX*F(K)
+      END DO
 !     WRITE( 6,1000)
   120 CONTINUE
 !
@@ -425,9 +440,9 @@ contains
 !+++++++ PROGRAM SPECIFIC CODE OF RELOADING ARRAYS +++++++++
 !
 ! NEED TO UNLOAD THE NEW VECTOR INTO THE APPROPRIATE ARRAYS.
-      DO 606 K=1,JTOP
-      VECIN(K)=DUMVI(K)
- 606  CONTINUE
+      DO K=1,JTOP
+        VECIN(K)=DUMVI(K)
+      END DO
 !
 !+++++++++ END OF PROGRAM SPECIFIC RELOADING OF ARRAYS +++++++++
 !
@@ -445,7 +460,7 @@ contains
 !
 !     CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
       SUBROUTINE INVERSE(A,B,M)
-      IMPLICIT REAL*8 (A-H,O-Z)
+      IMPLICIT real(dp) (A-H,O-Z)
       IMPLICIT INTEGER (I-N)
 
 !     =============================================================
@@ -467,39 +482,45 @@ contains
        STOP
       END IF
 !
-      DO 14 I=1,N
+      DO I=1,N
       ATMP=A(I,I)
       IF(ABS(ATMP) .LT. 1.0D-08)THEN
 !        WRITE(66,'('' INVERT: MATRIX HAS ZERO DIAGONAL'',
 !     &            '' ELEMENT IN THE '',I4,'' ROW'')')I
         STOP
       ENDIF
-  14  CONTINUE
+      END DO
 !
       IF(N.EQ.1) GO TO 605
 !
-      DO 23 I=1,N
+      DO I=1,N
 !
-      DO 35 J=1,N
- 35      TD(J)=A(J,I)/A(I,I)
+        DO J=1,N
+         TD(J)=A(J,I)/A(I,I)
+        END DO
 !
-!     TD(I)=(0.0E+00,0.0E+00)
-      TD(I)=0.0D0
+!       TD(I)=(0.0E+00,0.0E+00)
+        TD(I)=0.0D0
 !
-      DO 71 K=1,N
-         BD(K)=B(I,K)
- 71      AD(K)=A(I,K)
+        DO K=1,N
+           BD(K)=B(I,K)
+           AD(K)=A(I,K)
+        END DO
 !
-      DO 601 K=1,N
-      DO 601 J=1,N
-         B(J,K)=B(J,K)-(TD(J)*BD(K))
- 601     A(J,K)=A(J,K)-(TD(J)*AD(K))
+        DO K=1,N
+          DO J=1,N
+            B(J,K)=B(J,K)-(TD(J)*BD(K))
+            A(J,K)=A(J,K)-(TD(J)*AD(K))
+          END DO
+        END DO
 !
- 23   CONTINUE
+      END DO
 !
-      DO 603 I=1,N
-      DO 603 J=1,N
- 603     B(J,I)=B(J,I)/A(J,J)
+      DO I=1,N
+        DO J=1,N
+          B(J,I)=B(J,I)/A(J,J)
+        END DO
+      END DO
 !
       RETURN
 !

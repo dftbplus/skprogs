@@ -150,8 +150,19 @@ class SkgenSktableAssembly:
         # if range-separated hybrid is used, add the RangeSep tag
         extra_tag = None
         xcn = myinput.xcf.type
-        if xcn in ('lc-bnl', 'lc-pbe'):
+        if xcn in ('lcy-bnl', 'lcy-pbe'):
             rsh_tag = "RangeSep\nLC {:f}".format(myinput.xcf.omega)
+            extra_tag = [rsh_tag]
+        if xcn in ('camy-b3lyp', 'camy-pbeh'):
+            rsh_tag = "RangeSep\nCAM {:f} {:f} {:f}".format(myinput.xcf.omega,
+                                                            myinput.xcf.alpha,
+                                                            myinput.xcf.beta)
+            extra_tag = [rsh_tag]
+        if xcn == 'pbe0':
+            rsh_tag = "GlobalHybrid\nHF {:f}".format(0.25)
+            extra_tag = [rsh_tag]
+        if xcn == 'b3lyp':
+            rsh_tag = "GlobalHybrid\nHF {:f}".format(0.20)
             extra_tag = [rsh_tag]
 
         if self._input.homo:

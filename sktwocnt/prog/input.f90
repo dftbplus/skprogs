@@ -45,7 +45,8 @@ contains
     integer :: iErr
 
     !! xc-functional type
-    !! (1: LDA-PW91, 2: GGA-PBE96, 3: GGA-BLYP, 4: LCY-PBE96, 5: LCY-BNL)
+    !! (1: LDA-PW91, 2: GGA-PBE96, 3: GGA-BLYP, 4: LCY-PBE96, 5: LCY-BNL, 6: PBE0, 7: B3LYP,
+    !! 8: CAMY-B3LYP, 9: CAMY-PBEh)
     integer :: iXC
 
     !! potential data columns, summed up in order to receive the total atomic potential
@@ -53,6 +54,10 @@ contains
 
     !! true, if radial grid-orbital 1st/2nd derivative shall be read
     logical :: tReadRadDerivs
+
+    inp%tLC = .false.
+    inp%tCam = .false.
+    inp%tGlobalHybrid = .false.
 
     fp = 14
     open(fp, file=fname, form="formatted", action="read")
@@ -80,31 +85,58 @@ contains
     select case (iXC)
     case(xcFunctional%LDA_PW91)
       ! LDA-PW91
-      inp%tXchyb = .false.
     case(xcFunctional%GGA_PBE96)
       ! GGA-PBE96
-      inp%tXchyb = .false.
     case(xcFunctional%GGA_BLYP)
       ! GGA-BLYP
-      inp%tXchyb = .false.
     case(xcFunctional%LCY_PBE96)
       ! LCY-PBE96 (long-range corrected)
-      inp%tXchyb = .true.
+      inp%tLC = .true.
     case(xcFunctional%LCY_BNL)
       ! LCY-BNL (long-range corrected)
-      inp%tXchyb = .true.
+      inp%tLC = .true.
+    case(xcFunctional%HYB_PBE0)
+      ! PBE0 (global hybrid)
+      inp%tGlobalHybrid = .true.
+    case(xcFunctional%HYB_B3LYP)
+      ! B3LYP (global hybrid)
+      inp%tGlobalHybrid = .true.
+    case(xcFunctional%CAMY_B3LYP)
+      ! CAMY-B3LYP (CAM-functional)
+      inp%tCam = .true.
+    case(xcFunctional%CAMY_PBEh)
+      ! CAMY-PBEh (CAM-functional)
+      inp%tCam = .true.
     case default
-      call error_("Unknown exchange-correlation potential!", fname, line, iline)
+      call error_("Unknown exchange-correlation functional!", fname, line, iline)
     end select
     inp%iXC = iXC
 
-    if (inp%tXchyb) then
+    if (inp%tGlobalHybrid) then
       call nextline_(fp, iLine, line)
-      read(line, *, iostat=iErr) inp%kappa, inp%nRadial, inp%nAngular, inp%ll_max, inp%rm
-      if (inp%kappa < 1.0e-08_dp) then
-        write(*,'(a)') 'Chosen kappa too small!'
+      read(line, *, iostat=iErr) inp%nRadial, inp%nAngular, inp%ll_max, inp%rm
+      call checkerror_(fname, line, iLine, iErr)
+    elseif (inp%tLC) then
+      call nextline_(fp, iLine, line)
+      read(line, *, iostat=iErr) inp%omega
+      if (inp%omega < 1.0e-08_dp) then
+        write(*,'(a)') 'Chosen omega too small!'
         stop
       end if
+      call checkerror_(fname, line, iLine, iErr)
+      call nextline_(fp, iLine, line)
+      read(line, *, iostat=iErr) inp%nRadial, inp%nAngular, inp%ll_max, inp%rm
+      call checkerror_(fname, line, iLine, iErr)
+    elseif (inp%tCam) then
+      call nextline_(fp, iLine, line)
+      read(line, *, iostat=iErr) inp%omega, inp%camAlpha, inp%camBeta
+      if (inp%omega < 1.0e-08_dp) then
+        write(*,'(a)') 'Chosen omega too small!'
+        stop
+      end if
+      call checkerror_(fname, line, iLine, iErr)
+      call nextline_(fp, iLine, line)
+      read(line, *, iostat=iErr) inp%nRadial, inp%nAngular, inp%ll_max, inp%rm
       call checkerror_(fname, line, iLine, iErr)
     end if
 
@@ -125,11 +157,11 @@ contains
     end if
     tReadRadDerivs = .not. inp%tHetero
 
-    call readatom_(fname, fp, iLine, potcomps, inp%tDensitySuperpos, tReadRadDerivs, inp%tXchyb,&
-        & inp%atom1)
+    call readatom_(fname, fp, iLine, potcomps, inp%tDensitySuperpos, tReadRadDerivs,&
+        & (inp%tGlobalHybrid .or. inp%tLC .or. inp%tCam), inp%atom1)
     if (inp%tHetero) then
-      call readatom_(fname, fp, iLine, potcomps, inp%tDensitySuperpos, .true., inp%tXchyb,&
-          & inp%atom2)
+      call readatom_(fname, fp, iLine, potcomps, inp%tDensitySuperpos, .true., (inp%tGlobalHybrid&
+          & .or. inp%tLC .or. inp%tCam), inp%atom2)
     end if
 
     close(fp)
@@ -138,7 +170,8 @@ contains
 
 
   !> Fills TAtomdata instance based on slateratom's output.
-  subroutine readatom_(fname, fp, iLine, potcomps, tDensitySuperpos, tReadRadDerivs, tXchyb, atom)
+  subroutine readatom_(fname, fp, iLine, potcomps, tDensitySuperpos, tReadRadDerivs, tNonLocal,&
+      & atom)
 
     !> filename
     character(len=*), intent(in) :: fname
@@ -158,8 +191,8 @@ contains
     !> true, if radial grid-orbital 1st/2nd derivative shall be read
     logical, intent(in) :: tReadRadDerivs
 
-    !> true, if a hybrid functional is requested
-    logical, intent(in) :: tXchyb
+    !! true, there are non-local exchange contributions to calculate
+    logical, intent(in) :: tNonLocal
 
     !> atomic properties instance
     type(TAtomdata), intent(out) :: atom
@@ -180,7 +213,7 @@ contains
     integer :: ii, imax
 
     call nextline_(fp, iLine, line)
-    if (tXchyb) then
+    if (tNonLocal) then
       read(line, *, iostat=iErr) atom%nBasis, atom%nCore
     else
       read(line, *, iostat=iErr) atom%nBasis
@@ -221,7 +254,7 @@ contains
     call checkangmoms_(atom%angmoms)
 
     ! read core orbitals, LC functionals only
-    if (tXchyb) then
+    if (tNonLocal) then
       allocate(atom%coreAngmoms(atom%nCore))
       allocate(atom%coreOcc(atom%nCore))
       allocate(atom%coreRad(atom%nCore))

@@ -2,7 +2,7 @@
 module input
 
   use common_accuracy, only : dp
-  use common_poisson, only : becke_grid_params
+  use common_poisson, only : TBeckeGridParams
 
   use xcfunctionals, only : xcFunctional
 
@@ -17,7 +17,8 @@ contains
   !> Reads in all properties, except for occupation numbers.
   subroutine read_input_1(nuc, max_l, occ_shells, maxiter, poly_order, min_alpha, max_alpha,&
       & num_alpha, tAutoAlphas, alpha, conf_r0, conf_power, num_occ, num_power, num_alphas,&
-      & xcnr, tPrintEigvecs, tZora, tBroyden, mixing_factor, xalpha_const, kappa, grid_params)
+      & xcnr, tPrintEigvecs, tZora, tBroyden, mixing_factor, xalpha_const, omega, camAlpha,&
+      & camBeta, grid_params)
 
     !> nuclear charge, i.e. atomic number
     integer, intent(out) :: nuc
@@ -83,26 +84,45 @@ contains
     real(dp), intent(out) :: xalpha_const
 
     !> range-separation parameter
-    real(dp), intent(out) :: kappa
+    real(dp), intent(out) :: omega
+
+    !> CAM alpha parameter
+    real(dp), intent(out) :: camAlpha
+
+    !> CAM beta parameter
+    real(dp), intent(out) :: camBeta
 
     !> holds parameters, defining a Becke integration grid
-    type(becke_grid_params), intent(out) :: grid_params
+    type(TBeckeGridParams), intent(out) :: grid_params
 
-    !> auxiliary variables
+    !! auxiliary variables
     integer :: ii, jj
 
     write(*, '(A)') 'Enter nuclear charge, maximal angular momentum (s=0), max. SCF, ZORA'
     read(*,*) nuc, max_l, maxiter, tZora
 
     write(*, '(A)') 'Enter XC functional:&
-        & 0: HF, 1: X-Alpha, 2: LDA-PW91, 3: GGA-PBE96, 4: GGA-BLYP, 5: LCY-PBE96, 6: LCY-BNL'
+        & 0: HF, 1: X-Alpha, 2: LDA-PW91, 3: GGA-PBE96, 4: GGA-BLYP, 5: LCY-PBE96, 6: LCY-BNL,&
+        & 7: PBE0, 8: B3LYP, 9: CAMY-B3LYP, 10: CAMY-PBEh'
     read(*,*) xcnr
+
+    if (xcFunctional%isNotImplemented(xcnr)) then
+      write(*, '(A,I2,A)') 'XCNR=', xcnr, ' not implemented!'
+      stop
+    end if
 
     if (xcFunctional%isLongRangeCorrected(xcnr)) then
       write(*, '(A)') 'Enter range-separation parameter:'
-      read(*,*) kappa
+      read(*,*) omega
+    elseif (xcFunctional%isCAMY(xcnr)) then
+      write(*, '(A)') 'Enter range-separation parameter, CAM alpha, CAM beta:'
+      read(*,*) omega, camAlpha, camBeta
+    end if
+
+    if (xcFunctional%isLongRangeCorrected(xcnr) .or. xcFunctional%isCAMY(xcnr)&
+        & .or. xcFunctional%isGlobalHybrid(xcnr)) then
       write(*, '(A)') 'NRadial NAngular ll_max rm'
-      read(*,*) grid_params%N_radial, grid_params%N_angular, grid_params%ll_max, grid_params%rm
+      read(*,*) grid_params%nRadial, grid_params%nAngular, grid_params%ll_max, grid_params%rm
     end if
 
     if ((xcnr == xcFunctional%HF_Exchange) .and. tZora) then
@@ -297,13 +317,20 @@ contains
 
     write(*, '(A,I3)') 'Nuclear Charge: ', nuc
 
-    if (xcnr == xcFunctional%HF_Exchange) write(*, '(A,I3)') 'HF Exchange, spherical symmetric'
+    if (xcnr == xcFunctional%HF_Exchange) write(*, '(A)') 'Hartree-Fock exchange'
     if (xcnr == xcFunctional%X_Alpha) write(*, '(A,F12.8)') 'X-Alpha, alpha= ', xalpha_const
-    if (xcnr == xcFunctional%LDA_PW91) write(*, '(A,I3)') 'LDA, Perdew-Wang Parametrization'
-    if (xcnr == xcFunctional%GGA_PBE96) write(*, '(A,I3)') 'PBE'
-    if (xcnr == xcFunctional%GGA_BLYP) write(*, '(A,I3)') 'BLYP'
-    if (xcnr == xcFunctional%LCY_PBE96) write(*, '(A,I3)') 'Range-separated: LCY-PBE'
-    if (xcnr == xcFunctional%LCY_BNL) write(*, '(A,I3)') 'Range-separated: LCY-BNL'
+    if (xcnr == xcFunctional%LDA_PW91) write(*, '(A)') 'LDA, Perdew-Wang Parametrization'
+    if (xcnr == xcFunctional%GGA_PBE96) write(*, '(A)') 'PBE96'
+    if (xcnr == xcFunctional%GGA_BLYP) write(*, '(A)') 'BLYP'
+    if (xcnr == xcFunctional%LCY_PBE96) write(*, '(A)') 'Range-separated: LCY-PBE96'
+    if (xcnr == xcFunctional%LCY_BNL) write(*, '(A)') 'Range-separated: BNL,&
+        & LCY-LDA for exchange + PBE correlation'
+    if (xcnr == xcFunctional%HYB_PBE0) write(*, '(A)') 'Global hybrid: PBE0'
+    if (xcnr == xcFunctional%HYB_B3LYP) write(*, '(A)') 'Global hybrid: B3LYP'
+    if (xcnr == xcFunctional%CAMY_B3LYP) write(*, '(A)') 'CAM: CAMY-B3LYP'
+    if (xcnr == xcFunctional%CAMY_PBEh) write(*, '(A)') 'CAM: CAMY-PBEh'
+
+    write(*, '(A,I6)') 'Max. number of SCF iterations: ', maxiter
 
     write(*, '(A,I1)') 'Max. angular momentum: ', max_l
     write(*, '(A,I5)') 'Number of points for numerical radial integration: ', num_mesh_points

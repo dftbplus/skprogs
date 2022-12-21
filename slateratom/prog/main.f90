@@ -7,17 +7,17 @@ program HFAtom
   use core_overlap, only : overlap, nuclear, kinetic, confinement
   use coulomb_hfex, only : coulomb, hfex, hfex_lr
   use densitymatrix, only : densmatrix
-  use hamiltonian, only : build_fock
+  use hamiltonian, only : build_hamiltonian
   use diagonalizations, only : diagonalize, diagonalize_overlap
   use output, only : write_eigvec, write_eigval, write_moments, write_energies,&
       & write_energies_tagged, write_potentials_file_standard, write_densities_file_standard,&
       & write_waves_file_standard, write_wave_coeffs_file, cusp_values
-  use totalenergy, only : total_energy, zora_total_energy
+  use totalenergy, only : getTotalEnergy, getTotalEnergyZora
   use dft, only : check_accuracy, dft_start_pot, density_grid
   use utilities, only : check_electron_number, check_convergence
   use zora_routines, only : scaled_zora
   use cmdargs, only : parse_command_arguments
-  use common_poisson, only : becke_grid_params
+  use common_poisson, only : TBeckeGridParams
   use xcfunctionals, only : xcFunctional
   use globals
 
@@ -34,16 +34,22 @@ program HFAtom
   real(dp) :: x_en_2
 
   !! range-separation parameter
-  real(dp) :: kappa
+  real(dp) :: omega
+
+  !! CAM alpha parameter
+  real(dp) :: camAlpha
+
+  !! CAM beta parameter
+  real(dp) :: camBeta
 
   !! holds parameters, defining a Becke integration grid
-  type(becke_grid_params) :: grid_params
-
+  type(TBeckeGridParams) :: grid_params
 
   call parse_command_arguments()
   call read_input_1(nuc, max_l, occ_shells, maxiter, poly_order, min_alpha, max_alpha, num_alpha,&
       & tAutoAlphas, alpha, conf_r0, conf_power, num_occ, num_power, num_alphas, xcnr,&
-      & tPrintEigvecs, tZora, tBroyden, mixing_factor, xalpha_const, kappa, grid_params)
+      & tPrintEigvecs, tZora, tBroyden, mixing_factor, xalpha_const, omega, camAlpha, camBeta,&
+      & grid_params)
 
   problemsize = num_power * num_alphas
 
@@ -87,25 +93,22 @@ program HFAtom
   call coulomb(jj, max_l, num_alpha, alpha, poly_order, uu, ss)
   if (xcnr == xcFunctional%HF_Exchange) then
     call hfex(kk, max_l, num_alpha, alpha, poly_order, problemsize)
+  elseif (xcFunctional%isLongRangeCorrected(xcnr)) then
+    call hfex_lr(kk_lr, max_l, num_alpha, alpha, poly_order, problemsize, omega, grid_params)
+  elseif (xcFunctional%isGlobalHybrid(xcnr)) then
+    call hfex(kk, max_l, num_alpha, alpha, poly_order, problemsize)
+  elseif (xcFunctional%isCAMY(xcnr)) then
+    call hfex(kk, max_l, num_alpha, alpha, poly_order, problemsize)
+    call hfex_lr(kk_lr, max_l, num_alpha, alpha, poly_order, problemsize, omega, grid_params)
   end if
 
   ! convergence flag
   tConverged = .false.
 
-  ! dft start potential for (semi-) local functionals
-  if (xcnr == xcFunctional%X_Alpha .or. xcFunctional%isLDA(xcnr) .or. xcFunctional%isGGA(xcnr)) then
+  ! DFT start potential
+  if (.not. (xcnr == xcFunctional%HF_Exchange)) then
     call dft_start_pot(abcissa, num_mesh_points, nuc, vxc)
   end if
-
-  ! dft start potential for range-separated functionals
-  if (xcFunctional%isLongRangeCorrected(xcnr)) then
-     call hfex_lr(kk, max_l, num_alpha, alpha, poly_order, problemsize, kappa, grid_params)
-  end if
-  call dft_start_pot(abcissa, num_mesh_points, nuc, vxc)
-
-  write(*,*) 'Largest k-matrix element: ', maxval(abs(kk))
-  write(*,*) 'Smallest k-matrix element: ', minval(abs(kk))
-  write(*,*) 'Average k-matrix element: ',  sum(abs(kk)) / (max(1, size(kk)))
 
   ! build initial fock matrix, core hamiltonian only
   write(*, '(A)') 'Startup: Building Initial Fock Matrix'
@@ -115,9 +118,9 @@ program HFAtom
   pot_old(:,:,:,:) = 0.0_dp
 
   ! kinetic energy, nuclear-electron, and confinement matrix elements which are constant during SCF
-  call build_fock(0, tt, uu, nuc, vconf, jj, kk, pp, max_l, num_alpha, poly_order, problemsize,&
-      & xcnr, num_mesh_points, weight, abcissa, vxc, alpha, pot_old, pot_new, tZora, tBroyden,&
-      & mixing_factor, ff)
+  call build_hamiltonian(0, tt, uu, nuc, vconf, jj, kk, kk_lr, pp, max_l, num_alpha, poly_order,&
+      & problemsize, xcnr, num_mesh_points, weight, abcissa, vxc, alpha, pot_old, pot_new, tZora,&
+      & tBroyden, mixing_factor, ff, camAlpha, camBeta)
 
   ! self-consistency cycles
   write(*,*) 'Energies in Hartree'
@@ -136,22 +139,22 @@ program HFAtom
 
     ! get electron density, derivatives, exc related potentials and energy densities
     call density_grid(pp, max_l, num_alpha, poly_order, alpha, num_mesh_points, abcissa, dzdr,&
-        & d2zdr2, dz, xcnr, kappa, rho, drho, ddrho, vxc, exc, xalpha_const)
+        & dz, xcnr, omega, camAlpha, camBeta, rho, drho, ddrho, vxc, exc, xalpha_const)
 
     ! build Fock matrix and get total energy during SCF
-    call build_fock(iScf, tt, uu, nuc, vconf, jj, kk, pp, max_l, num_alpha, poly_order,&
-        & problemsize, xcnr, num_mesh_points, weight, abcissa, vxc, alpha, pot_old, pot_new, tZora,&
-        & tBroyden, mixing_factor, ff)
+    call build_hamiltonian(iScf, tt, uu, nuc, vconf, jj, kk, kk_lr, pp, max_l, num_alpha,&
+        & poly_order, problemsize, xcnr, num_mesh_points, weight, abcissa, vxc, alpha, pot_old,&
+        & pot_new, tZora, tBroyden, mixing_factor, ff, camAlpha, camBeta)
 
     if (tZora) then
-      call zora_total_energy(tt, uu, nuc, vconf, jj, kk, pp, max_l, num_alpha, poly_order,&
+      call getTotalEnergyZora(tt, uu, nuc, vconf, jj, kk, kk_lr, pp, max_l, num_alpha, poly_order,&
           & problemsize, xcnr, num_mesh_points, weight, abcissa, rho, exc, vxc, eigval_scaled, occ,&
-          & kinetic_energy, nuclear_energy, coulomb_energy, exchange_energy, x_en_2, conf_energy,&
-          & total_ene)
+          & camAlpha, camBeta, kinetic_energy, nuclear_energy, coulomb_energy, exchange_energy,&
+          & x_en_2, conf_energy, total_ene)
     else
-      call total_energy(tt, uu, nuc, vconf, jj, kk, pp, max_l, num_alpha, poly_order, problemsize,&
-          & xcnr, num_mesh_points, weight, abcissa, rho, exc, kinetic_energy, nuclear_energy,&
-          & coulomb_energy, exchange_energy, x_en_2, conf_energy, total_ene)
+      call getTotalEnergy(tt, uu, nuc, vconf, jj, kk, kk_lr, pp, max_l, num_alpha, poly_order,&
+          & xcnr, num_mesh_points, weight, abcissa, rho, exc, camAlpha, camBeta, kinetic_energy,&
+          & nuclear_energy, coulomb_energy, exchange_energy, x_en_2, conf_energy, total_ene)
     end if
 
     call check_convergence(pot_old, pot_new, max_l, problemsize, iScf, change_max, tConverged)
@@ -159,7 +162,7 @@ program HFAtom
     write(*, '(I4,2X,3(1X,F16.9),3X,E16.9)') iScf, total_ene, exchange_energy, x_en_2, change_max
 
     ! if self-consistency is reached, exit loop
-    if (tConverged) exit
+    if (tConverged) exit lpScf
 
     ! check conservation of number of electrons during SCF
     call check_electron_number(cof, ss, occ, max_l, num_alpha, poly_order, problemsize)
@@ -195,10 +198,10 @@ program HFAtom
   end if
 
   if (tZora) then
-    call zora_total_energy(tt, uu, nuc, vconf, jj, kk, pp, max_l, num_alpha, poly_order,&
+    call getTotalEnergyZora(tt, uu, nuc, vconf, jj, kk, kk_lr, pp, max_l, num_alpha, poly_order,&
         & problemsize, xcnr, num_mesh_points, weight, abcissa, rho, exc, vxc, eigval_scaled, occ,&
-        & zora_ekin, nuclear_energy, coulomb_energy, exchange_energy, x_en_2, conf_energy,&
-        & total_ene)
+        & camAlpha, camBeta, zora_ekin, nuclear_energy, coulomb_energy, exchange_energy, x_en_2,&
+        & conf_energy, total_ene)
   end if
 
   write(*, '(A,E20.12)') 'Potential Matrix Elements converged to ', change_max

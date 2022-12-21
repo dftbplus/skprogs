@@ -25,13 +25,26 @@ module xcfunctionals
     !> LCY-BNL
     integer :: LCY_BNL = 5
 
+    !> HYB-PBE0
+    integer :: HYB_PBE0 = 6
+
+    !> HYB-B3LYP
+    integer :: HYB_B3LYP = 7
+
+    !> CAMY-B3LYP
+    integer :: CAMY_B3LYP = 8
+
+    !> CAMY-PBEh
+    integer :: CAMY_PBEh = 9
+
   contains
 
     procedure :: isLDA => TXcFunctionalsEnum_isLDA
     procedure :: isGGA => TXcFunctionalsEnum_isGGA
     procedure :: isGlobalHybrid => TXcFunctionalsEnum_isGlobalHybrid
     procedure :: isLongRangeCorrected => TXcFunctionalsEnum_isLongRangeCorrected
-    procedure :: isCam => TXcFunctionalsEnum_isCam
+    procedure :: isCAMY => TXcFunctionalsEnum_isCAMY
+    procedure :: isNotImplemented => TXcFunctionalsEnum_isNotImplemented
 
   end type TXcFunctionalsEnum
 
@@ -111,10 +124,14 @@ contains
 
     isGlobalHybrid = .false.
 
+    if (xcnr == this%HYB_PBE0 .or. xcnr == this%HYB_B3LYP) then
+      isGlobalHybrid = .true.
+    end if
+
   end function TXcFunctionalsEnum_isGlobalHybrid
 
 
-  pure function TXcFunctionalsEnum_isCam(this, xcnr) result(isCam)
+  pure function TXcFunctionalsEnum_isCAMY(this, xcnr) result(isCamy)
 
     !> Class instance
     class(TXcFunctionalsEnum), intent(in) :: this
@@ -122,11 +139,35 @@ contains
     !> identifier of exchange-correlation type
     integer, intent(in) :: xcnr
 
-    !> True, if xc-functional index corresponds to a general CAM functional
-    logical :: isCam
+    !> True, if xc-functional index corresponds to a general CAMY functional
+    logical :: isCamy
 
-    isCam = .false.
+    isCamy = .false.
 
-  end function TXcFunctionalsEnum_isCam
+    if (xcnr == this%CAMY_B3LYP .or. xcnr == this%CAMY_PBEh) then
+      isCamy = .true.
+    end if
+
+  end function TXcFunctionalsEnum_isCAMY
+
+
+  pure function TXcFunctionalsEnum_isNotImplemented(this, xcnr) result(isNotImplemented)
+
+    !> Class instance
+    class(TXcFunctionalsEnum), intent(in) :: this
+
+    !> identifier of exchange-correlation type
+    integer, intent(in) :: xcnr
+
+    !> True, if xc-functional index is not in the expected range
+    logical :: isNotImplemented
+
+    isNotImplemented = .false.
+
+    if (xcnr < 0 .or. xcnr > 9) then
+      isNotImplemented = .true.
+    end if
+
+  end function TXcFunctionalsEnum_isNotImplemented
 
 end module xcfunctionals

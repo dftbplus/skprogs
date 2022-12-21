@@ -20,7 +20,6 @@ set(sources-f90
 
 add_library(skprogs-slateratom ${sources-f90})
 
-target_link_libraries(skprogs-slateratom skprogs-common Libxc::xcf90 Libxc::xc)
 target_link_libraries(skprogs-slateratom skprogs-common Libxc::xcf03 Libxc::xc)
 target_link_libraries(skprogs-slateratom skprogs-common LAPACK::LAPACK)
 

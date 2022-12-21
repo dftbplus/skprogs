@@ -12,470 +12,483 @@ module common_poisson
   use common_accuracy, only : dp
   use common_constants, only : pi, pi_hlf
 
-  use common_sphericalharmonics, only : TRealTessY, TRealTessY_init
   use common_quadratures, only : TQuadrature, TQuadrature2D, gauss_chebyshev_quadrature
   use common_quadratures, only : lebedev_laikov_quadrature
   use common_gridgenerator, only : gengrid1_1, gengrid1_3, gengrid2_3
-  use common_interpolation, only : ipl_tst, get_cubic_spline
   use common_coordtrans, only : coordtrans_radial_becke1, coordtrans_radial_becke2
   use common_partition, only : partition_becke_homo
-  use common_anglib, only : initGaunt, realGaunt
-  use common_finitedifferences, only : makeFDMatrix7P, H_BFDM7P, P_BFDM7P
+  use common_anglib, only : initGaunt
+  use common_finitedifferences, only : makeHelmholzFDMatrix7P, makePoissonFDMatrix7P
 
   implicit none
-  ! private
+  private
 
-  public :: solve_poisson, solve_helmholz
-  public :: integrator_solve_poisson, integrator_solve_helmholz
-  public :: integrator_init, becke_integrator, becke_grid_params, integrator_build_LU
-  public :: integrator_get_coords, integrator_set_kernel_param, integrator_precomp_fdmat
-
-
-  !>
-  type separable_integrand
-
-    real(dp), allocatable :: radial(:)
-    integer :: ll1
-    integer :: mm1
-    integer :: ll2
-    integer :: mm2
-
-  end type separable_integrand
+  public :: solvePoisson, solveHelmholz
+  public :: TBeckeIntegrator_solvePoisson, TBeckeIntegrator_solveHelmholz
+  public :: TBeckeIntegrator_init, TBeckeIntegrator, TBeckeGridParams, TBeckeIntegrator_buildLU
+  public :: TBeckeIntegrator_getCoords, TBeckeIntegrator_setKernelParam
+  public :: TBeckeIntegrator_precompFdMatrix
 
 
-  !>
-  type fdiff_matrix
+  !> Stores finite differences matrix.
+  type TFdiffMatrix
 
     real(dp), allocatable :: d(:)
     real(dp), allocatable :: g(:)
     real(dp), allocatable :: zi(:)
     real(dp), allocatable :: b(:)
-    integer, allocatable :: ipiv(:)
-    real(dp), allocatable :: H1(:,:)
-    real(dp), allocatable :: H2(:,:)
+    real(dp), allocatable :: H1(:,:), H2(:,:)
 
-    ! LU decomposition supermatrix
-    real(dp), allocatable :: H3(:,:,:)
-    integer, allocatable :: ipiv2(:,:)
-    real(dp), allocatable :: H4(:,:,:)
-    integer, allocatable :: ipiv4(:,:)
+    !> pivot indices: for 1 <= i <= N, row i of the matrix was interchanged with row ipiv(i)
+    integer, allocatable :: ipiv2(:,:), ipiv4(:,:)
 
-  end type fdiff_matrix
+    !> LU decomposition supermatrices
+    real(dp), allocatable :: H3(:,:,:), H4(:,:,:)
+
+  end type TFdiffMatrix
 
 
-  !>
-  type becke_grid_params
+  !> Defines a Becke integration grid.
+  type TBeckeGridParams
 
-    integer :: N_radial
-    integer :: N_angular
+    !> number of radial integration points
+    integer :: nRadial
+
+    !> number of angular integration points
+    integer :: nAngular
+
+    !> maximum angular momentum
     integer :: ll_max
+
+    !> midpoint of the integration interval
     real(dp) :: rm
 
-  end type becke_grid_params
+  end type TBeckeGridParams
 
 
-  !>
-  type becke_subgrid
+  !> Wraps around Becke data array.
+  type TBeckeSubgrid
 
-    !>
+    !> data on Becke grid
     real(dp), allocatable :: data(:,:)
 
-  end type becke_subgrid
+  end type TBeckeSubgrid
 
 
-  !>
-  type becke_grid
+  !> Wraps around multiple Becke integration grids.
+  type TBeckeGrid
 
-    integer :: type
+    !> Becke subgrids
+    type(TBeckeSubgrid), allocatable :: subgrid(:)
 
-    !>
-    type(becke_subgrid), allocatable :: subgrid(:)
-    real(dp), allocatable :: weight(:), part(:)
+    !> integration weights
+    real(dp), allocatable :: weight(:)
 
-  end type becke_grid
+    !> space partition for full 3D integration
+    real(dp), allocatable :: partition(:)
+
+  end type TBeckeGrid
 
 
-  !> Contains information, needed for setting up and performing the integration.
-  type becke_integrator
+  !> Contains information, needed for setting up and performing Becke integration.
+  type TBeckeIntegrator
 
-    type(becke_grid_params) :: grid_params
-    type(TQuadrature) :: radial_quadrature
-    type(TQuadrature2D) :: angular_quadrature
+    !> Becke grid parameters
+    type(TBeckeGridParams) :: beckeGridParams
 
-    !>
-    integer :: kernel_type ! Coulomb(0) or Yukawa(1)
-    real(dp) :: kernel_parameter ! irrelevant for kernel_type=0
+    !> radial quadrature information
+    type(TQuadrature) :: radialQuadrature
 
-    !>
-    type(becke_grid), allocatable :: integration_grid(:)
+    !> angular quadrature information
+    type(TQuadrature2D) :: angularQuadrature
 
-    !>
-    type(fdiff_matrix) :: fdmat
+    !> kernel screening parameter
+    real(dp) :: kernelParameter
 
-    !>
+    !> Becke integration grids
+    type(TBeckeGrid), allocatable :: beckeGrid(:)
+
+    !> finite differences matrix
+    type(TFdiffMatrix) :: fdmat
+
+    !> midpoint of the integration interval
     real(dp) :: rm
 
-    !> amount of messages (0 for no messages)
-    integer :: verbosity
-
-  end type becke_integrator
+  end type TBeckeIntegrator
 
 
 contains
 
-  !> precomputes the finite differences matrix.
-  subroutine integrator_precomp_fdmat(self)
-    type(becke_integrator), intent(inout) :: self
+  !> Precomputes the finite differences matrix.
+  subroutine TBeckeIntegrator_precompFdMatrix(this)
 
-    integer :: N
-    real(dp) :: kappa,rm
+    !> Becke integrator instance
+    type(TBeckeIntegrator), intent(inout) :: this
 
-    integer :: ii
+    !! number of radial grid points
+    integer :: nRadial
+
+    !! screening parameter
+    real(dp) :: omega
+
+    !! midpoint of the integration interval
+    real(dp) :: rm
+
+    !! auxiliary variables
     real(dp) :: step, step_2, tmp1, llp1_pi_2_rm_4, f0, zz,pi_rm_4_3
-    real(dp) :: beta, gama, sin_pi, sin_pi_hlf, cos_pi_hlf,a2c
+    real(dp) :: beta, gama, sin_pi, sin_pi_hlf, cos_pi_hlf, a2c
 
-    kappa = self%kernel_parameter
+    !! iterates over radial points
+    integer :: ii
 
-    if (self%verbosity > 0) then
-       write(*,'(a,F12.7,a)',advance="no") "Precompute the FD_Matrix for kappa="&
-           &,kappa,"..."
-    end if
+    omega = this%kernelParameter
+    nRadial=this%beckeGridParams%nRadial
+    rm = this%rm
 
-    N=self%grid_params%N_radial
-    rm=self%rm
+    this%fdmat%g(:) = 0.0_dp
+    this%fdmat%H1(:,:) = 0.0_dp
+    this%fdmat%H2(:,:) = 0.0_dp
+    this%fdmat%zi(:) = 0.0_dp
 
-    self%fdmat%g = 0.0_dp
-    self%fdmat%H1 = 0.0_dp
-    self%fdmat%H2 = 0.0_dp
-    self%fdmat%ipiv = 0.0_dp
-    self%fdmat%zi = 0.0_dp
+    tmp1 = (1.0_dp / real(nRadial + 1, dp))**2 * 180.0_dp
 
-    tmp1 = 1.0_dp/real(N+1, dp)
-    tmp1 = tmp1*tmp1*180.0_dp
+    this%fdmat%zi(:) = acos(this%radialQuadrature%xx) / pi
 
-    self%fdmat%zi = dacos(self%radial_quadrature%xx)/pi
+    step = 1.0_dp / real(nRadial + 1, dp)
+    step_2 = step**2
 
-    step = 1.0_dp/real(N+1, dp)
-    step_2 = step*step
+    f0 = 0.0_dp
+    a2c = omega**2 * rm**2 * pi**2 * 0.25_dp
+    llp1_pi_2_rm_4 = 4.0_dp * pi**2
+    pi_rm_4_3 = pi**3 * rm**3 * 4.0_dp * tmp1
 
-    f0=0.0_dp
-    a2c = kappa*kappa*rm*rm*pi*pi*0.25_dp
-    llp1_pi_2_rm_4 = 4.0_dp*pi*pi!*rm
-    pi_rm_4_3 = pi*pi*pi*rm*rm*rm*4.0_dp*tmp1
+    zz = this%fdmat%zi(1)
+    sin_pi = sin(pi * zz)
+    sin_pi_hlf = sin(pi_hlf * zz)
+    cos_pi_hlf = cos(pi_hlf * zz)
+    sin_pi_hlf = sin_pi_hlf**2 ! ^2
+    cos_pi_hlf = cos_pi_hlf**4 ! ^4
+    beta = (pi / sin_pi + pi_hlf * sin_pi / sin_pi_hlf) * step
+    sin_pi = sin_pi**2 ! ^2
 
-    zz = self%fdmat%zi(1)
-    sin_pi = dsin(pi * zz)
-    sin_pi_hlf = dsin(pi_hlf * zz)
-    cos_pi_hlf = dcos(pi_hlf * zz)
-    sin_pi_hlf = sin_pi_hlf*sin_pi_hlf ! ^2
-    cos_pi_hlf = cos_pi_hlf*cos_pi_hlf !
-    cos_pi_hlf = cos_pi_hlf*cos_pi_hlf ! ^4
-    beta = (pi/sin_pi + pi_hlf*sin_pi/sin_pi_hlf)*step
-    sin_pi = sin_pi*sin_pi ! ^2
+    sin_pi_hlf = sin_pi_hlf**2 ! ^4
+    sin_pi_hlf = sin_pi_hlf**2 ! ^8
+    gama = -(a2c * sin_pi / sin_pi_hlf)
+    this%fdmat%d(1) = -pi_rm_4_3 * cos_pi_hlf / sin_pi_hlf
+    this%fdmat%g(1) = -llp1_pi_2_rm_4 / sin_pi * step_2 * 180.0_dp
+
+    this%fdmat%H1(7, 1) = -300.0_dp - beta * 150.0_dp + gama * step_2 * 180.0_dp
+    this%fdmat%H1(6, 2) = 90.0_dp + beta * 270.0_dp
+    this%fdmat%H1(5, 3) = 60.0_dp - beta * 90.0_dp
+    this%fdmat%H1(4, 4) = -15.0_dp + beta * 15.0_dp
+
+    zz = this%fdmat%zi(2)
+
+    sin_pi = sin(pi * zz)
+    sin_pi_hlf = sin(pi_hlf * zz)
+    cos_pi_hlf = cos(pi_hlf * zz)
+    sin_pi_hlf = sin_pi_hlf**2 ! ^2
+    cos_pi_hlf = cos_pi_hlf**4 ! ^4
+    beta = (pi / sin_pi + pi_hlf * sin_pi / sin_pi_hlf) * step
+    sin_pi = sin_pi**2 ! ^2
+
+    sin_pi_hlf = sin_pi_hlf**2 ! ^4
+    sin_pi_hlf = sin_pi_hlf**2 ! ^8
+    gama = -(a2c * sin_pi / sin_pi_hlf)
+    this%fdmat%d(2) = -pi_rm_4_3 * cos_pi_hlf / sin_pi_hlf
+    this%fdmat%g(2) = -llp1_pi_2_rm_4 / sin_pi * step_2 * 180.0_dp
+
+    this%fdmat%H1(7, 2) = -450.0_dp - beta * 60.0_dp
+    this%fdmat%H1(6, 3) = 240.0_dp + beta * 180.0_dp
+    this%fdmat%H1(5, 4) = -15.0_dp - beta * 45.0_dp
+    this%fdmat%H1(4, 5) = beta * 6.0_dp
+    this%fdmat%H1(8, 1) = 240.0_dp - beta * 90.0_dp + gama * step_2 * 180.0_dp
+
+    zz = this%fdmat%zi(3)
+
+    sin_pi = sin(pi * zz)
+    sin_pi_hlf = sin(pi_hlf * zz)
+    cos_pi_hlf = cos(pi_hlf * zz)
+    sin_pi_hlf = sin_pi_hlf**2 ! ^2
+    cos_pi_hlf = cos_pi_hlf**4 ! ^4
+    beta = (pi / sin_pi + pi_hlf * sin_pi / sin_pi_hlf) * step
+    sin_pi = sin_pi**2 ! ^2
 
     sin_pi_hlf = sin_pi_hlf*sin_pi_hlf ! ^4
     sin_pi_hlf = sin_pi_hlf*sin_pi_hlf ! ^8
-    gama = -(a2c*sin_pi/sin_pi_hlf)
-    self%fdmat%d(1) = -pi_rm_4_3*cos_pi_hlf/sin_pi_hlf
-    self%fdmat%g(1) = -llp1_pi_2_rm_4/sin_pi*step_2*180.0_dp
+    gama = -(a2c * sin_pi / sin_pi_hlf)
+    this%fdmat%d(3) = -pi_rm_4_3 * cos_pi_hlf / sin_pi_hlf
+    this%fdmat%g(3) = -llp1_pi_2_rm_4 / sin_pi * step_2 * 180.0_dp
 
-    self%fdmat%H1(7, 1) = (-300.0_dp)     + (beta*(-150.0_dp)) + gama*step_2*180.0_dp
-    self%fdmat%H1(6, 2) = (90.0_dp)       + beta*270.0_dp
-    self%fdmat%H1(5, 3) = (60.0_dp)       + beta*(-90.0_dp)
-    self%fdmat%H1(4, 4) = (-15.0_dp)      + beta*15.0_dp
+    this%fdmat%H1(7, 3) = -490.0_dp + gama * step_2 * 180.0_dp
+    this%fdmat%H1(6, 4) = 270.0_dp + beta * 135.0_dp
+    this%fdmat%H1(5, 5) = -27.0_dp - beta * 27.0_dp
+    this%fdmat%H1(4, 6) = 2.0_dp + beta * 3.0_dp
+    this%fdmat%H1(8, 2) = 270.0_dp - beta * 135.0_dp
+    this%fdmat%H1(9, 1) = -27.0_dp + beta * 27.0_dp
 
-    zz = self%fdmat%zi(2)
+   do ii = 4, nRadial - 3
+     zz = this%fdmat%zi(ii)
 
-    sin_pi = dsin(pi * zz)
-    sin_pi_hlf = dsin(pi_hlf * zz)
-    cos_pi_hlf = dcos(pi_hlf * zz)
-    sin_pi_hlf = sin_pi_hlf*sin_pi_hlf ! ^2
-    cos_pi_hlf = cos_pi_hlf*cos_pi_hlf !
-    cos_pi_hlf = cos_pi_hlf*cos_pi_hlf ! ^4
-    beta = (pi/sin_pi + pi_hlf*sin_pi/sin_pi_hlf)*step
-    sin_pi = sin_pi*sin_pi ! ^2
+     sin_pi = sin(pi * zz)
+     sin_pi_hlf = sin(pi_hlf * zz)
+     cos_pi_hlf = cos(pi_hlf * zz)
+     sin_pi_hlf = sin_pi_hlf**2 ! ^2
+     cos_pi_hlf = cos_pi_hlf**4 ! ^4
+     beta = (pi / sin_pi + pi_hlf * sin_pi / sin_pi_hlf) * step
+     sin_pi = sin_pi**2 ! ^2
 
-    sin_pi_hlf = sin_pi_hlf*sin_pi_hlf ! ^4
-    sin_pi_hlf = sin_pi_hlf*sin_pi_hlf ! ^8
-    gama = -(a2c*sin_pi/sin_pi_hlf)
-    self%fdmat%d(2) = -pi_rm_4_3*cos_pi_hlf/sin_pi_hlf
-    self%fdmat%g(2) = -llp1_pi_2_rm_4/sin_pi*step_2*180.0_dp
+     sin_pi_hlf = sin_pi_hlf**2 ! ^4
+     sin_pi_hlf = sin_pi_hlf**2 ! ^8
+     gama = -(a2c * sin_pi / sin_pi_hlf)
+     this%fdmat%d(ii) = -pi_rm_4_3 * cos_pi_hlf / sin_pi_hlf
+     this%fdmat%g(ii) = -llp1_pi_2_rm_4 / sin_pi * step_2 * 180.0_dp
 
-    self%fdmat%H1(7, 2) = (-450.0_dp)     + beta*(-60.0_dp)
-    self%fdmat%H1(6, 3) = ( 240.0_dp)     + beta*(180.0_dp)
-    self%fdmat%H1(5, 4) = ( -15.0_dp)     + beta*(-45.0_dp)
-    self%fdmat%H1(4, 5) =                 + beta*(6.0_dp)
-    self%fdmat%H1(8, 1) = (240.0_dp)    + (beta*(-90.0_dp))  + gama*step_2*180.0_dp
-
-    zz = self%fdmat%zi(3)
-
-    sin_pi = dsin(pi * zz)
-    sin_pi_hlf = dsin(pi_hlf * zz)
-    cos_pi_hlf = dcos(pi_hlf * zz)
-    sin_pi_hlf = sin_pi_hlf*sin_pi_hlf ! ^2
-    cos_pi_hlf = cos_pi_hlf*cos_pi_hlf !
-    cos_pi_hlf = cos_pi_hlf*cos_pi_hlf ! ^4
-    beta = (pi/sin_pi + pi_hlf*sin_pi/sin_pi_hlf)*step
-    sin_pi = sin_pi*sin_pi ! ^2
-
-   sin_pi_hlf = sin_pi_hlf*sin_pi_hlf ! ^4
-   sin_pi_hlf = sin_pi_hlf*sin_pi_hlf ! ^8
-   gama = -(a2c*sin_pi/sin_pi_hlf)
-   self%fdmat%d(3) = -pi_rm_4_3*cos_pi_hlf/sin_pi_hlf
-   self%fdmat%g(3) = -llp1_pi_2_rm_4/sin_pi*step_2*180.0_dp
-
-   self%fdmat%H1(7, 3) = (-490.0_dp)   + gama*step_2*180.0_dp
-   self%fdmat%H1(6, 4) = (270.0_dp)    + beta*(135.0_dp)
-   self%fdmat%H1(5, 5) = (-27.0_dp)    + beta*(-27.0_dp)
-   self%fdmat%H1(4, 6) = (2.0_dp)      + beta*3.0_dp
-   self%fdmat%H1(8, 2) = (270.0_dp)    + beta*(-135.0_dp)
-   self%fdmat%H1(9, 1) = (-27.0_dp)    + beta*(27.0_dp)
-
-   do ii=4, N-3
-      zz = self%fdmat%zi(ii)
-
-      sin_pi = dsin(pi * zz)
-      sin_pi_hlf = dsin(pi_hlf * zz)
-      cos_pi_hlf = dcos(pi_hlf * zz)
-      sin_pi_hlf = sin_pi_hlf*sin_pi_hlf ! ^2
-      cos_pi_hlf = cos_pi_hlf*cos_pi_hlf !
-      cos_pi_hlf = cos_pi_hlf*cos_pi_hlf ! ^4
-      beta = (pi/sin_pi + pi_hlf*sin_pi/sin_pi_hlf)*step
-      sin_pi = sin_pi*sin_pi ! ^2
-
-      sin_pi_hlf = sin_pi_hlf*sin_pi_hlf ! ^4
-      sin_pi_hlf = sin_pi_hlf*sin_pi_hlf ! ^8
-      gama = -(a2c*sin_pi/sin_pi_hlf)
-      self%fdmat%d(ii) = -pi_rm_4_3*cos_pi_hlf/sin_pi_hlf
-      self%fdmat%g(ii) = -llp1_pi_2_rm_4/sin_pi*step_2*180.0_dp
-
-      self%fdmat%H1(7,ii) = (-490.0_dp)    + gama*step_2*180.0_dp !H(ii,ii)
-      self%fdmat%H1(6, ii+1) = (270.0_dp)     + beta*(135.0_dp)!H(ii,ii+1)
-      self%fdmat%H1(5, ii+2) = (-27.0_dp)     + beta*(-27.0_dp)!H(ii,ii+2)
-      self%fdmat%H1(4, ii+3) = (2.0_dp)       + beta*(3.0_dp)!H(ii,ii+3)
-      self%fdmat%H1(8, ii-1) = (270.0_dp)     + beta*(-135.0_dp)!H(ii,ii-1)
-      self%fdmat%H1(9, ii-2) = (-27.0_dp)     + beta*(27.0_dp)!H(ii,ii-2)
-      self%fdmat%H1(10, ii-3) =  (2.0_dp)     + beta*(-3.0_dp)!H(ii,ii-3)
+     this%fdmat%H1(7, ii) = -490.0_dp + gama * step_2 * 180.0_dp
+     this%fdmat%H1(6, ii + 1) = 270.0_dp + beta * 135.0_dp
+     this%fdmat%H1(5, ii + 2) = -27.0_dp - beta * 27.0_dp
+     this%fdmat%H1(4, ii + 3) = 2.0_dp + beta * 3.0_dp
+     this%fdmat%H1(8, ii - 1) = 270.0_dp - beta * 135.0_dp
+     this%fdmat%H1(9, ii - 2) = -27.0_dp + beta * 27.0_dp
+     this%fdmat%H1(10, ii - 3) = 2.0_dp - beta * 3.0_dp
    end do
 
-   zz = self%fdmat%zi(N-2)
-   sin_pi = dsin(pi * zz)
-   sin_pi_hlf = dsin(pi_hlf * zz)
-   cos_pi_hlf = dcos(pi_hlf * zz)
-   sin_pi_hlf = sin_pi_hlf*sin_pi_hlf ! ^2
-   cos_pi_hlf = cos_pi_hlf*cos_pi_hlf !
-   cos_pi_hlf = cos_pi_hlf*cos_pi_hlf ! ^4
-   beta = (pi/sin_pi + pi_hlf*sin_pi/sin_pi_hlf)*step
-   sin_pi = sin_pi*sin_pi ! ^2
+   zz = this%fdmat%zi(nRadial - 2)
 
-   sin_pi_hlf = sin_pi_hlf*sin_pi_hlf ! ^4
-   sin_pi_hlf = sin_pi_hlf*sin_pi_hlf ! ^8
-   gama = -(a2c*sin_pi/sin_pi_hlf)
-   self%fdmat%d(N-2) = -pi_rm_4_3*cos_pi_hlf/sin_pi_hlf
-   self%fdmat%g(N-2) = -llp1_pi_2_rm_4/sin_pi*step_2*180.0_dp
+   sin_pi = sin(pi * zz)
+   sin_pi_hlf = sin(pi_hlf * zz)
+   cos_pi_hlf = cos(pi_hlf * zz)
+   sin_pi_hlf = sin_pi_hlf**2 ! ^2
+   cos_pi_hlf = cos_pi_hlf**4 ! ^4
+   beta = (pi / sin_pi + pi_hlf * sin_pi / sin_pi_hlf) * step
+   sin_pi = sin_pi**2 ! ^2
 
-   self%fdmat%H1(7, N-2) = (-490.0_dp)  + gama*step_2*180.0_dp ! H(N-2,N-2)
-   self%fdmat%H1(6, N-1) = (270.0_dp)   + beta*(135.0_dp)! H(N-2,N-1)
-   self%fdmat%H1(5, N) =  (-27.0_dp)    + beta*(-27.0_dp)! H(N-2, N)
-   self%fdmat%H1(8, N-3) =(270.0_dp)    + beta*(-135.0_dp)! H(N-2,N-3)
-   self%fdmat%H1(9, N-4) =(-27.0_dp)    + beta*(27.0_dp)! H(N-2,N-4)
-   self%fdmat%H1(10, N-5) =(2.0_dp)     + beta*(-3.0_dp)! H(N-2,N-5)
+   sin_pi_hlf = sin_pi_hlf**2 ! ^4
+   sin_pi_hlf = sin_pi_hlf**2 ! ^8
+   gama = -(a2c * sin_pi / sin_pi_hlf)
+   this%fdmat%d(nRadial - 2) = -pi_rm_4_3 * cos_pi_hlf / sin_pi_hlf
+   this%fdmat%g(nRadial - 2) = -llp1_pi_2_rm_4 / sin_pi * step_2 * 180.0_dp
 
-   zz = self%fdmat%zi(N-1)
-   sin_pi = dsin(pi * zz)
-   sin_pi_hlf = dsin(pi_hlf * zz)
-   cos_pi_hlf = dcos(pi_hlf * zz)
-   sin_pi_hlf = sin_pi_hlf*sin_pi_hlf ! ^2
-   cos_pi_hlf = cos_pi_hlf*cos_pi_hlf !
-   cos_pi_hlf = cos_pi_hlf*cos_pi_hlf ! ^4
-   beta = (pi/sin_pi + pi_hlf*sin_pi/sin_pi_hlf)*step
-   sin_pi = sin_pi*sin_pi ! ^2
+   this%fdmat%H1(7, nRadial - 2) = -490.0_dp + gama * step_2 * 180.0_dp
+   this%fdmat%H1(6, nRadial - 1) = 270.0_dp + beta * 135.0_dp
+   this%fdmat%H1(5, nRadial) = -27.0_dp - beta * 27.0_dp
+   this%fdmat%H1(8, nRadial - 3) = 270.0_dp - beta * 135.0_dp
+   this%fdmat%H1(9, nRadial - 4) = -27.0_dp + beta * 27.0_dp
+   this%fdmat%H1(10, nRadial - 5) = 2.0_dp - beta * 3.0_dp
 
-   sin_pi_hlf = sin_pi_hlf*sin_pi_hlf ! ^4
-   sin_pi_hlf = sin_pi_hlf*sin_pi_hlf ! ^8
-   gama = -(a2c*sin_pi/sin_pi_hlf)
-   self%fdmat%d(N-1) = -pi_rm_4_3*cos_pi_hlf/sin_pi_hlf
-   self%fdmat%g(N-1) = -llp1_pi_2_rm_4/sin_pi*step_2*180.0_dp
+   zz = this%fdmat%zi(nRadial - 1)
 
-   self%fdmat%H1(7,N-1) = (-450.0_dp)   + beta*(60.0_dp)!H(N-1,N-1)
-   self%fdmat%H1(6, N) =  (240.0_dp)    + gama*step_2*180.0_dp + beta*(90.0_dp)!H(N-1,N)
-   self%fdmat%H1(8, N-2) =(240.0_dp)    + beta*(-180.0_dp)! H(N-1,N-2)
-   self%fdmat%H1(9, N-3) =(-15.0_dp)    + beta*(45.0_dp)! H(N-1,N-3)
-   self%fdmat%H1(10, N-4) =             + beta*(-6.0_dp)! H(N-1,N-4)
+   sin_pi = sin(pi * zz)
+   sin_pi_hlf = sin(pi_hlf * zz)
+   cos_pi_hlf = cos(pi_hlf * zz)
+   sin_pi_hlf = sin_pi_hlf**2 ! ^2
+   cos_pi_hlf = cos_pi_hlf**4 ! ^4
+   beta = (pi / sin_pi + pi_hlf * sin_pi / sin_pi_hlf) * step
+   sin_pi = sin_pi**2 ! ^2
 
-   zz = self%fdmat%zi(N)
-   sin_pi = dsin(pi * zz)
-   sin_pi_hlf = dsin(pi_hlf * zz)
-   cos_pi_hlf = dcos(pi_hlf * zz)
-   sin_pi_hlf = sin_pi_hlf*sin_pi_hlf ! ^2
-   cos_pi_hlf = cos_pi_hlf*cos_pi_hlf !
-   cos_pi_hlf = cos_pi_hlf*cos_pi_hlf ! ^4
-   beta = (pi/sin_pi + pi_hlf*sin_pi/sin_pi_hlf)*step
-   sin_pi = sin_pi*sin_pi ! ^2
+   sin_pi_hlf = sin_pi_hlf**2 ! ^4
+   sin_pi_hlf = sin_pi_hlf**2 ! ^8
+   gama = -(a2c * sin_pi / sin_pi_hlf)
+   this%fdmat%d(nRadial - 1) = -pi_rm_4_3 * cos_pi_hlf / sin_pi_hlf
+   this%fdmat%g(nRadial - 1) = -llp1_pi_2_rm_4 / sin_pi * step_2 * 180.0_dp
 
-   sin_pi_hlf = sin_pi_hlf*sin_pi_hlf ! ^4
-   sin_pi_hlf = sin_pi_hlf*sin_pi_hlf ! ^8
+   this%fdmat%H1(7, nRadial - 1) = -450.0_dp + beta * 60.0_dp
+   this%fdmat%H1(6, nRadial) = 240.0_dp + gama * step_2 * 180.0_dp + beta * 90.0_dp
+   this%fdmat%H1(8, nRadial - 2) = 240.0_dp - beta * 180.0_dp
+   this%fdmat%H1(9, nRadial - 3) = -15.0_dp + beta * 45.0_dp
+   this%fdmat%H1(10, nRadial - 4) = -beta * 6.0_dp
 
-   gama = -(a2c*sin_pi/sin_pi_hlf)
-   self%fdmat%d(N) = -pi_rm_4_3*cos_pi_hlf/sin_pi_hlf
-   self%fdmat%g(N) = -llp1_pi_2_rm_4/sin_pi*step_2*180.0_dp
+   zz = this%fdmat%zi(nRadial)
 
-   self%fdmat%H1(7,N) =   (-300.0_dp)    + gama*step_2*180.0_dp + beta*150.0_dp!H(N,N)
-   self%fdmat%H1(8, N-1) =(90.0_dp)      + beta*(-270.0_dp)!H(N,N-1)
-   self%fdmat%H1(9, N-2) =(60.0_dp)      + beta*(90.0_dp)!H(N,N-2)
-   self%fdmat%H1(10, N-3) = (-15.0_dp)   + beta*(-15.0_dp)!H(N,N-3)
+   sin_pi = sin(pi * zz)
+   sin_pi_hlf = sin(pi_hlf * zz)
+   cos_pi_hlf = cos(pi_hlf * zz)
+   sin_pi_hlf = sin_pi_hlf**2 ! ^2
+   cos_pi_hlf = cos_pi_hlf**4 ! ^4
+   beta = (pi / sin_pi + pi_hlf * sin_pi / sin_pi_hlf) * step
+   sin_pi = sin_pi**2 ! ^2
 
-   if (self%verbosity > 0) then
-     write(*,'(a)') "OK"
-   end if
+   sin_pi_hlf = sin_pi_hlf**2 ! ^4
+   sin_pi_hlf = sin_pi_hlf**2 ! ^8
 
-  end subroutine integrator_precomp_fdmat
+   gama = -(a2c * sin_pi / sin_pi_hlf)
+   this%fdmat%d(nRadial) = -pi_rm_4_3 * cos_pi_hlf / sin_pi_hlf
+   this%fdmat%g(nRadial) = -llp1_pi_2_rm_4 / sin_pi * step_2 * 180.0_dp
+
+   this%fdmat%H1(7, nRadial) = -300.0_dp + gama * step_2 * 180.0_dp + beta * 150.0_dp
+   this%fdmat%H1(8, nRadial - 1) = 90.0_dp - beta * 270.0_dp
+   this%fdmat%H1(9, nRadial - 2) = 60.0_dp + beta * 90.0_dp
+   this%fdmat%H1(10, nRadial - 3) = -15.0_dp - beta * 15.0_dp
+
+  end subroutine TBeckeIntegrator_precompFdMatrix
 
 
   !>
-  subroutine integrator_build_fdmat(self,ll)
-    type(becke_integrator), intent(inout) :: self
+  subroutine TBeckeIntegrator_buildFdMatrix(this, ll)
+
+    !> Becke integrator instance
+    type(TBeckeIntegrator), intent(inout) :: this
+
+    !> angular momentum
     integer, intent(in) :: ll
 
-    integer :: ii,N
+    !! number of radial points
+    integer :: nRadial
+
+    !! iterates over radial points
+    integer :: ii
+
+    !! stores: ll * (ll + 1)
     real(dp) :: lll
 
-    self%fdmat%H2=self%fdmat%H1
-    lll=real(ll*(ll+1),dp)
-    N = self%grid_params%N_radial
-    self%fdmat%H2(7,1) = self%fdmat%H2(7,1) + self%fdmat%g(1)*lll
-    self%fdmat%H2(8,1) = self%fdmat%H2(8,1) + self%fdmat%g(2)*lll
-    self%fdmat%H2(7,3) = self%fdmat%H2(7,3) +  self%fdmat%g(3)*lll
-    do ii=4, N-3
-       self%fdmat%H2(7,ii) = self%fdmat%H2(7,ii) + self%fdmat%g(ii)*lll
+    this%fdmat%H2 = this%fdmat%H1
+    lll = real(ll * (ll + 1), dp)
+    nRadial = this%beckeGridParams%nRadial
+
+    this%fdmat%H2(7, 1) = this%fdmat%H2(7, 1) + this%fdmat%g(1) * lll
+    this%fdmat%H2(8, 1) = this%fdmat%H2(8, 1) + this%fdmat%g(2) * lll
+    this%fdmat%H2(7, 3) = this%fdmat%H2(7, 3) +  this%fdmat%g(3) * lll
+    do ii = 4, nRadial - 3
+       this%fdmat%H2(7, ii) = this%fdmat%H2(7, ii) + this%fdmat%g(ii) * lll
     end do
-    self%fdmat%H2(7,N-2) = self%fdmat%H2(7,N-2) + self%fdmat%g(N-2)*lll
-    self%fdmat%H2(6,N) = self%fdmat%H2(6,N) + self%fdmat%g(N-1)*lll
-    self%fdmat%H2(7,N) = self%fdmat%H2(7,N) + self%fdmat%g(N)*lll
+    this%fdmat%H2(7, nRadial - 2) = this%fdmat%H2(7, nRadial - 2) + this%fdmat%g(nRadial - 2) * lll
+    this%fdmat%H2(6, nRadial) = this%fdmat%H2(6, nRadial) + this%fdmat%g(nRadial - 1) * lll
+    this%fdmat%H2(7, nRadial) = this%fdmat%H2(7, nRadial) + this%fdmat%g(nRadial) * lll
 
-  end subroutine integrator_build_fdmat
+  end subroutine TBeckeIntegrator_buildFdMatrix
 
 
-  ! solves the modified Helmholz equation for
-  ! angular momentum ll and density rho_lm
-  ! using LU decomposed finite differences matrix fdmat
-  subroutine integrator_solve_helmholz(self,ll,rho_lm)
-    type(becke_integrator), intent(inout) :: self
+  !> Solves the modified Helmholz equation for angular momentum ll and density rho_lm,
+  !! using LU decomposed finite differences matrix fdmat.
+  subroutine TBeckeIntegrator_solveHelmholz(this, ll, rho_lm)
+
+    !> Becke integrator instance
+    type(TBeckeIntegrator), intent(inout) :: this
+
+    !> angular momentum
     integer, intent(in) :: ll
-    real(dp), allocatable, intent(inout) :: rho_lm(:)
 
-    integer :: N,info
+    !> lm-resolved density
+    real(dp), intent(inout) :: rho_lm(:)
 
-    N=self%grid_params%N_radial
-    rho_lm = rho_lm*self%fdmat%d
-    info=0
-    call DGBTRS( 'No transpose', N, 3, 3, 1, self%fdmat%H3(:,:,ll+1), 10, self&
-        &%fdmat%ipiv2(:,ll+1), rho_lm, N, info)
+    !! number of radial points
+    integer :: nRadial
 
-  end subroutine integrator_solve_helmholz
+    !! error status
+    integer :: info
+
+    info = 0
+
+    nRadial = this%beckeGridParams%nRadial
+    rho_lm(:) = rho_lm * this%fdmat%d
+
+    call DGBTRS('No transpose', nRadial, 3, 3, 1, this%fdmat%H3(:,:, ll + 1), 10,&
+        & this%fdmat%ipiv2(:, ll + 1), rho_lm, nRadial, info)
+
+  end subroutine TBeckeIntegrator_solveHelmholz
 
 
-  ! solves the modified Helmholz equation for
-  ! angular momentum ll and density rho_lm
-  ! using LU decomposed finite differences matrix fdmat
-  subroutine integrator_solve_poisson(self,ll,rho_lm)
-    type(becke_integrator), intent(inout) :: self
+  !> Solves the Poisson equation for angular momentum ll and density rho_lm,
+  !! using LU decomposed finite differences matrix fdmat.
+  subroutine TBeckeIntegrator_solvePoisson(this, ll, rho_lm)
+
+    !> Becke integrator instance
+    type(TBeckeIntegrator), intent(inout) :: this
+
+    !> angular momentum
     integer, intent(in) :: ll
-    real(dp), allocatable, intent(inout) :: rho_lm(:)
 
-    integer :: N,info
+    !> lm-resolved density
+    real(dp), intent(inout) :: rho_lm(:)
 
-    N=self%grid_params%N_radial
-    rho_lm = rho_lm*self%fdmat%d
-    info=0
-    call DGBTRS( 'No transpose', N, 3, 3, 1, self%fdmat%H4(:,:,ll+1), 10, self&
-        &%fdmat%ipiv4(:,ll+1), rho_lm, N, info)
-  end subroutine integrator_solve_poisson
+    !! number of radial points
+    integer :: nRadial
+
+    !! error status
+    integer :: info
+
+    info = 0
+
+    nRadial = this%beckeGridParams%nRadial
+    rho_lm(:) = rho_lm * this%fdmat%d
+
+    call DGBTRS('No transpose', nRadial, 3, 3, 1, this%fdmat%H4(:,:, ll + 1), 10,&
+        & this%fdmat%ipiv4(:, ll + 1), rho_lm, nRadial, info)
+
+  end subroutine TBeckeIntegrator_solvePoisson
 
 
   !> Initializes the integration module.
-  subroutine integrator_init(self, grid_params)
-    type(becke_integrator), intent(inout) :: self
-    type(becke_grid_params), intent(in) :: grid_params
+  subroutine TBeckeIntegrator_init(this, beckeGridParams)
 
-    if (self%verbosity > 0) then
-       write(*, '(a)') "=================================================="
-       write(*, '(a)') "Initializing the integrator module"
-       write(*, '(a, 3I4)') "Becke quadrature parameters: ", &
-           &grid_params%N_radial, grid_params%N_angular, grid_params%ll_max
-    end if
+    !> Becke integrator instance
+    type(TBeckeIntegrator), intent(inout) :: this
 
-    self%grid_params=grid_params
-    self%kernel_parameter = 0.0_dp
-    self%rm=grid_params%rm
-    self%verbosity = 0
+    !> Becke grid parameters
+    type(TBeckeGridParams), intent(in) :: beckeGridParams
 
-    if(self%verbosity > 0) then
-       write(*,'(2(a,F12.7))') "rm=", self%rm, " kappa=", self%kernel_parameter
-    end if
+    this%beckeGridParams = beckeGridParams
+    this%kernelParameter = 0.0_dp
+    this%rm = beckeGridParams%rm
 
-    if(self%verbosity > 0) then
-       write(*, '(a)',advance="no") "generating quadrature..."
-    end if
-    call gauss_chebyshev_quadrature(grid_params%N_radial, self%radial_quadrature)
-    call lebedev_laikov_quadrature(grid_params%N_angular, self&
-        &%angular_quadrature)
-    if(self%verbosity > 0) then
-       write(*,'(a)') "done."
-       write(*, '(a)') "generating grids..."
-    end if
-    allocate(self%integration_grid(3)) ! allocate two grids
-    call becke_grid_init(self%integration_grid(1), 1, &
-        &self%radial_quadrature, self%angular_quadrature, 0.5_dp,self%rm)
-    call becke_grid_init(self%integration_grid(2), 2, &
-        &self%radial_quadrature, self%angular_quadrature, 0.5_dp,self%rm)
-    call becke_grid_init(self%integration_grid(3), 11, &
-        &self%radial_quadrature, self%angular_quadrature, 0.5_dp,self%rm)
-    if(self%verbosity > 0) then
-       write(*,'(a)') "done."
-    end if
+    call gauss_chebyshev_quadrature(beckeGridParams%nRadial, this%radialQuadrature)
+    call lebedev_laikov_quadrature(beckeGridParams%nAngular, this%angularQuadrature)
 
-    call initGaunt(grid_params%ll_max)
+    allocate(this%beckeGrid(3))
+    call TBeckeGrid_init(this%beckeGrid(1), 1, this%radialQuadrature, this%angularQuadrature,&
+        & 0.5_dp, this%rm)
+    call TBeckeGrid_init(this%beckeGrid(2), 2, this%radialQuadrature, this%angularQuadrature,&
+        & 0.5_dp, this%rm)
+    call TBeckeGrid_init(this%beckeGrid(3), 11, this%radialQuadrature, this%angularQuadrature,&
+        & 0.5_dp, this%rm)
 
-    ! allocate the fd_mat
-    allocate(self%fdmat%g(grid_params%N_radial))
-    allocate(self%fdmat%d(grid_params%N_radial))
-    allocate(self%fdmat%b(grid_params%N_radial))
-    allocate(self%fdmat%ipiv(grid_params%N_radial))
-    allocate(self%fdmat%ipiv2(grid_params%N_radial,grid_params%ll_max))
-    allocate(self%fdmat%ipiv4(grid_params%N_radial,grid_params%ll_max))
-    allocate(self%fdmat%zi(grid_params%N_radial))
-    allocate(self%fdmat%H1(10,grid_params%N_radial))
-    allocate(self%fdmat%H2(10,grid_params%N_radial))
-    allocate(self%fdmat%H3(10,grid_params%N_radial,grid_params%ll_max))
-    allocate(self%fdmat%H4(10,grid_params%N_radial,grid_params%ll_max))
+    call initGaunt(beckeGridParams%ll_max)
 
-    if (self%verbosity > 0) then
-      write(*,'(a)') "integrator init done."
-    end if
+    ! allocate the finite differences matrix
+    allocate(this%fdmat%g(beckeGridParams%nRadial))
+    allocate(this%fdmat%d(beckeGridParams%nRadial))
+    allocate(this%fdmat%b(beckeGridParams%nRadial))
+    allocate(this%fdmat%zi(beckeGridParams%nRadial))
+    allocate(this%fdmat%ipiv2(beckeGridParams%nRadial, beckeGridParams%ll_max))
+    allocate(this%fdmat%ipiv4(beckeGridParams%nRadial, beckeGridParams%ll_max))
+    allocate(this%fdmat%H1(10, beckeGridParams%nRadial))
+    allocate(this%fdmat%H2(10, beckeGridParams%nRadial))
+    allocate(this%fdmat%H3(10, beckeGridParams%nRadial, beckeGridParams%ll_max))
+    allocate(this%fdmat%H4(10, beckeGridParams%nRadial, beckeGridParams%ll_max))
 
-  end subroutine integrator_init
+  end subroutine TBeckeIntegrator_init
 
 
   !> Precomputes the LU decompositions.
-  subroutine integrator_build_LU(self)
-    type(becke_integrator), intent(inout) :: self
+  subroutine TBeckeIntegrator_buildLU(this)
 
-    integer :: N,ll,info
+    !> Becke integrator instance
+    type(TBeckeIntegrator), intent(inout) :: this
 
-    N = self%grid_params%N_radial
+    !! number of radial points
+    integer :: nRadial
 
-    do ll=1, self%grid_params%ll_max
-       call integrator_build_fdmat(self,ll-1)
-       self%fdmat%H3(:,:,ll) = self%fdmat%H2(:,:)
-       call DGBTRF( N, N, 3, 3, self%fdmat%H3(:,:,ll), 10, self%fdmat%ipiv2(:,ll), info )
-       if (info /= 0) write(*,'(a)') "ERROR: in LU decomposition!!!"
+    !! angular momentum
+    integer :: ll
+
+    !! error status
+    integer :: info
+
+    nRadial = this%beckeGridParams%nRadial
+
+    do ll = 1, this%beckeGridParams%ll_max
+       call TBeckeIntegrator_buildFdMatrix(this, ll - 1)
+       this%fdmat%H3(:,:, ll) = this%fdmat%H2
+       call DGBTRF(nRadial, nRadial, 3, 3, this%fdmat%H3(:,:, ll), 10, this%fdmat%ipiv2(:, ll),&
+           & info)
+       if (info /= 0) write(*, '(A)') "ERROR: LU decomposition failed!"
     end do
 
-  end subroutine integrator_build_LU
+  end subroutine TBeckeIntegrator_buildLU
 
 
-  !> grid_no(grid_nr, subgrid_nr, coordinate_nr)
+  !> Returns pointer to selected grid coordinates.
+  !! grid_no(grid_nr, subgrid_nr, coordinate_nr)
   !! grid_nr: 1 for 1_3 grid
   !!          2 for 2_3 grid
   !! subgrid_nr: 1 for 1_3
@@ -483,246 +496,298 @@ contains
   !! coordiante_nr: 1 for rr
   !!                2 for theta
   !!                3 for phi
-  subroutine integrator_get_coords(self, grid_no, coords)
-    type(becke_integrator), target, intent(in) :: self
+  subroutine TBeckeIntegrator_getCoords(this, grid_no, pCoords)
+
+    !> Becke integrator instance
+    type(TBeckeIntegrator), intent(in), target :: this
+
+    !> selection indices, i.e. [grid_nr, subgrid_nr, coordinate_nr]
     integer, intent(in) :: grid_no(3)
-    real(dp), pointer, intent(out) :: coords(:)
-    ! build in the error checking
-    coords => self%integration_grid(grid_no(1))%subgrid(grid_no(2))%data(:,grid_no(3))
-  end subroutine integrator_get_coords
+
+    !> pointer to coordinates
+    real(dp), intent(out), pointer :: pCoords(:)
+
+    pCoords => this%beckeGrid(grid_no(1))%subgrid(grid_no(2))%data(:, grid_no(3))
+
+  end subroutine TBeckeIntegrator_getCoords
 
 
-  !>
-  subroutine integrator_set_kernel_param(self, kappa)
-    type(becke_integrator), intent(inout) :: self
-    real(dp), intent(in) :: kappa
-    self%kernel_parameter = kappa
-  end subroutine integrator_set_kernel_param
+  !> Sets the screening parameter in the integration kernel.
+  subroutine TBeckeIntegrator_setKernelParam(this, omega)
+
+    !> Becke integrator instance
+    type(TBeckeIntegrator), intent(inout) :: this
+
+    !> screening parameter
+    real(dp), intent(in) :: omega
+
+    this%kernelParameter = omega
+
+  end subroutine TBeckeIntegrator_setKernelParam
 
 
-  !>
-  subroutine becke_grid_init(self, n_subgrids, radquad, angquad, dist, rm)
-    type(becke_grid), intent(inout) :: self
-    integer, intent(in) :: n_subgrids
+  !> Initializes a Becke grid instance with a given number of subgrids.
+  subroutine TBeckeGrid_init(this, nSubgrids, radquad, angquad, dist, rm)
+
+    !> Becke grid instance
+    type(TBeckeGrid), intent(inout) :: this
+
+    !> number of subgrids in instance
+    integer, intent(in) :: nSubgrids
+
+    !> abscissas and weight instances for radial quadrature
     type(TQuadrature), intent(in) :: radquad
+
+    !> abscissas and weight instances for angular quadrature
     type(TQuadrature2D), intent(in) :: angquad
+
+    !> distance between centers
     real(dp), intent(in) :: dist
+
+    !> midpoint of the integration interval
     real(dp), intent(in) :: rm
 
+    !! arbitrary dummy real array, unused for homonuclear Becke partitioning
     real(dp) :: beckepars(1)
 
-    if(n_subgrids==11) then
-       self%type = 11
-       allocate( self%subgrid(1)) ! becke_grid contains only one subgrid
-       call gengrid1_1(radQuad, rm, coordtrans_radial_becke2, self%subgrid(1)%data, self%weight)
+    ! TBeckeGrid contains only one subgrid
+    if (nSubgrids == 11) then
+      allocate(this%subgrid(1))
+      call gengrid1_1(radQuad, rm, coordtrans_radial_becke2, this%subgrid(1)%data, this%weight)
+    ! TBeckeGrid contains only one subgrid
+    elseif (nSubgrids == 1) then
+      allocate(this%subgrid(1))
+      call gengrid1_3(angquad, radquad, coordtrans_radial_becke1, this%subgrid(1)%data, this%weight)
+    ! TBeckeGrid contains two subgrids
+    elseif (nSubgrids == 2) then
+      allocate(this%subgrid(2))
+      call gengrid2_3(angquad, radquad, coordtrans_radial_becke1, partition_becke_homo, beckepars,&
+          & dist, this%subgrid(1)%data, this%subgrid(2)%data, this%weight, this%partition)
     end if
 
-    if(n_subgrids==1) then
-       self%type = 1
-       allocate( self%subgrid(1)) ! becke_grid contains only one subgrid
-       call gengrid1_3(angquad, radquad,&
-           & coordtrans_radial_becke1, self%subgrid(1)%data, self%weight)
-    end if
-    if(n_subgrids==2) then
-       self%type = 2
-       allocate( self%subgrid(2)) ! becke_grid contains two subgrids
-       call gengrid2_3(angquad, radquad, &
-           &  coordtrans_radial_becke1, partition_becke_homo,beckepars,&
-           & dist, self%subgrid(1)%data, self%subgrid(2)%data, &
-           & self%weight, self%part)
-     end if
-
-  end subroutine becke_grid_init
+  end subroutine TBeckeGrid_init
 
 
-  !>
-  subroutine becke_grid_kill(self)
-    type(becke_grid), intent(inout) :: self
+  !> Kills a Becke grid instance by deallocating arrays.
+  subroutine TBeckeGrid_kill(this)
 
+    !> Becke grid instance
+    type(TBeckeGrid), intent(inout) :: this
+
+    !! iterates over all subgrids
     integer :: ii
 
-    do ii=1, size(self%subgrid)
-       deallocate(self%subgrid(ii)%data)
+    do ii = 1, size(this%subgrid)
+      deallocate(this%subgrid(ii)%data)
     end do
-    deallocate(self%subgrid)
-    deallocate(self%weight)
 
-  end subroutine becke_grid_kill
+    deallocate(this%subgrid)
+    deallocate(this%weight)
+
+  end subroutine TBeckeGrid_kill
 
 
   !> Solves the poisson equation.
-  !! \param ll: angular momentum
-  !! \param rho: lm-component of density
-  !! \param u: solution
-  !! \param charge: integral over density (boundary condition)
-  subroutine solve_poisson(ll, rho, zi, charge)
+  subroutine solvePoisson(ll, rho, zi, charge)
+
+    !> angular momentum
     integer, intent(in) :: ll
-    real(dp), allocatable, intent(inout) :: rho(:)
-    real(dp), allocatable, intent(in) :: zi(:)
+
+    !> lm-component of density (contains solution at exit)
+    real(dp), intent(inout), allocatable :: rho(:)
+
+    !>
+    real(dp), intent(in), allocatable :: zi(:)
+
+    !> integral over density (boundary condition)
     real(dp), intent(in) :: charge
 
-    integer :: ii, info
+    !! iterates over grid points
+    integer :: ii
+
+    !! error status
+    integer :: info
+
+    !! pivot indices: for 1 <= i <= N, row i of the matrix was interchanged with row ipiv(i)
     integer, allocatable :: ipiv(:)
-    integer :: N
-    real(dp), allocatable :: alpha(:), beta(:), gama(:), delta(:)!,
+
+    !! number of tabulated density grid points
+    integer :: nGridPts
+
+    !!
+    real(dp), allocatable :: alpha(:), beta(:), gama(:), delta(:)
     real(dp), allocatable :: H2(:,:), B(:)
-    real(dp), allocatable :: solution(:), work(:), dummy(:)
+    real(dp), allocatable :: solution(:), work(:)
     real, allocatable :: swork(:)
     real(dp) :: f0, f1, tmp1
-    real(dp), parameter :: rm = 1.0_dp
     real(dp) :: pi_rm_4_3, llp1_pi_2_rm_4, sin_pi, sin_pi_hlf, cos_pi_hlf
 
-    ! number of grid points
-    N=size(rho)
+    !! midpoint of the integration interval
+    real(dp), parameter :: rm = 1.0_dp
+
+    nGridPts = size(rho)
+
+    !********************************
+    ! matrix/vector allocation
+    !********************************
+    allocate(alpha(nGridPts))
+    allocate(beta(nGridPts))
+    allocate(gama(nGridPts))
+    allocate(delta(nGridPts))
+    allocate(B(nGridPts))
+    allocate(ipiv(nGridPts))
+    allocate(work(nGridPts))
+    allocate(solution(nGridPts))
+    allocate(swork(nGridPts * (nGridPts + 1)))
+    allocate(H2(10, nGridPts))
+    B(:) = 0.0_dp
+    H2(:,:) = 0.0_dp
 
     !***********************************
     ! boundary conditions
     !***********************************
     if (ll == 0) then
-       f0 = charge*sqrt(4.0_dp*pi) ! r->oo
+      ! r --> oo
+      f0 = charge * sqrt(4.0_dp * pi)
     else
-       f0 = 0.0_dp ! r->oo
+      ! r --> oo
+      f0 = 0.0_dp
     end if
-    f1 = 0.0_dp ! r->0
+    ! r --> 0
+    f1 = 0.0_dp
 
-    !********************************
-    ! matrix/vector allocation
-    !********************************
-    allocate(alpha(N))
-    allocate(beta(N))
-    allocate(gama(N))
-    allocate(delta(N))
-    allocate(B(N))
-    allocate(ipiv(N))
-    allocate(work(N))
-    allocate(solution(N))
-    allocate(swork(N*(N+1)))
-    allocate(dummy(N))
-    allocate(H2(10,N))
-    H2 = 0.0_dp
+    pi_rm_4_3 = pi**3 * rm**3 * 4.0_dp
+    llp1_pi_2_rm_4 = 4.0_dp * pi**2 * rm * real(ll * (ll + 1), dp)
 
-    pi_rm_4_3 = pi*pi*pi*rm*rm*rm*4.0_dp
-    llp1_pi_2_rm_4 = 4.0_dp*pi*pi*rm*real(ll*(ll+1), dp)
-    do ii=1, N
+    do ii = 1, nGridPts
+      sin_pi = sin(pi * zi(ii))
+      sin_pi_hlf = sin(pi_hlf * zi(ii))
+      cos_pi_hlf = cos(pi_hlf * zi(ii))
 
-       sin_pi = sin(pi * zi(ii))
-       sin_pi_hlf = sin(pi_hlf * zi(ii))
-       cos_pi_hlf = cos(pi_hlf * zi(ii))
+      sin_pi_hlf = sin_pi_hlf**2 ! ^2
+      cos_pi_hlf = cos_pi_hlf**4 ! ^4
 
-       sin_pi_hlf = sin_pi_hlf*sin_pi_hlf ! ^2
-       cos_pi_hlf = cos_pi_hlf*cos_pi_hlf !
-       cos_pi_hlf = cos_pi_hlf*cos_pi_hlf ! ^4
+      alpha(ii) = 1.0_dp
+      beta(ii) = (pi / sin_pi + pi_hlf * sin_pi / sin_pi_hlf)
 
-       alpha(ii) = 1.0_dp
-       beta(ii) = (pi/sin_pi + pi_hlf*sin_pi/sin_pi_hlf)
+      sin_pi = sin_pi**2 ! ^2
+      gama(ii) = -llp1_pi_2_rm_4 / sin_pi
 
-       sin_pi = sin_pi*sin_pi ! ^2
-       gama(ii) = -llp1_pi_2_rm_4/sin_pi
-
-       sin_pi_hlf = sin_pi_hlf*sin_pi_hlf ! ^4
-       sin_pi_hlf = sin_pi_hlf*sin_pi_hlf ! ^8
-       delta(ii) = -pi_rm_4_3*rho(ii)*cos_pi_hlf/sin_pi_hlf
-
+      sin_pi_hlf = sin_pi_hlf**4 ! ^8
+      delta(ii) = -pi_rm_4_3 * rho(ii) * cos_pi_hlf / sin_pi_hlf
     end do
 
-    B = 0.0_dp
-    call P_BFDM7P(H2, B, N, ll, zi, rm, charge)
+    call makePoissonFDMatrix7P(H2, B, nGridPts, ll, zi, rm, charge)
 
-    tmp1 = 1.0_dp/real(N+1, dp)
-    tmp1 = tmp1*tmp1*180.0_dp
-    B = B + tmp1*delta
+    tmp1 = (1.0_dp / real(nGridPts + 1, dp))**2 * 180.0_dp
+    B(:) = B + tmp1 * delta
 
     !***********************************************************
     ! solve the band diagonal matrix
     !***********************************************************
-    call DGBSV(N, 3, 3, 1, H2, 10, ipiv, B, N, info)
+    call DGBSV(nGridPts, 3, 3, 1, H2, 10, ipiv, B, nGridPts, info)
 
-    do ii=1, N
-       rho(ii) =  B(ii) ! delta(ii)
-    end do
+    rho(:) = B
 
-  end subroutine solve_poisson
+  end subroutine solvePoisson
 
 
-  !>
-  subroutine solve_helmholz(ll, rho, zi, kappa)
+  !> Solves the Helmholz equation.
+  subroutine solveHelmholz(ll, rho, zi, omega)
+
+    !> angular momentum
     integer, intent(in) :: ll
-    real(dp), allocatable, intent(inout) :: rho(:)
-    real(dp), allocatable, intent(in) :: zi(:)
-    real(dp), intent(in) :: kappa
+
+    !>
+    real(dp), intent(inout) :: rho(:)
+
+    !>
+    real(dp), intent(in) :: zi(:)
+
+    !> screening parameter
+    real(dp), intent(in) :: omega
 
     integer :: ii, info, iter
+
+    !! pivot indices: for 1 <= i <= N, row i of the matrix was interchanged with row ipiv(i)
     integer, allocatable :: ipiv(:)
-    integer :: N
-    real(dp), allocatable :: H(:,:), alpha(:), beta(:), gama(:), delta(:)!, zi(:), ri(:)
-    real(dp), allocatable :: solution(:), work(:), dummy(:)
+
+    !! number of tabulated density grid points
+    integer :: nGridPts
+
+    !!
+    real(dp), allocatable :: H(:,:), alpha(:), beta(:), gama(:), delta(:)
+
+    !!
+    real(dp), allocatable :: solution(:), work(:)
+
+    !!
     real, allocatable :: swork(:)
+
+    !! boundary conditions
     real(dp) :: f0, f1
+
+    !! midpoint of the integration interval
     real(dp), parameter :: rm = 1.0_dp
+
+    !! auxiliary variables
     real(dp) :: pi_rm_4_3, llp1_pi_2_rm_4, sin_pi, sin_pi_hlf, cos_pi_hlf, a2c
 
-    ! number of grid points
-    N=size(rho)
+    nGridPts = size(rho)
 
     !********************************
     ! boundary conditions
     !********************************
-    f1 = 0.0_dp
     f0 = 0.0_dp
+    f1 = 0.0_dp
 
     !********************************
     ! matrix/vector allocation
     !********************************
-    allocate(H(N,N))
-    allocate(alpha(N))
-    allocate(beta(N))
-    allocate(gama(N))
-    allocate(delta(N))
-    allocate(ipiv(N))
-    allocate(work(N))
-    allocate(solution(N))
-    allocate(swork(N*(N+1)))
-    allocate(dummy(N))
-    H = 0.0_dp
+    allocate(alpha(nGridPts))
+    allocate(beta(nGridPts))
+    allocate(gama(nGridPts))
+    allocate(delta(nGridPts))
+    allocate(ipiv(nGridPts))
+    allocate(work(nGridPts))
+    allocate(solution(nGridPts))
+    allocate(swork(nGridPts * (nGridPts + 1)))
 
     !****************************************
     ! set up the equation:
     !****************************************
-    pi_rm_4_3 = pi*pi*pi*rm*rm*rm*4.0_dp
-    llp1_pi_2_rm_4 = 4.0_dp*pi*pi*rm*real(ll*(ll+1), dp)
-    a2c = kappa*kappa*rm*rm*pi*pi*0.25_dp
-    do ii=1, N
-       sin_pi = sin(pi * zi(ii))
-       sin_pi_hlf = sin(pi_hlf * zi(ii))
-       cos_pi_hlf = cos(pi_hlf * zi(ii))
-       sin_pi_hlf = sin_pi_hlf*sin_pi_hlf ! ^2
-       cos_pi_hlf = cos_pi_hlf*cos_pi_hlf !
-       cos_pi_hlf = cos_pi_hlf*cos_pi_hlf ! ^4
-       alpha(ii) = 1.0_dp
-       beta(ii) = (pi/sin_pi + pi_hlf*sin_pi/sin_pi_hlf)
-       sin_pi = sin_pi*sin_pi ! ^2
-       sin_pi_hlf = sin_pi_hlf*sin_pi_hlf ! ^4
-       sin_pi_hlf = sin_pi_hlf*sin_pi_hlf ! ^8
-       gama(ii) = -(llp1_pi_2_rm_4/sin_pi + a2c*sin_pi/sin_pi_hlf)
-       delta(ii) = -pi_rm_4_3*rho(ii)*cos_pi_hlf/sin_pi_hlf
+    pi_rm_4_3 = pi**3 * rm**3 * 4.0_dp
+    llp1_pi_2_rm_4 = 4.0_dp * pi**2 * rm * real(ll * (ll + 1), dp)
+    a2c = omega**2 * rm**2 * pi**2 * 0.25_dp
+    do ii = 1, nGridPts
+      sin_pi = sin(pi * zi(ii))
+      sin_pi_hlf = sin(pi_hlf * zi(ii))
+      cos_pi_hlf = cos(pi_hlf * zi(ii))
+      sin_pi_hlf = sin_pi_hlf**2 ! ^2
+      cos_pi_hlf = cos_pi_hlf**4 ! ^4
+      alpha(ii) = 1.0_dp
+      beta(ii) = (pi / sin_pi + pi_hlf * sin_pi / sin_pi_hlf)
+      sin_pi = sin_pi**2 ! ^2
+      sin_pi_hlf = sin_pi_hlf**4 ! ^8
+      gama(ii) = -(llp1_pi_2_rm_4 / sin_pi + a2c * sin_pi / sin_pi_hlf)
+      delta(ii) = -pi_rm_4_3 * rho(ii) * cos_pi_hlf / sin_pi_hlf
     end do
 
     !******************************
     ! generate the FD Matrix
     !******************************
     ! 7-point FD scheme, ref: Bickley
-    call makeFDMatrix7P(H, delta, N, alpha, beta, gama, dummy, f0, f1)
+    call makeHelmholzFDMatrix7P(H, delta, alpha, beta, gama, f0, f1)
 
     !******************************
     ! call LAPACK (d)sgesv routine
     ! to solve the linear eqn Hx=b
     !******************************
-    call DSGESV(N, 1, H, N, ipiv, delta, N, solution, N, work, swork, iter, info)
+    call DSGESV(nGridPts, 1, H, nGridPts, ipiv, delta, nGridPts, solution, nGridPts, work, swork,&
+        & iter, info)
 
-    do ii = 1, N
-      rho(ii) = solution(ii)
-    end do
+    rho(:) = solution
 
-  end subroutine solve_helmholz
+  end subroutine solveHelmholz
 
 end module common_poisson
