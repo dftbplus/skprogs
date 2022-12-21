@@ -202,10 +202,7 @@ contains
       xcinfo = xc_f03_func_get_info(xcfunc_xc)
     elseif (xcnr == xcFunctional%CAMY_B3LYP) then
       call xc_f03_func_init(xcfunc_xc, XC_HYB_GGA_XC_CAMY_B3LYP, XC_POLARIZED)
-      call xc_f03_func_set_ext_params_name(xcfunc_xc, '_ac', 0.81_dp)
-      call xc_f03_func_set_ext_params_name(xcfunc_xc, '_alpha', camAlpha + camBeta)
-      call xc_f03_func_set_ext_params_name(xcfunc_xc, '_beta', -camBeta)
-      call xc_f03_func_set_ext_params_name(xcfunc_xc, '_omega', omega)
+      call xc_f03_func_set_ext_params(xcfunc_xc, [0.81_dp, camAlpha + camBeta, -camBeta, omega])
       xcinfo = xc_f03_func_get_info(xcfunc_xc)
     elseif (xcnr == xcFunctional%CAMY_PBEh) then
       ! short-range xpbe96
