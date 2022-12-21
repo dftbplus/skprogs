@@ -29,8 +29,7 @@ Prerequisites
 
 * LAPACK/BLAS libraries (or compatible equivalents)
 
-* libXC library with f03 interface (tested with version >= 5.1.7, version 4.x
-  does not work due to interface changes in libXC)
+* libXC library with f03 interface (version >=6.0.0)
 
 
 Building the code
@@ -138,5 +137,5 @@ version 3 of the License, or (at your option) any later version. See the files
 licensing conditions.
 
 
-.. |build status| image:: https://img.shields.io/github/workflow/status/dftbplus/skprogs/Build%20and%20Test
+.. |build status| image:: https://img.shields.io/github/workflow/status/dftbplus/skprogs/CI
     :target: https://github.com/dftbplus/skprogs/actions/
