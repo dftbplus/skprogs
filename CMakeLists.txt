@@ -28,12 +28,12 @@ endif()
 
 #################### External dependencies ####################
 
-find_package(Libxc QUIET)
+find_package(Libxc 6.0.0 REQUIRED)
 if (NOT Libxc_FOUND)
   message(STATUS "Libxc: No CMake export file found, trying to find with pkg-config")
   find_package(PkgConfig QUIET)
-  pkg_check_modules(pc_libxc REQUIRED libxc)
-  pkg_check_modules(pc_libxcf03 REQUIRED libxcf03)
+  pkg_check_modules(pc_libxc REQUIRED libxc>=6.0.0)
+  pkg_check_modules(pc_libxcf03 REQUIRED libxcf03>=6.0.0)
   add_library(Libxc::xc INTERFACE IMPORTED)
   target_link_libraries(Libxc::xc INTERFACE ${pc_libxc_LINK_LIBRARIES})
   target_include_directories(Libxc::xc INTERFACE ${pc_libxc_INCLUDE_DIRS})
