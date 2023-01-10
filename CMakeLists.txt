@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(SkProgs VERSION 22.1 LANGUAGES Fortran C)
+project(SkProgs VERSION 22.1 LANGUAGES Fortran)
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake
   ${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules)
 include(SkProgsUtils)
@@ -28,7 +28,12 @@ endif()
 
 #################### External dependencies ####################
 
-find_package(Libxc 6.0.0 REQUIRED)
+find_package(Libxc QUIET)
+
+if (Libxc_FOUND AND Libxc_VERSION VERSION_LESS "6.0.0")
+  message(FATAL_ERROR "SkProgs requires libXC version >=6.0.0 to work properly.")
+endif()
+
 if (NOT Libxc_FOUND)
   message(STATUS "Libxc: No CMake export file found, trying to find with pkg-config")
   find_package(PkgConfig QUIET)

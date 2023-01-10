@@ -39,19 +39,6 @@ set(INTERNAL_ERFC CACHE BOOL 0)
 
 
 #
-# C compiler settings
-#
-set(C_FLAGS "${CMAKE_C_FLAGS}"
-  CACHE STRING "Build type independent C compiler flags")
-
-set(C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE}"
-  CACHE STRING  "C compiler flags for Release build")
-
-set(C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}"
-  CACHE STRING "C compiler flags for Debug build")
-
-
-#
 # External libraries
 #
 

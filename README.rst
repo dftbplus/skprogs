@@ -21,8 +21,6 @@ Prerequisites
 
 * Fortran 2003 compliant compiler
 
-* C compiler (for automatic toolchain selection)
-
 * CMake (>= 3.16)
 
 * Python3 (>= 3.2)
@@ -37,20 +35,20 @@ Building the code
 
 Follow the usual CMake build workflow:
 
-* Configure the project, specify your compilers (e.g. ``gfortran`` and ``gcc``),
+* Configure the project, specify your compilers (e.g. ``gfortran``),
   the install location (e.g. ``$HOME/opt/skprogs``) and the build directory
   (e.g. ``_build``)::
 
-    FC=gfortran CC=gcc cmake -DCMAKE_INSTALL_PREFIX=$HOME/opt/skprogs -B _build .
+    FC=gfortran cmake -DCMAKE_INSTALL_PREFIX=$HOME/opt/skprogs -B _build .
 
   If libXC is installed in a non-standard location, you may need to specify
   either the ``CMAKE_PREFIX_PATH`` environment variable (if libXC was built with
   CMake) or the ``PKG_CONFIG_PATH`` environment variable (if libXC was built
   with autotools) in order to guide the library search::
 
-    CMAKE_PREFIX_PATH=YOUR_LIBXC_INSTALL_FOLDER FC=gfortan CC=gcc cmake [...]
+    CMAKE_PREFIX_PATH=YOUR_LIBXC_INSTALL_FOLDER FC=gfortan cmake [...]
 
-    PKG_CONFIG_PATH=FOLDER_WITH_LIBXC_PC_FILES FC=gfortran CC=gcc cmake [...]
+    PKG_CONFIG_PATH=FOLDER_WITH_LIBXC_PC_FILES FC=gfortran cmake [...]
 
 * If the configuration was successful, build the code ::
 
@@ -137,5 +135,5 @@ version 3 of the License, or (at your option) any later version. See the files
 licensing conditions.
 
 
-.. |build status| image:: https://img.shields.io/github/workflow/status/dftbplus/skprogs/CI
+.. |build status| image:: https://img.shields.io/github/actions/workflow/status/dftbplus/skprogs/build.yml
     :target: https://github.com/dftbplus/skprogs/actions/
