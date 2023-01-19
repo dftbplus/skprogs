@@ -114,6 +114,9 @@ contains
     if (xcFunctional%isLongRangeCorrected(xcnr)) then
       write(*, '(A)') 'Enter range-separation parameter:'
       read(*,*) omega
+    elseif (xcnr == xcFunctional%HYB_PBE0) then
+      write(*, '(A)') 'Enter portion of HFX (CAM alpha):'
+      read(*,*) camAlpha
     elseif (xcFunctional%isCAMY(xcnr)) then
       write(*, '(A)') 'Enter range-separation parameter, CAM alpha, CAM beta:'
       read(*,*) omega, camAlpha, camBeta

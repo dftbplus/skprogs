@@ -259,8 +259,12 @@ contains
       call xc_f03_func_init(xcfunc_c, XC_GGA_C_PBE, XC_UNPOLARIZED)
       xcinfo = xc_f03_func_get_info(xcfunc_c)
     elseif (inp%iXC == 6) then
-      call xc_f03_func_init(xcfunc_xc, XC_HYB_GGA_XC_PBEH, XC_UNPOLARIZED)
-      xcinfo = xc_f03_func_get_info(xcfunc_xc)
+      ! xpbe96
+      call xc_f03_func_init(xcfunc_x, XC_GGA_X_PBE, XC_UNPOLARIZED)
+      xcinfo = xc_f03_func_get_info(xcfunc_x)
+      ! cpbe96
+      call xc_f03_func_init(xcfunc_c, XC_GGA_C_PBE, XC_UNPOLARIZED)
+      xcinfo = xc_f03_func_get_info(xcfunc_c)
     elseif (inp%iXC == 7) then
       call xc_f03_func_init(xcfunc_xc, XC_HYB_GGA_XC_B3LYP, XC_UNPOLARIZED)
       call xc_f03_func_set_ext_params(xcfunc_xc, [0.20_dp, 0.72_dp, 0.81_dp])
@@ -393,6 +397,9 @@ contains
     if (inp%tGlobalHybrid .or. inp%tCam) then
       if (inp%iXC == 9) then
         call xc_f03_func_end(xcfunc_xsr)
+        call xc_f03_func_end(xcfunc_x)
+        call xc_f03_func_end(xcfunc_c)
+      elseif (inp%iXC == 6) then
         call xc_f03_func_end(xcfunc_x)
         call xc_f03_func_end(xcfunc_c)
       else
@@ -608,8 +615,20 @@ contains
         call xc_f03_gga_vxc(xcfunc_c, nGridLibxc, rhor(1), sigma(1), vc(1), vcsigma(1))
         call getDivergence(nRad, nAng, densval1p, densval2p, r1, r2, theta1, theta2, vcsigma, divvc)
         potval = vx + vc + divvc
-      ! 6: PBE0, 7: B3LYP, 8: CAMY-B3LYP
-      case(6:8)
+      ! 6: PBE0
+      case(6)
+        ! exchange
+        call xc_f03_gga_vxc(xcfunc_x, nGridLibxc, rhor(1), sigma(1), vx(1), vxsigma(1))
+        ! correlation
+        call xc_f03_gga_vxc(xcfunc_c, nGridLibxc, rhor(1), sigma(1), vc(1), vcsigma(1))
+        ! build PBE0 functional
+        vxcsigma(:) = (1.0_dp - camAlpha) * vxsigma + vcsigma
+        vxc(:) = (1.0_dp - camAlpha) * vx + vc
+        call getDivergence(nRad, nAng, densval1p, densval2p, r1, r2, theta1, theta2, vxcsigma,&
+            & divvxc)
+        potval = vxc + divvxc
+      ! 7: B3LYP, 8: CAMY-B3LYP
+      case(7:8)
         call xc_f03_gga_vxc(xcfunc_xc, nGridLibxc, rhor(1), sigma(1), vxc(1), vxcsigma(1))
         call getDivergence(nRad, nAng, densval1p, densval2p, r1, r2, theta1, theta2, vxcsigma,&
             & divvxc)
@@ -657,11 +676,17 @@ contains
       ! total density: \int (|\phi_1|^2 + |\phi_2|^2)
       dens = getDensity(radval1(:, i1), radval2(:, i2), spherval1, spherval2, weights)
 
-      if (tGlobalHybrid) then
+      if (iXC == xcFunctional%HYB_B3LYP) then
         ! full-range Hartree-Fock exchange contribution
         frx = 0.5_dp * getFullRangeHFContribution(radialHFQuadrature%xx, rr3, ll_max, atom1, atom2,&
             & imap, ii, r1, theta1, r2, theta2, weights)
         ! add up full-range exchange to the Hamiltonian
+        integ1 = integ1 - frx
+      elseif (iXC == xcFunctional%HYB_PBE0) then
+        ! full-range Hartree-Fock exchange contribution
+        frx = 0.5_dp * camAlpha * getFullRangeHFContribution(radialHFQuadrature%xx, rr3, ll_max,&
+            & atom1, atom2, imap, ii, r1, theta1, r2, theta2, weights)
+        ! add up full-/long-range exchange to the Hamiltonian
         integ1 = integ1 - frx
       elseif (tLC) then
         ! long-range Hartree-Fock exchange contribution

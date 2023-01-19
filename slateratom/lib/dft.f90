@@ -194,8 +194,12 @@ contains
       call xc_f03_func_init(xcfunc_c, XC_GGA_C_PBE, XC_POLARIZED)
       xcinfo = xc_f03_func_get_info(xcfunc_c)
     elseif (xcnr == xcFunctional%HYB_PBE0) then
-      call xc_f03_func_init(xcfunc_xc, XC_HYB_GGA_XC_PBEH, XC_POLARIZED)
-      xcinfo = xc_f03_func_get_info(xcfunc_xc)
+      ! xpbe96
+      call xc_f03_func_init(xcfunc_x, XC_GGA_X_PBE, XC_POLARIZED)
+      xcinfo = xc_f03_func_get_info(xcfunc_x)
+      ! cpbe96
+      call xc_f03_func_init(xcfunc_c, XC_GGA_C_PBE, XC_POLARIZED)
+      xcinfo = xc_f03_func_get_info(xcfunc_c)
     elseif (xcnr == xcFunctional%HYB_B3LYP) then
       call xc_f03_func_init(xcfunc_xc, XC_HYB_GGA_XC_B3LYP, XC_POLARIZED)
       call xc_f03_func_set_ext_params(xcfunc_xc, [0.20_dp, 0.72_dp, 0.81_dp])
@@ -248,6 +252,18 @@ contains
       vxcsigma(:,:) = 0.0_dp
       allocate(tmpv1(nn))
       allocate(tmpv2(nn))
+    end if
+
+    ! PBE0 is assembled manually
+    if (xcnr == xcFunctional%HYB_PBE0) then
+      allocate(vxsigma(3, nn))
+      vxsigma(:,:) = 0.0_dp
+      allocate(vcsigma(3, nn))
+      vcsigma(:,:) = 0.0_dp
+      allocate(ex(nn))
+      allocate(ec(nn))
+      allocate(vx(2, nn))
+      allocate(vc(2, nn))
     end if
 
     ! CAMY-PBEh is assembled manually
@@ -352,8 +368,33 @@ contains
     !! -------- Exchange + Correlation energy and potential -----------
 
     select case (xcnr)
-    ! PBE0, B3LYP (global hybrids), CAMY-B3LYP (CAMY-functional)
-    case(7:9)
+    ! PBE0 (global hybrid)
+    case(7)
+      ! exchange
+      call xc_f03_gga_exc_vxc(xcfunc_x, nn, rhor(1, 1), sigma(1, 1), ex(1), vx(1, 1),&
+          & vxsigma(1, 1))
+      ! correlation
+      call xc_f03_gga_exc_vxc(xcfunc_c, nn, rhor(1, 1), sigma(1, 1), ec(1), vc(1, 1), vcsigma(1, 1))
+      call zeroOutCpotOfEmptyDensitySpinChannels(rho, vc)
+      ! build PBE0 functional
+      vxcsigma(:,:) = (1.0_dp - camAlpha) * vxsigma + vcsigma
+      vxc(:,:) = transpose((1.0_dp - camAlpha) * vx + vc)
+      exc_tmp(:) = (1.0_dp - camAlpha) * ex + ec
+      ! derivative of E vs. grad n
+      do iSpin = 1, 2
+        ! the other spin
+        iSpin2 = 3 - iSpin
+        ! 1 for spin up, 3 for spin down
+        iSigma = 2 * iSpin - 1
+        tmpv1(:) = vxcsigma(iSigma, :) * drho(:, iSpin) * rec4pi
+        call radial_divergence(tmpv1, abcissa, dz, tmpv2, dzdr)
+        vxc(:, iSpin) = vxc(:, iSpin) - 2.0_dp * tmpv2
+        tmpv1(:) = vxcsigma(2, :) * drho(:, iSpin2) * rec4pi
+        call radial_divergence(tmpv1, abcissa, dz, tmpv2, dzdr)
+        vxc(:, iSpin) = vxc(:, iSpin) - tmpv2
+      end do
+    ! B3LYP (global hybrids), CAMY-B3LYP (CAMY-functional)
+    case(8:9)
       call xc_f03_gga_exc_vxc(xcfunc_xc, nn, rhor(1, 1), sigma(1, 1), exc_tmp(1), vxc_tmp(1, 1),&
           & vxcsigma(1, 1))
       vxc(:,:) = transpose(vxc_tmp)
@@ -412,6 +453,9 @@ contains
       if (xcFunctional%isGlobalHybrid(xcnr) .or. xcFunctional%isCAMY(xcnr)) then
         if (xcnr == xcFunctional%CAMY_PBEh) then
           call xc_f03_func_end(xcfunc_xsr)
+          call xc_f03_func_end(xcfunc_x)
+          call xc_f03_func_end(xcfunc_c)
+        elseif (xcnr == xcFunctional%HYB_PBE0) then
           call xc_f03_func_end(xcfunc_x)
           call xc_f03_func_end(xcfunc_c)
         else
