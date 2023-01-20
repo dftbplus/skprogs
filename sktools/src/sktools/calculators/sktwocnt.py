@@ -222,7 +222,7 @@ class SktwocntInput:
             becke = '2000 194 11 1.0'
             fp.write("{:s}\n".format(becke))
         # PBE0
-        elif self._functional.type in ('pbe0'):
+        elif self._functional.type == 'pbe0':
             becke = '2000 194 11 1.0'
             fp.write("{:f}\n".format(self._functional.alpha))
             fp.write("{:s}\n".format(becke))
