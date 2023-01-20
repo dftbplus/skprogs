@@ -267,8 +267,8 @@ contains
       xcinfo = xc_f03_func_get_info(xcfunc_xc)
     elseif (inp%iXC == 8) then
       call xc_f03_func_init(xcfunc_xc, XC_HYB_GGA_XC_CAMY_B3LYP, XC_UNPOLARIZED)
-      call xc_f03_func_set_ext_params(xcfunc_xc, [inp%camAlpha + inp%camBeta, -inp%camBeta,&
-          & inp%omega, 0.81_dp])
+      call xc_f03_func_set_ext_params(xcfunc_xc, [0.81_dp, inp%camAlpha + inp%camBeta,&
+          & -inp%camBeta, inp%omega])
       xcinfo = xc_f03_func_get_info(xcfunc_xc)
     elseif (inp%iXC == 9) then
       ! short-range xpbe96
