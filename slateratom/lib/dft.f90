@@ -4,15 +4,12 @@ module dft
   use, intrinsic :: iso_c_binding, only : c_size_t
   use common_accuracy, only : dp
   use common_constants, only : pi, rec4pi
-  use xcfunctionals, only : xcFunctional
+  use xcfunctionals, only : xcFunctional, radial_divergence, getExcVxc_LDA_PW91,&
+      & getExcVxc_GGA_PBE96, getExcVxc_GGA_BLYP, getExcVxc_LCY_PBE96, getExcVxc_LCY_BNL,&
+      & getExcVxc_HYB_B3LYP, getExcVxc_HYB_PBE0, getExcVxc_CAMY_B3LYP, getExcVxc_CAMY_PBEh
   use density, only : basis, basis_times_basis_times_r2, density_at_point, density_at_point_1st,&
       & density_at_point_2nd
   use utilities, only : zeroOutCpotOfEmptyDensitySpinChannels
-  use xc_f03_lib_m, only : xc_f03_func_t, xc_f03_func_info_t, xc_f03_func_init, xc_f03_func_end,&
-      & xc_f03_func_get_info, xc_f03_lda_exc_vxc, xc_f03_gga_exc_vxc, xc_f03_gga_fxc,&
-      & xc_f03_func_set_ext_params, xc_f03_func_set_ext_params_name, XC_LDA_X, XC_LDA_X_YUKAWA,&
-      & XC_LDA_C_PW, XC_GGA_X_PBE, XC_GGA_X_B88, XC_GGA_X_SFAT_PBE, XC_HYB_GGA_XC_PBEH,&
-      & XC_HYB_GGA_XC_B3LYP, XC_HYB_GGA_XC_CAMY_B3LYP, XC_GGA_C_PBE, XC_GGA_C_LYP, XC_POLARIZED
 
   implicit none
   private
@@ -20,7 +17,6 @@ module dft
   public :: dft_start_pot, density_grid, dft_exc_energy, dft_vxc_energy
   public :: dft_exc_matrixelement, xalpha
   public :: check_accuracy
-  public :: derive, radial_divergence, derive1_5, derive2_5
 
 
 contains
@@ -135,10 +131,6 @@ contains
     !! difference between spin densities
     real(dp) :: rhodiff
 
-    !! libxc related objects
-    type(xc_f03_func_t) :: xcfunc_xc, xcfunc_x, xcfunc_xsr, xcfunc_c
-    type(xc_f03_func_info_t) :: xcinfo
-
     !! number of density grid points
     integer(c_size_t) :: nn
 
@@ -158,137 +150,22 @@ contains
     !! auxiliary variables
     integer :: ii, iSpin, iSpin2, iSigma
 
+    nn = size(rho, dim=1)
+
     rho(:,:) = 0.0_dp
     drho(:,:) = 0.0_dp
     ddrho(:,:) = 0.0_dp
     exc(:) = 0.0_dp
     vxc(:,:) = 0.0_dp
 
-    if (xcnr == xcFunctional%HF_Exchange) return
-    !  X-Alpha (xcnr = xcFunctional%X_Alpha) handled by in-house routine
-    if (xcnr == xcFunctional%LDA_PW91) then
-      call xc_f03_func_init(xcfunc_x, XC_LDA_X, XC_POLARIZED)
-      xcinfo = xc_f03_func_get_info(xcfunc_x)
-      call xc_f03_func_init(xcfunc_c, XC_LDA_C_PW, XC_POLARIZED)
-      xcinfo = xc_f03_func_get_info(xcfunc_c)
-    elseif (xcnr == xcFunctional%GGA_PBE96) then
-      call xc_f03_func_init(xcfunc_x, XC_GGA_X_PBE, XC_POLARIZED)
-      xcinfo = xc_f03_func_get_info(xcfunc_x)
-      call xc_f03_func_init(xcfunc_c, XC_GGA_C_PBE, XC_POLARIZED)
-      xcinfo = xc_f03_func_get_info(xcfunc_c)
-    elseif (xcnr == xcFunctional%GGA_BLYP) then
-      call xc_f03_func_init(xcfunc_x, XC_GGA_X_B88, XC_POLARIZED)
-      xcinfo = xc_f03_func_get_info(xcfunc_x)
-      call xc_f03_func_init(xcfunc_c, XC_GGA_C_LYP, XC_POLARIZED)
-      xcinfo = xc_f03_func_get_info(xcfunc_c)
-    elseif (xcnr == xcFunctional%LCY_PBE96) then
-      call xc_f03_func_init(xcfunc_x, XC_GGA_X_SFAT_PBE, XC_POLARIZED)
-      call xc_f03_func_set_ext_params(xcfunc_x, [omega])
-      xcinfo = xc_f03_func_get_info(xcfunc_x)
-      call xc_f03_func_init(xcfunc_c, XC_GGA_C_PBE, XC_POLARIZED)
-      xcinfo = xc_f03_func_get_info(xcfunc_c)
-    elseif (xcnr == xcFunctional%LCY_BNL) then
-      call xc_f03_func_init(xcfunc_x, XC_LDA_X_YUKAWA, XC_POLARIZED)
-      call xc_f03_func_set_ext_params(xcfunc_x, [omega])
-      xcinfo = xc_f03_func_get_info(xcfunc_x)
-      call xc_f03_func_init(xcfunc_c, XC_GGA_C_PBE, XC_POLARIZED)
-      xcinfo = xc_f03_func_get_info(xcfunc_c)
-    elseif (xcnr == xcFunctional%HYB_PBE0) then
-      ! xpbe96
-      call xc_f03_func_init(xcfunc_x, XC_GGA_X_PBE, XC_POLARIZED)
-      xcinfo = xc_f03_func_get_info(xcfunc_x)
-      ! cpbe96
-      call xc_f03_func_init(xcfunc_c, XC_GGA_C_PBE, XC_POLARIZED)
-      xcinfo = xc_f03_func_get_info(xcfunc_c)
-    elseif (xcnr == xcFunctional%HYB_B3LYP) then
-      call xc_f03_func_init(xcfunc_xc, XC_HYB_GGA_XC_B3LYP, XC_POLARIZED)
-      call xc_f03_func_set_ext_params(xcfunc_xc, [0.20_dp, 0.72_dp, 0.81_dp])
-      xcinfo = xc_f03_func_get_info(xcfunc_xc)
-    elseif (xcnr == xcFunctional%CAMY_B3LYP) then
-      call xc_f03_func_init(xcfunc_xc, XC_HYB_GGA_XC_CAMY_B3LYP, XC_POLARIZED)
-      call xc_f03_func_set_ext_params(xcfunc_xc, [0.81_dp, camAlpha + camBeta, -camBeta, omega])
-      xcinfo = xc_f03_func_get_info(xcfunc_xc)
-    elseif (xcnr == xcFunctional%CAMY_PBEh) then
-      ! short-range xpbe96
-      call xc_f03_func_init(xcfunc_xsr, XC_GGA_X_SFAT_PBE, XC_POLARIZED)
-      call xc_f03_func_set_ext_params(xcfunc_xsr, [omega])
-      xcinfo = xc_f03_func_get_info(xcfunc_xsr)
-      ! xpbe96
-      call xc_f03_func_init(xcfunc_x, XC_GGA_X_PBE, XC_POLARIZED)
-      xcinfo = xc_f03_func_get_info(xcfunc_x)
-      ! cpbe96
-      call xc_f03_func_init(xcfunc_c, XC_GGA_C_PBE, XC_POLARIZED)
-      xcinfo = xc_f03_func_get_info(xcfunc_c)
-    else
-      write(*, '(A,I2,A)') 'XCNR=', xcnr, ' not implemented!'
-      stop
-    end if
-
-    nn = size(rho, dim=1)
-    allocate(rhor(2, nn))
-
-    if (xcFunctional%isLDA(xcnr) .or. xcFunctional%isGGA(xcnr)&
-        & .or. xcFunctional%isLongRangeCorrected(xcnr)) then
-      allocate(ex(nn))
-      allocate(ec(nn))
-      allocate(vx(2, nn))
-      allocate(vc(2, nn))
-    elseif (xcFunctional%isGlobalHybrid(xcnr) .or. xcFunctional%isCAMY(xcnr)) then
-      allocate(vxc_tmp(2, nn))
-      allocate(exc_tmp(nn))
-    end if
-
-    if (xcFunctional%isGGA(xcnr) .or. xcFunctional%isLongRangeCorrected(xcnr)) then
-      allocate(sigma(3, nn))
-      allocate(vxsigma(3, nn))
-      vxsigma(:,:) = 0.0_dp
-      allocate(vcsigma(3, nn))
-      vcsigma(:,:) = 0.0_dp
-      allocate(tmpv1(nn))
-      allocate(tmpv2(nn))
-    elseif (xcFunctional%isGlobalHybrid(xcnr) .or. xcFunctional%isCAMY(xcnr)) then
-      allocate(sigma(3, nn))
-      allocate(vxcsigma(3, nn))
-      vxcsigma(:,:) = 0.0_dp
-      allocate(tmpv1(nn))
-      allocate(tmpv2(nn))
-    end if
-
-    ! PBE0 is assembled manually
-    if (xcnr == xcFunctional%HYB_PBE0) then
-      allocate(vxsigma(3, nn))
-      vxsigma(:,:) = 0.0_dp
-      allocate(vcsigma(3, nn))
-      vcsigma(:,:) = 0.0_dp
-      allocate(ex(nn))
-      allocate(ec(nn))
-      allocate(vx(2, nn))
-      allocate(vc(2, nn))
-    end if
-
-    ! CAMY-PBEh is assembled manually
-    if (xcnr == xcFunctional%CAMY_PBEh) then
-      allocate(vxsigma(3, nn))
-      vxsigma(:,:) = 0.0_dp
-      allocate(vxsigma_sr(3, nn))
-      vxsigma_sr(:,:) = 0.0_dp
-      allocate(vcsigma(3, nn))
-      vcsigma(:,:) = 0.0_dp
-      allocate(ex_sr(nn))
-      allocate(ex(nn))
-      allocate(ec(nn))
-      allocate(vx_sr(2, nn))
-      allocate(vx(2, nn))
-      allocate(vc(2, nn))
-    end if
-
+    ! get density on grid
     do ii = 1, num_mesh_points
       rho(ii, 1) = density_at_point(pp(1, :,:,:), max_l, num_alpha, poly_order, alpha, abcissa(ii))
       rho(ii, 2) = density_at_point(pp(2, :,:,:), max_l, num_alpha, poly_order, alpha, abcissa(ii))
     end do
-
     rho = max(rho, 0.0_dp)
 
+    ! get density derivatives on grid
     if (xcFunctional%isGGA(xcnr) .or. xcFunctional%isLongRangeCorrected(xcnr)&
         & .or. xcFunctional%isGlobalHybrid(xcnr) .or. xcFunctional%isCAMY(xcnr)) then
       do ii = 1, num_mesh_points
@@ -305,167 +182,53 @@ contains
       end do
     end if
 
-    ! case Xalpha treated separately:
     ! divide by 4*pi to catch different normalization of spherical harmonics
-    if (xcnr == xcFunctional%X_Alpha) then
-      do ii = 1, num_mesh_points
-        rhotot = (rho(ii, 1) + rho(ii, 2)) * rec4pi
-        rhodiff = (rho(ii, 1) - rho(ii, 2)) * rec4pi
-        call xalpha(rhotot, rhodiff, vxc(ii, :), exc(ii), xalpha_const)
-      end do
-      return
-    end if
+    rhor = transpose(rho) * rec4pi
 
-    !! -------- Exchange energy and potential -----------------------
-
-    ! divide by 4*pi to catch different normalization of spherical harmonics
-    rhor(:,:) = transpose(rho) * rec4pi
+    ! get contracted gradients of the density
     if (xcFunctional%isGGA(xcnr) .or. xcFunctional%isLongRangeCorrected(xcnr)&
         & .or. xcFunctional%isGlobalHybrid(xcnr) .or. xcFunctional%isCAMY(xcnr)) then
+      allocate(sigma(3, nn))
       sigma(1, :) = drho(:, 1) * drho(:, 1) * rec4pi**2
       sigma(2, :) = drho(:, 1) * drho(:, 2) * rec4pi**2
       sigma(3, :) = drho(:, 2) * drho(:, 2) * rec4pi**2
     end if
 
     select case (xcnr)
-    ! LDA-PW91, BNL (long-range corrected)
-    case(xcFunctional%LDA_PW91, xcFunctional%LCY_BNL)
-      call xc_f03_lda_exc_vxc(xcfunc_x, nn, rhor(1, 1), ex(1), vx(1, 1))
-    ! GGA-PBE96, GGA-BLYP, LCY-PBE96 (long-range corrected)
-    case(xcFunctional%GGA_PBE96, xcFunctional%GGA_BLYP, xcFunctional%LCY_PBE96)
-      call xc_f03_gga_exc_vxc(xcfunc_x, nn, rhor(1, 1), sigma(1, 1), ex(1), vx(1,1), vxsigma(1,1))
-    end select
-
-   !! -------- Correlation energy and potential -----------------------
-
-    select case (xcnr)
-    ! LDA-PW91
+    case(xcFunctional%HF_Exchange)
+      return
+    case(xcFunctional%X_Alpha)
+      do ii = 1, num_mesh_points
+        rhotot = (rho(ii, 1) + rho(ii, 2)) * rec4pi
+        rhodiff = (rho(ii, 1) - rho(ii, 2)) * rec4pi
+        ! Xalpha handled by our in-house routine
+        call xalpha(rhotot, rhodiff, vxc(ii, :), exc(ii), xalpha_const)
+      end do
+      return
     case(xcFunctional%LDA_PW91)
-      call xc_f03_lda_exc_vxc(xcfunc_c, nn, rhor(1, 1), ec(1), vc(1, 1))
-      call zeroOutCpotOfEmptyDensitySpinChannels(rho, vc)
-      vxc(:,:) = transpose(vx + vc)
-    ! GGA-PBE96, GGA-BLYP, LCY-PBE96, LCY-BNL
-    case(xcFunctional%GGA_PBE96, xcFunctional%GGA_BLYP, xcFunctional%LCY_PBE96,&
-        & xcFunctional%LCY_BNL)
-      call xc_f03_gga_exc_vxc(xcfunc_c, nn, rhor(1, 1), sigma(1, 1), ec(1), vc(1, 1), vcsigma(1, 1))
-      call zeroOutCpotOfEmptyDensitySpinChannels(rho, vc)
-      vxc(:,:) = transpose(vx + vc)
-      ! derivative of E vs. grad n
-      do iSpin = 1, 2
-        ! the other spin
-        iSpin2 = 3 - iSpin
-        ! 1 for spin up, 3 for spin down
-        iSigma = 2 * iSpin - 1
-        tmpv1(:) = (vxsigma(iSigma, :) + vcsigma(iSigma, :)) * drho(:, iSpin) * rec4pi
-        call radial_divergence(tmpv1, abcissa, dz, tmpv2, dzdr)
-        vxc(:, iSpin) = vxc(:, iSpin) - 2.0_dp * tmpv2
-        tmpv1(:) = (vxsigma(2, :) +  vcsigma(2, :)) * drho(:, iSpin2) * rec4pi
-        call radial_divergence(tmpv1, abcissa, dz, tmpv2, dzdr)
-        vxc(:, iSpin) = vxc(:, iSpin) - tmpv2
-      end do
+      call getExcVxc_LDA_PW91(rho, exc, vxc)
+    case(xcFunctional%GGA_PBE96)
+      call getExcVxc_GGA_PBE96(abcissa, dz, dzdr, rho, drho, sigma, exc, vxc)
+    case(xcFunctional%GGA_BLYP)
+      call getExcVxc_GGA_BLYP(abcissa, dz, dzdr, rho, drho, sigma, exc, vxc)
+    case(xcFunctional%LCY_PBE96)
+      call getExcVxc_LCY_PBE96(abcissa, dz, dzdr, rho, drho, sigma, omega, exc, vxc)
+    case(xcFunctional%LCY_BNL)
+      call getExcVxc_LCY_BNL(abcissa, dz, dzdr, rho, drho, sigma, omega, exc, vxc)
+    case(xcFunctional%HYB_PBE0)
+      call getExcVxc_HYB_PBE0(abcissa, dz, dzdr, rho, drho, sigma, camAlpha, exc, vxc)
+    case(xcFunctional%HYB_B3LYP)
+      call getExcVxc_HYB_B3LYP(abcissa, dz, dzdr, rho, drho, sigma, exc, vxc)
+    case(xcFunctional%CAMY_B3LYP)
+      call getExcVxc_CAMY_B3LYP(abcissa, dz, dzdr, rho, drho, sigma, omega, camAlpha, camBeta, exc,&
+          & vxc)
+    case(xcFunctional%CAMY_PBEh)
+      call getExcVxc_CAMY_PBEh(abcissa, dz, dzdr, rho, drho, sigma, omega, camAlpha, camBeta, exc,&
+          & vxc)
+    case default
+      write(*, '(A,I2,A)') 'XCNR=', xcnr, ' not implemented!'
+      stop
     end select
-
-    !! -------- Exchange + Correlation energy and potential -----------
-
-    select case (xcnr)
-    ! PBE0 (global hybrid)
-    case(7)
-      ! exchange
-      call xc_f03_gga_exc_vxc(xcfunc_x, nn, rhor(1, 1), sigma(1, 1), ex(1), vx(1, 1),&
-          & vxsigma(1, 1))
-      ! correlation
-      call xc_f03_gga_exc_vxc(xcfunc_c, nn, rhor(1, 1), sigma(1, 1), ec(1), vc(1, 1), vcsigma(1, 1))
-      call zeroOutCpotOfEmptyDensitySpinChannels(rho, vc)
-      ! build PBE0 functional
-      vxcsigma(:,:) = (1.0_dp - camAlpha) * vxsigma + vcsigma
-      vxc(:,:) = transpose((1.0_dp - camAlpha) * vx + vc)
-      exc_tmp(:) = (1.0_dp - camAlpha) * ex + ec
-      ! derivative of E vs. grad n
-      do iSpin = 1, 2
-        ! the other spin
-        iSpin2 = 3 - iSpin
-        ! 1 for spin up, 3 for spin down
-        iSigma = 2 * iSpin - 1
-        tmpv1(:) = vxcsigma(iSigma, :) * drho(:, iSpin) * rec4pi
-        call radial_divergence(tmpv1, abcissa, dz, tmpv2, dzdr)
-        vxc(:, iSpin) = vxc(:, iSpin) - 2.0_dp * tmpv2
-        tmpv1(:) = vxcsigma(2, :) * drho(:, iSpin2) * rec4pi
-        call radial_divergence(tmpv1, abcissa, dz, tmpv2, dzdr)
-        vxc(:, iSpin) = vxc(:, iSpin) - tmpv2
-      end do
-    ! B3LYP (global hybrids), CAMY-B3LYP (CAMY-functional)
-    case(8:9)
-      call xc_f03_gga_exc_vxc(xcfunc_xc, nn, rhor(1, 1), sigma(1, 1), exc_tmp(1), vxc_tmp(1, 1),&
-          & vxcsigma(1, 1))
-      vxc(:,:) = transpose(vxc_tmp)
-      ! derivative of E vs. grad n
-      do iSpin = 1, 2
-        ! the other spin
-        iSpin2 = 3 - iSpin
-        ! 1 for spin up, 3 for spin down
-        iSigma = 2 * iSpin - 1
-        tmpv1(:) = vxcsigma(iSigma, :) * drho(:, iSpin) * rec4pi
-        call radial_divergence(tmpv1, abcissa, dz, tmpv2, dzdr)
-        vxc(:, iSpin) = vxc(:, iSpin) - 2.0_dp * tmpv2
-        tmpv1(:) = vxcsigma(2, :) * drho(:, iSpin2) * rec4pi
-        call radial_divergence(tmpv1, abcissa, dz, tmpv2, dzdr)
-        vxc(:, iSpin) = vxc(:, iSpin) - tmpv2
-      end do
-    ! CAMY-PBEh (CAMY-functional)
-    case(10)
-      ! short-range exchange
-      call xc_f03_gga_exc_vxc(xcfunc_xsr, nn, rhor(1, 1), sigma(1, 1), ex_sr(1), vx_sr(1, 1),&
-          & vxsigma_sr(1, 1))
-      ! full-range exchange
-      call xc_f03_gga_exc_vxc(xcfunc_x, nn, rhor(1, 1), sigma(1, 1), ex(1), vx(1, 1),&
-          & vxsigma(1, 1))
-      ! correlation
-      call xc_f03_gga_exc_vxc(xcfunc_c, nn, rhor(1, 1), sigma(1, 1), ec(1), vc(1, 1), vcsigma(1, 1))
-      call zeroOutCpotOfEmptyDensitySpinChannels(rho, vc)
-      ! build CAMY-PBEh functional
-      vxcsigma(:,:) = camBeta * vxsigma_sr + (1.0_dp - (camAlpha + camBeta)) * vxsigma + vcsigma
-      vxc(:,:) = transpose(camBeta * vx_sr + (1.0_dp - (camAlpha + camBeta)) * vx + vc)
-      exc_tmp(:) = camBeta * ex_sr + (1.0_dp - (camAlpha + camBeta)) * ex + ec
-      ! derivative of E vs. grad n
-      do iSpin = 1, 2
-        ! the other spin
-        iSpin2 = 3 - iSpin
-        ! 1 for spin up, 3 for spin down
-        iSigma = 2 * iSpin - 1
-        tmpv1(:) = vxcsigma(iSigma, :) * drho(:, iSpin) * rec4pi
-        call radial_divergence(tmpv1, abcissa, dz, tmpv2, dzdr)
-        vxc(:, iSpin) = vxc(:, iSpin) - 2.0_dp * tmpv2
-        tmpv1(:) = vxcsigma(2, :) * drho(:, iSpin2) * rec4pi
-        call radial_divergence(tmpv1, abcissa, dz, tmpv2, dzdr)
-        vxc(:, iSpin) = vxc(:, iSpin) - tmpv2
-      end do
-    end select
-
-    ! sum up exchange and correlation energy on the grid
-    if (.not. (xcFunctional%isGlobalHybrid(xcnr) .or. xcFunctional%isCAMY(xcnr))) then
-      exc(:) = ec + ex
-    else
-      exc(:) = exc_tmp
-    end if
-
-    ! finalize libxc objects
-    if (.not. (xcnr == xcFunctional%X_Alpha)) then
-      if (xcFunctional%isGlobalHybrid(xcnr) .or. xcFunctional%isCAMY(xcnr)) then
-        if (xcnr == xcFunctional%CAMY_PBEh) then
-          call xc_f03_func_end(xcfunc_xsr)
-          call xc_f03_func_end(xcfunc_x)
-          call xc_f03_func_end(xcfunc_c)
-        elseif (xcnr == xcFunctional%HYB_PBE0) then
-          call xc_f03_func_end(xcfunc_x)
-          call xc_f03_func_end(xcfunc_c)
-        else
-          call xc_f03_func_end(xcfunc_xc)
-        end if
-      else
-        call xc_f03_func_end(xcfunc_x)
-        call xc_f03_func_end(xcfunc_c)
-      end if
-    end if
 
  end subroutine density_grid
 
@@ -700,147 +463,5 @@ contains
     end do
 
   end subroutine check_accuracy
-
-
-  !>
-  pure subroutine radial_divergence(ff, rr, dr, rdiv, jacobi)
-    real(dp), intent(in) :: ff(:)
-    real(dp), intent(in) :: rr(:)
-    real(dp), intent(in) :: dr
-    real(dp), intent(out) :: rdiv(:)
-    real(dp), intent(in), optional :: jacobi(:)
-
-    call derive1_5(ff, dr, rdiv, jacobi)
-    rdiv = rdiv + 2.0_dp / rr * ff
-
-  end subroutine radial_divergence
-
-
-  !>
-  pure subroutine derive(ff, dx, jacobi)
-    real(dp), intent(inout) :: ff(:)
-    real(dp), intent(in) :: dx
-    real(dp), intent(in), optional :: jacobi(:)
-
-    real(dp), allocatable :: tmp1(:)
-    integer :: nn
-
-    nn = size(ff)
-    allocate(tmp1(nn))
-    tmp1(:) = ff
-    ff(2:nn - 1) = (ff(3:nn) - ff(1:nn - 2)) / (2.0 * dx)
-    ff(1) = (tmp1(2) - tmp1(1)) / dx
-    ff(nn) = (tmp1(nn) - tmp1(nn - 1)) / dx
-    if (present(jacobi)) then
-      ff = ff * jacobi
-    end if
-
-  end subroutine derive
-
-
-  !>
-  pure subroutine derive1_5(ff, dx, dfdx, dudx)
-    real(dp), intent(in) :: ff(:)
-    real(dp), intent(in) :: dx
-    real(dp), intent(out) :: dfdx(:)
-    real(dp), intent(in), optional :: dudx(:)
-
-    integer, parameter :: np = 5
-    integer, parameter :: nleft = np / 2
-    integer, parameter :: nright = nleft
-    integer, parameter :: imiddle = nleft + 1
-    real(dp), parameter :: dxprefac = 12.0_dp
-    real(dp), parameter :: coeffs(np, np) =&
-        reshape([&
-        & -25.0_dp,  48.0_dp, -36.0_dp,  16.0_dp, -3.0_dp,&
-        &  -3.0_dp, -10.0_dp,  18.0_dp,  -6.0_dp,  1.0_dp,&
-        &   1.0_dp,  -8.0_dp,   0.0_dp,   8.0_dp, -1.0_dp,&
-        &  -1.0_dp,   6.0_dp, -18.0_dp,  10.0_dp,  3.0_dp,&
-        &   3.0_dp,  -16.0_dp, 36.0_dp, -48.0_dp, 25.0_dp], [np, np])
-
-    integer :: ngrid
-    integer :: ii
-
-    ngrid = size(ff)
-    do ii = 1, nleft
-      dfdx(ii) = dot_product(coeffs(:, ii), ff(1:np))
-    end do
-    do ii = nleft + 1, ngrid - nright
-      dfdx(ii) = dot_product(coeffs(:, imiddle), ff(ii - nleft:ii + nright))
-    end do
-    do ii = ngrid - nright + 1, ngrid
-      dfdx(ii) = dot_product(coeffs(:, np - (ngrid - ii)), ff(ngrid - np + 1:ngrid))
-    end do
-
-    if (present(dudx)) then
-      dfdx = dfdx * (dudx / (dxprefac * dx))
-    else
-      dfdx = dfdx / (dxprefac * dx)
-    end if
-
-  end subroutine derive1_5
-
-
-  !>
-  pure subroutine derive2_5(ff, dx, d2fdx2, dudx, d2udx2, dfdx)
-    real(dp), intent(in) :: ff(:)
-    real(dp), intent(in) :: dx
-    real(dp), intent(out) :: d2fdx2(:)
-    real(dp), intent(in), optional :: dudx(:), d2udx2(:)
-    real(dp), intent(out), target, optional :: dfdx(:)
-
-    integer, parameter :: np = 5
-    integer, parameter :: nleft = np / 2
-    integer, parameter :: nright = nleft
-    integer, parameter :: imiddle = nleft + 1
-    real(dp), parameter :: dxprefac = 12.0_dp
-    real(dp), parameter :: coeffs(np, np) = &
-        reshape([ &
-        &  35.0_dp, -104.0_dp, 114.0_dp, -56.0_dp, 11.0_dp, &
-        &  11.0_dp, -20.0_dp, 6.0_dp, 4.0_dp, -1.0_dp, &
-        &  -1.0_dp, 16.0_dp, -30.0_dp, 16.0_dp, -1.0_dp, &
-        &  -1.0_dp, 4.0_dp, 6.0_dp, -20.0_dp, 11.0_dp, &
-        &  11.0_dp, -56.0_dp, 114.0_dp, -104.0_dp, 35.0_dp], [np, np])
-
-    integer :: ngrid
-    integer :: ii
-    real(dp), allocatable, target :: dfdxlocal(:)
-    real(dp), pointer :: pdfdx(:)
-
-    ngrid = size(ff)
-    if (present(dfdx)) then
-      pdfdx => dfdx
-    elseif (present(d2udx2)) then
-      allocate(dfdxlocal(ngrid))
-      pdfdx => dfdxlocal
-    end if
-
-    do ii = 1, nleft
-      d2fdx2(ii) = dot_product(coeffs(:, ii), ff(1:np))
-    end do
-    do ii = nleft + 1, ngrid - nright
-      d2fdx2(ii) = dot_product(coeffs(:, imiddle), ff(ii - nleft:ii + nright))
-    end do
-    do ii = ngrid - nright + 1, ngrid
-      d2fdx2(ii) = dot_product(coeffs(:, np - (ngrid - ii)), ff(ngrid - np + 1:ngrid))
-    end do
-
-    if (present(dudx)) then
-      d2fdx2 = d2fdx2 * (dudx * dudx / (dxprefac * dx * dx))
-    else
-      d2fdx2 = d2fdx2 / (dxprefac * dx * dx)
-    end if
-
-    if (present(d2udx2) .or. present(dfdx)) then
-      call derive1_5(ff, dx, pdfdx)
-      if (present(d2udx2)) then
-        d2fdx2 = d2fdx2 + pdfdx * d2udx2
-      end if
-      if (present(dfdx) .and. present(dudx)) then
-        dfdx = dfdx * dudx
-      end if
-    end if
-
-  end subroutine derive2_5
 
 end module dft
