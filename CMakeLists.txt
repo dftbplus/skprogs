@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(SkProgs VERSION 22.1 LANGUAGES Fortran C)
+project(SkProgs VERSION 22.1 LANGUAGES Fortran)
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake
   ${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules)
 include(SkProgsUtils)
@@ -29,11 +29,16 @@ endif()
 #################### External dependencies ####################
 
 find_package(Libxc QUIET)
+
+if (Libxc_FOUND AND Libxc_VERSION VERSION_LESS "6.0.0")
+  message(FATAL_ERROR "SkProgs requires libXC version >=6.0.0 to work properly.")
+endif()
+
 if (NOT Libxc_FOUND)
   message(STATUS "Libxc: No CMake export file found, trying to find with pkg-config")
   find_package(PkgConfig QUIET)
-  pkg_check_modules(pc_libxc REQUIRED libxc)
-  pkg_check_modules(pc_libxcf03 REQUIRED libxcf03)
+  pkg_check_modules(pc_libxc REQUIRED libxc>=6.0.0)
+  pkg_check_modules(pc_libxcf03 REQUIRED libxcf03>=6.0.0)
   add_library(Libxc::xc INTERFACE IMPORTED)
   target_link_libraries(Libxc::xc INTERFACE ${pc_libxc_LINK_LIBRARIES})
   target_include_directories(Libxc::xc INTERFACE ${pc_libxc_INCLUDE_DIRS})
@@ -45,21 +50,40 @@ elseif(NOT TARGET Libxc::xcf03)
     "(maybe Libxc was built without the -DENABLE_FORTRAN=True switch?")
 endif()
 
+find_package(CustomBlas REQUIRED)
+find_package(CustomLapack REQUIRED)
+
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
 set(PYTHON_INTERPRETER "${Python3_EXECUTABLE}")
 set(PYTHON_VERSION_MAJOR_MINOR "${Python3_VERSION_MAJOR}.${Python3_VERSION_MINOR}")
 
-find_package(CustomBlas REQUIRED)
-find_package(CustomLapack REQUIRED)
+#################### Preprocessor details #####################
+
+set(FYPP "${PROJECT_SOURCE_DIR}/external/fypp/bin/fypp" CACHE FILEPATH "Fypp preprocessor")
+skprogs_add_fypp_defines(FYPP_FLAGS)
+
+set(FYPP_CONFIG_FLAGS "${FYPP_FLAGS}")
+# Make sure, the line-marker option is not set
+list(REMOVE_ITEM FYPP_CONFIG_FLAGS "-n")
+set(FYPP_BUILD_FLAGS "${FYPP_FLAGS}" "$<IF:$<CONFIG:Debug>,-DDEBUG=1,-DDEBUG=0>")
+
+set(PYTHON_INTERPRETER "python3" CACHE STRING
+  "Python interpreter to use for installing and test python components")
 
 #################### Add source components ####################
 
-add_subdirectory(common/lib)
+add_subdirectory(common)
 add_subdirectory(slateratom)
 add_subdirectory(sktwocnt)
 add_subdirectory(sktools)
 
-#################### Extra install ####################
+########################### Testing ###########################
+
+string(CONFIGURE "${TEST_RUNNER_TEMPLATE}" TEST_RUNNER)
+enable_testing()
+add_subdirectory(test)
+
+######################## Extra install ########################
 
 configure_file(
   ${CMAKE_CURRENT_SOURCE_DIR}/utils/export/skprogs-activate.sh.in

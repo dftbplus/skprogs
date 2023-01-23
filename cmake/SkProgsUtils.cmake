@@ -1,5 +1,59 @@
 include(FetchContent)
 
+# Replaces the extension of a given file
+#
+# Args:
+#     oldext [in]: Old extension
+#     newext [in]: New extension
+#     fname [in]: File name in which extension should be replaced.
+#     newfname [out]: File name after extension replacement.
+#
+function(skprogs_replace_extension oldext newext fname newfname)
+
+  string(REGEX REPLACE "\\.${oldext}$" ".${newext}" _newfname ${fname})
+  set(${newfname} ${_newfname} PARENT_SCOPE)
+
+endfunction()
+
+
+# Registers files for preprocessing
+#
+# Args:
+#     preproc [in]: Preprocessor to use
+#     preprocopts [in]:  Preprocessor command line arguments (but not in/out file)
+#     oldext [in]: Extension of the unpreprocessed files.
+#     newext [in]: Extension of the preprocessed files.
+#     oldfiles [in]: List of unpreprocessed file names.
+#     newfiles [out]: List of preprocessed file names.
+#
+function(skprogs_preprocess preproc preprocopts oldext newext oldfiles newfiles)
+
+  set(_newfiles)
+  foreach(oldfile IN LISTS oldfiles)
+    skprogs_replace_extension(${oldext} ${newext} ${oldfile} newfile)
+    add_custom_command(
+      OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${newfile}
+      COMMAND ${preproc} ${preprocopts} ${CMAKE_CURRENT_SOURCE_DIR}/${oldfile} ${CMAKE_CURRENT_BINARY_DIR}/${newfile}
+      MAIN_DEPENDENCY ${CMAKE_CURRENT_SOURCE_DIR}/${oldfile})
+    list(APPEND _newfiles ${CMAKE_CURRENT_BINARY_DIR}/${newfile})
+  endforeach()
+  set(${newfiles} ${_newfiles} PARENT_SCOPE)
+
+endfunction()
+
+
+# Build -D command line arguments for Fypp preprocessor based on current configuration
+#
+# Args:
+#     fyppflags [inout]: Current Fypp flags on enter, with -D options extended flags on exit.
+#
+function (skprogs_add_fypp_defines fyppflags)
+
+  set(_fyppflags "${${fyppflags}}")
+  set(${fyppflags} ${_fyppflags} PARENT_SCOPE)
+
+endfunction()
+
 # Stops the code if the source and the build folders are identical.
 #
 function(skprogs_ensure_out_of_source_build)
@@ -81,11 +135,11 @@ endfunction()
 #
 function(skprogs_guess_toolchain toolchain)
 
-  if("${CMAKE_Fortran_COMPILER_ID}|${CMAKE_C_COMPILER_ID}" STREQUAL "GNU|GNU")
+  if("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "GNU")
     set(_toolchain "gnu")
-  elseif("${CMAKE_Fortran_COMPILER_ID}|${CMAKE_C_COMPILER_ID}" STREQUAL "Intel|Intel")
+  elseif("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "Intel")
     set(_toolchain "intel")
-  elseif("${CMAKE_Fortran_COMPILER_ID}|${CMAKE_C_COMPILER_ID}" STREQUAL "NAG|GNU")
+  elseif("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "NAG")
     set(_toolchain "nag")
   else()
     set(_toolchain "generic")
@@ -127,7 +181,7 @@ macro(skprogs_setup_global_compiler_flags)
     set(_buildtypes ${CMAKE_CONFIGURATION_TYPES})
   endif()
   foreach(_buildtype IN LISTS _buildtypes)
-    foreach (lang IN ITEMS Fortran C)
+    foreach (lang IN ITEMS Fortran)
       string(TOUPPER "${_buildtype}" _buildtype_upper)
       set(CMAKE_${lang}_FLAGS " ${${lang}_FLAGS}")
       set(CMAKE_${lang}_FLAGS_${_buildtype_upper} " ${${lang}_FLAGS_${_buildtype_upper}}")

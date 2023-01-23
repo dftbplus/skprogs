@@ -9,9 +9,8 @@ import sys
 import argparse
 import numpy as np
 
-
 import sktools.common as sc
-import sktools.skgen as skgen
+from sktools import skgen
 from sktools.skdef import Skdef
 from sktools import PACKAGE_VERSION
 

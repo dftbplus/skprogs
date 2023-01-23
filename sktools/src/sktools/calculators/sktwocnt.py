@@ -2,7 +2,7 @@ import os
 import shelve
 import subprocess as subproc
 import numpy as np
-import sktools.hsd as hsd
+from sktools import hsd
 import sktools.hsd.converter as conv
 import sktools.common as sc
 from sktools import twocenter_grids

@@ -105,7 +105,7 @@ def setup_parser_main(parser):
     '''Add skmanip version to main parser.'''
 
     parser.add_argument('--version', action='version',
-                        version='skmanip {}'.format(PACKAGE_VERSION))
+                        version=f'skmanip {PACKAGE_VERSION}')
 
 
 def setup_parser_getdoc(subparsers, common, target_function):

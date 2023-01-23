@@ -32,19 +32,6 @@ set(INTERNAL_ERFC CACHE BOOL 0)
 
 
 #
-# C compiler settings
-#
-set(C_FLAGS "${CMAKE_C_FLAGS}"
-  CACHE STRING "Build type independent C compiler flags")
-
-set(C_FLAGS_RELEASE "-O2 -ip"
-  CACHE STRING  "C compiler flags for Release build")
-
-set(C_FLAGS_DEBUG "-g -Wall"
-  CACHE STRING "C compiler flags for Debug build")
-
-
-#
 # External libraries
 #
 
@@ -56,13 +43,9 @@ set(C_FLAGS_DEBUG "-g -Wall"
 # LAPACK and BLAS
 # (if the BLAS library contains the LAPACK functions, set LAPACK_LIBRARY to "NONE")
 
-# if(WITH_OMP)
-#   set(BLAS_LIBRARY "mkl_intel_lp64;mkl_intel_thread;mkl_core" CACHE STRING "BLAS library to link")
-# else()
-#   set(BLAS_LIBRARY "mkl_intel_lp64;mkl_sequential;mkl_core" CACHE STRING "BLAS libraries to link")
-# endif()
+# set(BLAS_LIBRARY "mkl_intel_lp64;mkl_sequential;mkl_core" CACHE STRING "BLAS libraries to link")
 # set(BLAS_LIBRARY_DIR "$ENV{MKLROOT}/lib/intel64" CACHE STRING
 #     "Directories where BLAS libraries can be found")
-#set(LAPACK_LIBRARY_DIR "$ENV{MKLROOT}/lib/intel64" CACHE STRING
+# set(LAPACK_LIBRARY_DIR "$ENV{MKLROOT}/lib/intel64" CACHE STRING
 #    "Directories where LAPACK libraries can be found")
-set(BLA_VENDOR Intel10_64lp)
+# set(BLA_VENDOR Intel10_64lp)

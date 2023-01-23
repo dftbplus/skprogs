@@ -267,8 +267,8 @@ contains
       xcinfo = xc_f03_func_get_info(xcfunc_xc)
     elseif (inp%iXC == 8) then
       call xc_f03_func_init(xcfunc_xc, XC_HYB_GGA_XC_CAMY_B3LYP, XC_UNPOLARIZED)
-      call xc_f03_func_set_ext_params(xcfunc_xc, [inp%camAlpha + inp%camBeta, -inp%camBeta,&
-          & inp%omega, 0.81_dp])
+      call xc_f03_func_set_ext_params(xcfunc_xc, [0.81_dp, inp%camAlpha + inp%camBeta,&
+          & -inp%camBeta, inp%omega])
       xcinfo = xc_f03_func_get_info(xcfunc_xc)
     elseif (inp%iXC == 9) then
       ! short-range xpbe96
@@ -311,6 +311,9 @@ contains
       call gauss_chebyshev_quadrature(inp%nRadial, radialHFQuadrature)
       ! generate spherical coordinate (r) for full-range Hartree-Fock contribution to H0
       call gengrid1_1(radialHFQuadrature, inp%rm, coordtrans_radial_becke2, rr3, dummyWeights)
+    else
+      ! stupid workaround: rr3 is always passed as rr3(:, 1) in getskintegrals()
+      allocate(rr3(1, 1))
     end if
 
     if (inp%tGlobalHybrid) then

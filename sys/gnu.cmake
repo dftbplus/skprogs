@@ -41,24 +41,6 @@ set(INTERNAL_ERFC CACHE BOOL 0)
 
 
 #
-# C compiler settings
-#
-set(C_FLAGS "${CMAKE_C_FLAGS}"
-  CACHE STRING "Build type independent C compiler flags")
-
-set(C_FLAGS_RELEASE "-O2 -funroll-all-loops"
-  CACHE STRING  "C compiler flags for Release build")
-
-set(C_FLAGS_RELWITDEBINFO "-g ${C_FLAGS_RELEASE}"
-  CACHE STRING  "C compiler flags for RelWithDebInfo build")
-
-set(C_FLAGS_DEBUG "-g -Wall -pedantic -fbounds-check"
-  CACHE STRING "C compiler flags for Debug build")
-
-set(C_FLAGS_COVERAGE "-O0 -g --coverage")
-
-
-#
 # External libraries
 #
 
