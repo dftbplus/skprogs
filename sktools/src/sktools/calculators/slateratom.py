@@ -228,7 +228,7 @@ class SlateratomInput:
                 "2000 194 11 1.0 \t{:s} Becke integrator settings"
                 .format(self._COMMENT)]
         # B3LYP
-        elif xctype in ('b3lyp'):
+        elif xctype == 'b3lyp':
             out += [
                 # numerical interator
                 # hardcoded parameters for the Becke integration

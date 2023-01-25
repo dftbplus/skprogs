@@ -216,7 +216,7 @@ class SktwocntInput:
             fp.write("{:f}\n".format(self._functional.omega))
             fp.write("{:s}\n".format(becke))
         # B3LYP
-        elif self._functional.type in ('b3lyp'):
+        elif self._functional.type == 'b3lyp':
             # hardcoded parameters for the Becke integration,
             # -> should probably be moved to skdef.hsd
             becke = '2000 194 11 1.0'
