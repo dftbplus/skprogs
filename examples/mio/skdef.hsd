@@ -2,32 +2,32 @@ SkdefVersion = 1
 
 Globals {
   # supported (semi-)local xc-functionals:
-  # XCFunctional = lda {}
-  # XCFunctional = pbe {}
-  # XCFunctional = blyp {}
+  # XCFunctional = LDA {}
+  # XCFunctional = PBE {}
+  # XCFunctional = BLYP {}
 
   # supported long-range corrected xc-functionals:
   # (omega: range-separation parameter)
-  # XCFunctional = lcy-pbe {omega = 0.3}
-  # XCFunctional = lcy-bnl {omega = 0.3}
+  # XCFunctional = LCY-PBE {omega = 0.3}
+  # XCFunctional = LCY-BNL {omega = 0.3}
 
   # supported global hybrid xc-functionals:
-  # XCFunctional = pbe0 {}
-  # XCFunctional = b3lyp {}
+  # XCFunctional = PBE0 {alpha = 0.25}
+  # XCFunctional = B3LYP {}
 
   # supported CAMY xc-functionals:
-  # XCFunctional = camy-pbeh {
+  # XCFunctional = CAMY-PBEh {
   #   omega = 0.3
-  #   alpha = 0.19
-  #   beta = 0.46
+  #   alpha = 0.25
+  #   beta = 0.75
   # }
-  # XCFunctional = camy-b3lyp {
+  # XCFunctional = CAMY-B3LYP {
   #   omega = 0.3
   #   alpha = 0.19
   #   beta = 0.46
   # }
 
-  XCFunctional = pbe {}
+  XCFunctional = PBE {}
   Superposition = density
 }
 
@@ -477,5 +477,4 @@ TwoCenterParameters {
   Au-Au { Grid = $EqGrid; Calculator = $SkTwocnt_400_200 }
 }
 
-
-# skgen -o slateratom -t sktwocnt sktable H,O H,O | tee output
+# skgen -o slateratom -t sktwocnt sktable H,O H,O |& tee -a output
