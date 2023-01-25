@@ -27,11 +27,6 @@ foreach(line IN LISTS sktable_tests_raw)
   endif()
 endforeach()
 
-# copy datasets to build folder
-execute_process(
-  COMMAND ${CMAKE_COMMAND} -E copy_directory
-  ${srcdir}/skdef ${builddir}/skdef)
-
 foreach(test IN LISTS tests)
   add_test(
     NAME sktable_${test}
