@@ -79,23 +79,15 @@ class XCCAMYB3LYP(sc.ClassDict):
 
         alpha, child = query.getvalue(root, 'alpha', conv.float0,
                                       returnchild=True)
-        if not 0.0 <= alpha <= 1.0:
-            raise hsd.HSDInvalidTagValueException(
-                msg='Invalid alpha CAM-parameter {:f}'.format(alpha),
-                node=child)
 
         beta, child = query.getvalue(root, 'beta', conv.float0,
                                      returnchild=True)
-        if not 0.0 <= beta <= 1.0:
-            raise hsd.HSDInvalidTagValueException(
-                msg='Invalid beta CAM-parameter {:f}'.format(beta),
-                node=child)
 
-        if not 0.0 <= alpha + beta <= 1.0:
+        if not alpha + beta > 0.0:
             raise hsd.HSDInvalidTagValueException(
                 msg='Invalid CAM-parameter combination alpha={:f}, beta={:f}!\n'
                 .format(alpha, beta) +
-                'Should satisfy 0.0 <= alpha + beta <= 1.0', node=child)
+                'Should satisfy alpha + beta > 0.0', node=child)
 
         myself = cls()
         myself.type = 'camy-b3lyp'
@@ -127,23 +119,15 @@ class XCCAMYPBEH(sc.ClassDict):
 
         alpha, child = query.getvalue(root, 'alpha', conv.float0,
                                       returnchild=True)
-        if not 0.0 <= alpha <= 1.0:
-            raise hsd.HSDInvalidTagValueException(
-                msg='Invalid alpha CAM-parameter {:f}'.format(alpha),
-                node=child)
 
         beta, child = query.getvalue(root, 'beta', conv.float0,
                                      returnchild=True)
-        if not 0.0 <= beta <= 1.0:
-            raise hsd.HSDInvalidTagValueException(
-                msg='Invalid beta CAM-parameter {:f}'.format(beta),
-                node=child)
 
-        if not 0.0 <= alpha + beta <= 1.0:
+        if not alpha + beta > 0.0:
             raise hsd.HSDInvalidTagValueException(
                 msg='Invalid CAM-parameter combination alpha={:f}, beta={:f}!\n'
                 .format(alpha, beta) +
-                'Should satisfy 0.0 <= alpha + beta <= 1.0', node=child)
+                'Should satisfy alpha + beta > 0.0', node=child)
 
         myself = cls()
         myself.type = 'camy-pbeh'
