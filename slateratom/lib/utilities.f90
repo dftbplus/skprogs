@@ -33,7 +33,7 @@ contains
 
 
   !> Checks SCF convergence by comparing new and old potential.
-  pure subroutine check_convergence(pot_old, pot_new, max_l, problemsize, iScf, change_max,&
+  pure subroutine check_convergence(pot_old, pot_new, max_l, problemsize, scftol, iScf, change_max,&
       & tConverged)
 
     !> old and new potential to compare
@@ -44,6 +44,9 @@ contains
 
     !> size of the problem at hand
     integer, intent(in) :: problemsize
+
+    !> scf tolerance, i.e. convergence criteria
+    real(dp), intent(in) :: scftol
 
     !> current SCF step
     integer, intent(in) :: iScf
@@ -73,7 +76,7 @@ contains
       end do
     end do
 
-    if (change_max < 1.0e-10_dp) then
+    if (change_max < scftol) then
       tConverged = .true.
     else
       tConverged = .false.

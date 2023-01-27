@@ -15,10 +15,10 @@ module input
 contains
 
   !> Reads in all properties, except for occupation numbers.
-  subroutine read_input_1(nuc, max_l, occ_shells, maxiter, poly_order, min_alpha, max_alpha,&
-      & num_alpha, tAutoAlphas, alpha, conf_r0, conf_power, num_occ, num_power, num_alphas,&
-      & xcnr, tPrintEigvecs, tZora, tBroyden, mixing_factor, xalpha_const, omega, camAlpha,&
-      & camBeta, grid_params)
+  subroutine read_input_1(nuc, max_l, occ_shells, maxiter, scftol, poly_order, min_alpha,&
+      & max_alpha, num_alpha, tAutoAlphas, alpha, conf_r0, conf_power, num_occ, num_power,&
+      & num_alphas, xcnr, tPrintEigvecs, tZora, tBroyden, mixing_factor, xalpha_const, omega,&
+      & camAlpha, camBeta, grid_params)
 
     !> nuclear charge, i.e. atomic number
     integer, intent(out) :: nuc
@@ -31,6 +31,9 @@ contains
 
     !> maximum number of SCF calculations
     integer, intent(out) :: maxiter
+
+    !> scf tolerance, i.e. convergence criteria
+    real(dp), intent(out) :: scftol
 
     !> highest polynomial order + l in each shell
     integer, intent(out) :: poly_order(0:4)
@@ -98,8 +101,8 @@ contains
     !! auxiliary variables
     integer :: ii, jj
 
-    write(*, '(A)') 'Enter nuclear charge, maximal angular momentum (s=0), max. SCF, ZORA'
-    read(*,*) nuc, max_l, maxiter, tZora
+    write(*, '(A)') 'Enter nuclear charge, maximal angular momentum (s=0), max. SCF, SCF tol., ZORA'
+    read(*,*) nuc, max_l, maxiter, scftol, tZora
 
     write(*, '(A)') 'Enter XC functional:&
         & 0: HF, 1: X-Alpha, 2: LDA-PW91, 3: GGA-PBE96, 4: GGA-BLYP, 5: LCY-PBE96, 6: LCY-BNL,&
@@ -253,8 +256,9 @@ contains
 
 
   !> Echos gathered input to stdout.
-  subroutine echo_input(nuc, max_l, occ_shells, maxiter, poly_order, num_alpha, alpha, conf_r0,&
-      & conf_power, occ, num_occ, num_power, num_alphas, xcnr, tZora, num_mesh_points, xalpha_const)
+  subroutine echo_input(nuc, max_l, occ_shells, maxiter, scftol, poly_order, num_alpha, alpha,&
+      & conf_r0, conf_power, occ, num_occ, num_power, num_alphas, xcnr, tZora, num_mesh_points,&
+      & xalpha_const)
 
     !> nuclear charge, i.e. atomic number
     integer, intent(in) :: nuc
@@ -267,6 +271,9 @@ contains
 
     !> maximum number of SCF calculations
     integer, intent(in) :: maxiter
+
+    !> scf tolerance, i.e. convergence criteria
+    real(dp), intent(in) :: scftol
 
     !> highest polynomial order + l in each shell
     integer, intent(in) :: poly_order(0:)
@@ -335,6 +342,7 @@ contains
     if (xcnr == xcFunctional%CAMY_PBEh) write(*, '(A)') 'CAM: CAMY-PBEh'
 
     write(*, '(A,I6)') 'Max. number of SCF iterations: ', maxiter
+    write(*, '(A,ES9.2E2)') 'SCF tolerance [a.u.]: ', scftol
 
     write(*, '(A,I1)') 'Max. angular momentum: ', max_l
     write(*, '(A,I5)') 'Number of points for numerical radial integration: ', num_mesh_points
