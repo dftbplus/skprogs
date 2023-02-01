@@ -112,7 +112,15 @@ contains
     end select
     inp%iXC = iXC
 
-    if (inp%tGlobalHybrid) then
+    if (inp%iXC == xcFunctional%HYB_B3LYP) then
+      call nextline_(fp, iLine, line)
+      read(line, *, iostat=iErr) inp%nRadial, inp%nAngular, inp%ll_max, inp%rm
+      call checkerror_(fname, line, iLine, iErr)
+    elseif (inp%iXC == xcFunctional%HYB_PBE0) then
+      call nextline_(fp, iLine, line)
+      ! currently only HYB-PBE0 does support arbitrary HFX portions (HYB-B3LYP does not)
+      read(line, *, iostat=iErr) inp%camAlpha
+      call checkerror_(fname, line, iLine, iErr)
       call nextline_(fp, iLine, line)
       read(line, *, iostat=iErr) inp%nRadial, inp%nAngular, inp%ll_max, inp%rm
       call checkerror_(fname, line, iLine, iErr)

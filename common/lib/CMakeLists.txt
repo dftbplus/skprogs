@@ -19,7 +19,6 @@ set(sources-f90
   fifo_real2.F90
   gridgenerator.F90
   interpolation.F90
-  lapack.F90
   lebedev_laikov.F90
   lebedev_laikov_f77.f
   message.F90

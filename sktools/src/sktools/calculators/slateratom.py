@@ -142,6 +142,9 @@ class SlateratomInput:
             if xcfkey in ('camy-b3lyp', 'camy-pbeh'):
                 self._alpha = functional.alpha
                 self._beta = functional.beta
+            elif xcfkey == 'pbe0':
+                self._alpha = functional.alpha
+                self._beta = None
             else:
                 self._alpha = None
                 self._beta = None
@@ -224,9 +227,20 @@ class SlateratomInput:
                 # --> should be moved to skdef.hsd!
                 "2000 194 11 1.0 \t{:s} Becke integrator settings"
                 .format(self._COMMENT)]
-        # global hybrid functionals
-        elif xctype in ('pbe0', 'b3lyp'):
+        # B3LYP
+        elif xctype == 'b3lyp':
             out += [
+                # numerical interator
+                # hardcoded parameters for the Becke integration
+                # --> should be moved to skdef.hsd!
+                "2000 194 11 1.0 \t{:s} Becke integrator settings"
+                .format(self._COMMENT)]
+        # PBE0
+        elif xctype == 'pbe0':
+            out += [
+                "{:g} \t{:s} ".format(self._alpha, self._COMMENT) + \
+                "Global portion of HFX",
+
                 # numerical interator
                 # hardcoded parameters for the Becke integration
                 # --> should be moved to skdef.hsd!

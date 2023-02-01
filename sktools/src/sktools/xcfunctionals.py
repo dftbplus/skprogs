@@ -7,17 +7,36 @@ import sktools.common as sc
 
 
 class XCPBE0(sc.ClassDict):
-    '''Globald PBE0 hybrid xc-functional.'''
+    '''Globald PBE0 hybrid xc-functional.
+
+    Attributes
+    ----------
+    alpha (float): fraction of the global exact HF exchange
+    '''
 
     @classmethod
     def fromhsd(cls, root, query):
         '''Creates instance from a HSD-node and with given query object.'''
 
+        alpha, child = query.getvalue(root, 'alpha', conv.float0,
+                                      returnchild=True)
+        if not 0.0 <= alpha <= 1.0:
+            raise hsd.HSDInvalidTagValueException(
+                msg='Invalid alpha CAM-parameter {:f}'.format(alpha),
+                node=child)
+
+        if not 0.0 <= alpha <= 1.0:
+            raise hsd.HSDInvalidTagValueException(
+                msg='Invalid global HFX portion alpha={:f}!\n'
+                .format(alpha) +
+                'Should satisfy 0.0 <= alpha <= 1.0', node=child)
+
         myself = cls()
         myself.type = 'pbe0'
         # dummy omega
         myself.omega = 1.0
-        myself.alpha = 0.25
+        myself.alpha = alpha
+        # dummy beta
         myself.beta = 0.0
         return myself
 

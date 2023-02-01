@@ -114,15 +114,14 @@ contains
       hf_x_energy = hf_ex_energy(kk, pp, max_l, num_alpha, poly_order)
     elseif (xcFunctional%isLongRangeCorrected(xcnr)) then
       hf_x_energy = hf_ex_energy(kk_lr, pp, max_l, num_alpha, poly_order)
-    elseif (xcFunctional%isGlobalHybrid(xcnr)) then
+    elseif (xcnr == xcFunctional%HYB_B3LYP) then
       hf_x_energy = hf_ex_energy(kk, pp, max_l, num_alpha, poly_order)
-      if (xcnr == xcFunctional%HYB_PBE0) then
-        ! PBE0 requires 1/4 Hartree-Fock exchange
-        hf_x_energy = 1.0_dp / 4.0_dp * hf_x_energy
-      elseif (xcnr == xcFunctional%HYB_B3LYP) then
-        ! B3LYP requires 0.20 * HF exchange
-        hf_x_energy = 0.20_dp * hf_x_energy
-      end if
+      ! B3LYP requires 0.20 * HF exchange
+      hf_x_energy = 0.20_dp * hf_x_energy
+    elseif (xcnr == xcFunctional%HYB_PBE0) then
+      hf_x_energy = hf_ex_energy(kk, pp, max_l, num_alpha, poly_order)
+      ! PBE0 with camAlpha * HFX
+      hf_x_energy = camAlpha * hf_x_energy
     elseif (xcFunctional%isCAMY(xcnr)) then
       hf_x_energy = hf_ex_energy(kk, pp, max_l, num_alpha, poly_order)
       hf_x_energy_lr = hf_ex_energy(kk_lr, pp, max_l, num_alpha, poly_order)
@@ -288,15 +287,14 @@ contains
       hf_x_energy = hf_ex_energy(kk, pp, max_l, num_alpha, poly_order)
     elseif (xcFunctional%isLongRangeCorrected(xcnr)) then
       hf_x_energy = hf_ex_energy(kk_lr, pp, max_l, num_alpha, poly_order)
-    elseif (xcFunctional%isGlobalHybrid(xcnr)) then
+    elseif (xcnr == xcFunctional%HYB_B3LYP) then
       hf_x_energy = hf_ex_energy(kk, pp, max_l, num_alpha, poly_order)
-      if (xcnr == xcFunctional%HYB_PBE0) then
-        ! PBE0 requires 1/4 Hartree-Fock exchange
-        hf_x_energy = 1.0_dp / 4.0_dp * hf_x_energy
-      elseif (xcnr == xcFunctional%HYB_B3LYP) then
-        ! B3LYP requires 0.20 * HF exchange
-        hf_x_energy = 0.20_dp * hf_x_energy
-      end if
+      ! B3LYP requires 0.20 * HF exchange
+      hf_x_energy = 0.20_dp * hf_x_energy
+    elseif (xcnr == xcFunctional%HYB_PBE0) then
+      hf_x_energy = hf_ex_energy(kk, pp, max_l, num_alpha, poly_order)
+      ! PBE0 with camAlpha * HFX
+      hf_x_energy = camAlpha * hf_x_energy
     elseif (xcFunctional%isCAMY(xcnr)) then
       hf_x_energy = hf_ex_energy(kk, pp, max_l, num_alpha, poly_order)
       hf_x_energy_lr = hf_ex_energy(kk_lr, pp, max_l, num_alpha, poly_order)

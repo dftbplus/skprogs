@@ -46,6 +46,7 @@ set(INTERNAL_ERFC CACHE BOOL 0)
 # set(BLAS_LIBRARY "mkl_intel_lp64;mkl_sequential;mkl_core" CACHE STRING "BLAS libraries to link")
 # set(BLAS_LIBRARY_DIR "$ENV{MKLROOT}/lib/intel64" CACHE STRING
 #     "Directories where BLAS libraries can be found")
+# set(LAPACK_LIBRARY "mkl_intel_lp64;mkl_sequential;mkl_core" CACHE STRING "LAPACK libraries to link")
 # set(LAPACK_LIBRARY_DIR "$ENV{MKLROOT}/lib/intel64" CACHE STRING
 #    "Directories where LAPACK libraries can be found")
 # set(BLA_VENDOR Intel10_64lp)
