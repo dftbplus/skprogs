@@ -69,7 +69,7 @@ jobs:
       run: |
         git clone https://gitlab.com/libxc/libxc.git
         cd libxc/
-        git checkout 6.0.0
+        git checkout 6.1.0
         FC=gfortran CC=gcc cmake -H. -B ${BUILD_DIR} -DENABLE_FORTRAN=True -DCMAKE_INSTALL_PREFIX=${PWD}/${BUILD_DIR}/${INSTALL_DIR}
         cd ${BUILD_DIR}
         make -j
@@ -154,7 +154,7 @@ jobs:
       run: |
         git clone https://gitlab.com/libxc/libxc.git
         cd libxc/
-        git checkout 6.0.0
+        git checkout 6.1.0
         cmake -H. -B ${BUILD_DIR} -DENABLE_FORTRAN=True -DCMAKE_INSTALL_PREFIX=${PWD}/${BUILD_DIR}/${INSTALL_DIR}
         cd ${BUILD_DIR}
         make -j
