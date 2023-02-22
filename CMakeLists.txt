@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(SkProgs VERSION 22.1 LANGUAGES Fortran)
+project(SkProgs VERSION 0.1 LANGUAGES Fortran)
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake
   ${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules)
 include(SkProgsUtils)
