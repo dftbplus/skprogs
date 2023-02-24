@@ -2,7 +2,12 @@
 *.o
 *.mod
 *.a
+*.bak
+*.sav
 *.pyc
 __pycache__
 *build/
 *_build/
+_gitmsg.saved.txt
+*.egg-info
+dist

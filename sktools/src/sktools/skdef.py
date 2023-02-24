@@ -12,10 +12,11 @@ from . import common as sc
 from . import compressions
 from . import twocenter_grids
 from . import calculators
+from . import xcfunctionals
 
 
 CURRENT_SKDEF_VERSION = 1
-ENABLED_SKDEF_VERSIONS = frozenset([ CURRENT_SKDEF_VERSION ])
+ENABLED_SKDEF_VERSIONS = frozenset([CURRENT_SKDEF_VERSION])
 
 
 class Skdef(sc.ClassDict):
@@ -102,20 +103,24 @@ class Globals(sc.ClassDict):
     def fromhsd(cls, root, query):
         """Creates instance from a HSD-node and with given query object."""
 
-        xcfunctional, child = query.getvalue(root, "xcfunctional", conv.str0,
-                                             returnchild=True)
-        if xcfunctional not in sc.XC_FUNCTIONAL_TYPES:
-            raise hsd.HSDInvalidTagValueException(
-                "Invalid functional type '{}'".format(xcfunctional), child)
         superpos, child = query.getvalue(root, "superposition", conv.str0,
                                          returnchild=True)
         if superpos not in sc.SUPERPOSITION_TYPES:
             raise hsd.HSDInvalidTagValueException(
                 "Invalid superposition type '{}'".format(superpos), child)
 
+        # read the functional
+        xcf = sc.hsd_node_factory('xc', xcfunctionals.XCFUNCTIONALS,
+                                  query.getvaluenode(root, 'xcfunctional'),
+                                  query)
+        if xcf.__class__ not in xcfunctionals.XCFUNCTIONALS.values():
+            raise hsd.HSDInvalidTagValueException(
+                "Invalid functional type '{}'".format(xcf), child)
+
         myself = cls()
-        myself.xcfunctional = sc.XC_FUNCTIONAL_TYPES[xcfunctional]
         myself.superposition = sc.SUPERPOSITION_TYPES[superpos]
+        myself.xcf = xcf
+
         return myself
 
 
@@ -185,14 +190,18 @@ class AtomConfig(sc.ClassDict):
 
 
     def __init__(self, atomicnumber, mass, occupations, valenceshells,
-                 relativistics, charge=0.0):
+                 occshells, relativistics, charge=0.0):
         super().__init__()
         self.atomicnumber = atomicnumber
         self.mass = mass
 
         # Sort valenceshells (and occupations) by ascending nn and ll
-        tmp = [ nn * (sc.MAX_ANGMOM + 1) + ll for nn, ll in valenceshells ]
-        self.valenceshells = [ valenceshells[ii] for ii in np.argsort(tmp) ]
+        tmp = [nn * (sc.MAX_ANGMOM + 1) + ll for nn, ll in valenceshells]
+        self.valenceshells = [valenceshells[ii] for ii in np.argsort(tmp)]
+        # Sort occshells by ascending nn and ll
+        tmp = [qn[0] * (sc.MAX_ANGMOM + 1) + qn[1] for qn, occ in occshells]
+        self.occshells = [occshells[ii] for ii in np.argsort(tmp)]
+
         self.occupations_spinpol = occupations
         self.occupations = self.occupations_spinpol
 
@@ -204,20 +213,20 @@ class AtomConfig(sc.ClassDict):
         # If any valenceshell has higher n or l as occupations are listed for,
         # fill up occupations with zeros accordingly
         maxl = 0
-        maxn = [ 0, ] * (sc.MAX_ANGMOM + 1)
+        maxn = [0,] * (sc.MAX_ANGMOM + 1)
         for nn, ll in valenceshells:
             maxl = max(ll, maxl)
             maxn[ll] = max(nn, maxn[ll])
         if maxl > len(self.occupations) - 1:
-            self.occupations += [ [], ] * (maxl - len(self.occupations) + 1)
+            self.occupations += [[],] * (maxl - len(self.occupations) + 1)
         for ll, occ_l in enumerate(occupations):
             # At least one occupation for each angular momentum up to lmax.
             if not len(occ_l):
-                occ_l.append(( 0.0, 0.0 ))
+                occ_l.append((0.0, 0.0))
             # Extend occupations up to highest principal quantum number in
             # valence shells
             if maxn[ll] - ll > len(occ_l):
-                occ_l.extend([ (0.0, 0.0) ] * (maxn[ll] - ll - len(occ_l)))
+                occ_l.extend([(0.0, 0.0)] * (maxn[ll] - ll - len(occ_l)))
         self.maxang = len(self.occupations) - 1
 
         self.nelec = 0.0
@@ -278,6 +287,7 @@ class AtomConfig(sc.ClassDict):
             raise hsd.HSDInvalidTagValueException(
                 msg="Invalid atomic mass {:f}".format(mass), node=child)
 
+        occshellnames = []
         occupations = []
         occnode = query.findchild(root, "occupations")
         for ll, shellname in enumerate(sc.ANGMOM_TO_SHELL):
@@ -293,6 +303,7 @@ class AtomConfig(sc.ClassDict):
                         msg="Invalid number of occupation numbers",
                         node=shelloccnode)
                 occ_l.append((tmp[0], tmp[1]))
+                occshellnames.append((txt, (tmp[0] + tmp[1])))
             if len(occ_l):
                 occupations.append(occ_l)
 
@@ -308,6 +319,11 @@ class AtomConfig(sc.ClassDict):
                     msg="Invalid shell name '{}'".format(valshellname),
                     node=child)
 
+        occshells = []
+        for occshellname, occ in occshellnames:
+            occshell = sc.shell_name_to_ind(occshellname)
+            occshells.append((occshell, occ))
+
         relattype, child = query.getvalue(root, "relativistics", conv.str0,
                                           "none", returnchild=True)
         relattype = relattype.lower()
@@ -315,14 +331,14 @@ class AtomConfig(sc.ClassDict):
             raise hsd.HSDInvalidTagValueException(
                 msg="Invalid relativistics type '{}'".format(relattype))
 
-        return cls(znuc, mass, occupations, valshells, relattype)
+        return cls(znuc, mass, occupations, valshells, occshells, relattype)
 
 
     def __eq__(self, other):
         if not isinstance(other, AtomConfig):
             return False
         if (abs(self.atomicnumber - other.atomicnumber)
-            > sc.INPUT_FLOAT_TOLERANCE):
+                > sc.INPUT_FLOAT_TOLERANCE):
             return False
         if abs(self.mass - other.mass) > sc.INPUT_FLOAT_TOLERANCE:
             return False
@@ -500,7 +516,6 @@ class TwocenterParameter(sc.ClassDict):
             calculators.TWOCENTER_CALCULATOR_SETTINGS,
             query.getvaluenode(root, "calculator"), query)
         return myself
-
 
 
 def _test_module():

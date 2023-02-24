@@ -2,6 +2,7 @@ import os.path
 import copy
 import logging
 import numpy as np
+import scipy.optimize as opt
 import sktools.common as sc
 from . import common as ssc
 
@@ -83,7 +84,7 @@ class SkgenAtomInput(ssc.InputWithSignature):
         self.elem = elem
         atomparams = skdefs.atomparameters[elem]
         self.atomconfig = atomparams.atomconfig
-        self.xcfunc = skdefs.globals.xcfunctional
+        self.xcf = skdefs.globals.xcf
         self.onecentpars = skdefs.onecenterparameters[elem]
 
 
@@ -91,10 +92,9 @@ class SkgenAtomInput(ssc.InputWithSignature):
         signature = {
             "atomconfig": self.atomconfig,
             "onecentpars": self.onecentpars,
-            "xcfunc": self.xcfunc
+            "xcf": self.xcf
         }
         return signature
-
 
 
 class SkgenAtomCalculation:
@@ -106,7 +106,7 @@ class SkgenAtomCalculation:
             self._atomconfig, self._delta_occ)
         calculator = myinput.onecentpars.calculator
         self._oncenter_calculator = ssc.OnecenterCalculatorWrapper(calculator)
-        self._xcfunc = myinput.xcfunc
+        self._xcf = myinput.xcf
         self._workdir = workdir
         self._binary = binary
 
@@ -122,8 +122,15 @@ class SkgenAtomCalculation:
         if eigenonly or eigenspinonly:
             return
 
-        hubbus = self._calculate_hubbus(result_spinavg_atom,
-                                        replace_empty_with_homo=True)
+        xcn = self._xcf.type
+        if xcn in ('pbe0', 'b3lyp', 'lcy-pbe', 'lcy-bnl', 'camy-b3lyp',
+                   'camy-pbeh'):
+            hubbus = self._calculate_cam_hubbus(
+                result_spinavg_atom, replace_empty_with_homo=True)
+        else:
+            hubbus = self._calculate_hubbus(result_spinavg_atom,
+                                            replace_empty_with_homo=True)
+
         self._log_substitutions(result_spinavg_atom)
         self._log_hubbus(hubbus)
         spinws = self._calculate_spinws(result_spinavg_atom,
@@ -159,7 +166,7 @@ class SkgenAtomCalculation:
 
     def _calculate_free_atom(self, workdir):
         output = self._oncenter_calculator.do_calculation(
-            self._atomconfig, self._xcfunc, None, self._binary, workdir)
+            self._atomconfig, self._xcf, None, self._binary, workdir)
         result = self._collect_free_atom_result(output)
         self._log_free_atom_result(result)
         return result
@@ -171,19 +178,19 @@ class SkgenAtomCalculation:
         eigvals0 = []
         occs0 = []
         for nn, ll in self._atomconfig.valenceshells:
-            eigval = ( output.get_eigenvalue(0, nn, ll),
-                       output.get_eigenvalue(1, nn, ll) )
+            eigval = (output.get_eigenvalue(0, nn, ll),
+                      output.get_eigenvalue(1, nn, ll))
             eigvals0.append(eigval)
-            occ = ( output.get_occupation(0, nn, ll),
-                    output.get_occupation(1, nn, ll) )
+            occ = (output.get_occupation(0, nn, ll),
+                   output.get_occupation(1, nn, ll))
             occs0.append(occ)
         homo0 = output.get_homo_or_lowest_nl(0)
         homo1 = output.get_homo_or_lowest_nl(1)
         result.valence_eigvals = np.array(eigvals0, dtype=float)
         result.valence_occs = np.array(occs0, dtype=float)
-        result.homo = ( homo0, homo1 )
-        result.homo_eigval = ( output.get_eigenvalue(0, homo0[0], homo0[1]),
-                               output.get_eigenvalue(1, homo1[0], homo1[1]) )
+        result.homo = (homo0, homo1)
+        result.homo_eigval = (output.get_eigenvalue(0, homo0[0], homo0[1]),
+                              output.get_eigenvalue(1, homo1[0], homo1[1]))
         return result
 
 
@@ -201,6 +208,76 @@ class SkgenAtomCalculation:
         return valence_hubbus
 
 
+    def _calculate_cam_hubbus(self, result_spinavg, replace_empty_with_homo):
+        workdir = os.path.join(self._workdir, "hubbu")
+        logger.info("Calculating Hubbard U values " + sc.log_path(workdir))
+        shells, ihomo, energies = self._get_shells_and_energies_for_deriv_calc(
+            result_spinavg, replace_empty_with_homo)
+        sc.create_workdir(workdir)
+        all_derivs = self._calc_deriv_matrix(workdir, shells, energies,
+                                             spin_averaged=True)
+        all_derivs = 0.5 * (all_derivs + np.transpose(all_derivs))
+        valence_hubbus = self._get_valence_derivs(all_derivs, ihomo,
+                                                  replace_empty_with_homo)
+        logger.info("Applying the Hubbard correction algorithm")
+        for ii in range(len(shells)):
+            nn, ll = shells[ii]
+            cam_hubb = self._calculate_cam_hubbu(ll, valence_hubbus[ii][ii])
+            # store corrected value
+            valence_hubbus[ii, ii] = cam_hubb
+
+        return valence_hubbus
+
+
+    def _calculate_cam_hubbu(self, ll, hubbu):
+        '''Calculates the corrected CAMY Hubbard U's by finding a root.'''
+
+        tau2hub = 16.0 / 5.0
+        xx_root = opt.brentq(
+            lambda xx: self._cam_root_equation(xx, ll, hubbu, self._xcf.omega,
+                                               self._xcf.alpha, self._xcf.beta),
+            0.0, 1e+03)
+        self._test_cam_hubbu(xx_root, ll, hubbu)
+        tau = xx_root * self._xcf.omega
+        hubbu_corrected = tau / tau2hub
+
+        return hubbu_corrected
+
+
+    def _test_cam_hubbu(self, xx_root, ll, hubbu, rtol=1.0e-12, atol=1.0e-12):
+        '''Tests fulfillment of CAMY-Hubbard equation.'''
+
+        should_be_zero = self._cam_root_equation(
+            xx_root, ll, hubbu, self._xcf.omega, self._xcf.alpha,
+            self._xcf.beta)
+
+        if not np.isclose(should_be_zero, 0.0, rtol=rtol, atol=atol):
+            msg = 'Failed to find satisfying root of CAMY-Hubbard equation.' \
+                + '\nObtained {}'.format(should_be_zero) \
+                + ' > specified tolerance ' \
+                + '(rtol={}, atol={}).'.format(rtol, atol)
+            raise sc.SkgenException(msg)
+
+
+    @staticmethod
+    def _cam_root_equation(xx, ll, hubbu, omega, alpha, beta):
+        '''0 = gl F(xx, alpha, beta) + u_tilde - xx'''
+
+        def funcP(xx):
+            '''P(x)'''
+            return xx**2 * (xx**2 + 0.8 * xx + 0.2) / (xx + 1.0)**4
+
+        def funcF(xx, alpha, beta):
+            '''f(x) = x (alpha + beta (1 - P(x)))'''
+            return xx * (alpha + beta * (1.0 - funcP(xx)))
+
+        tau2hub = 16.0 / 5.0
+        gl = 1.0 / (2.0 * (2.0 * ll + 1.0))
+        u_tilde = hubbu * tau2hub / omega
+
+        return gl * funcF(xx, alpha, beta) + u_tilde - xx
+
+
     def _get_shells_and_energies_for_deriv_calc(self, result_spinavg,
                                                 replace_empty_with_homo):
         spin = 0
@@ -208,14 +285,14 @@ class SkgenAtomCalculation:
         if (homoshell not in self._atomconfig.valenceshells and
                 replace_empty_with_homo):
             homoshell_n, homoshell_l = homoshell
-            shells_to_calculate = [( homoshell_n, homoshell_l )]
+            shells_to_calculate = [(homoshell_n, homoshell_l)]
             reference_energies = [result_spinavg.homo_eigval[spin]]
             ihomo = 0
         else:
             shells_to_calculate = []
             reference_energies = []
             ihomo = self._atomconfig.valenceshells.index(homoshell)
-        shells_to_calculate += [( nn, ll )
+        shells_to_calculate += [(nn, ll)
                                 for nn, ll in self._atomconfig.valenceshells]
         reference_energies += [eigval[spin]
                                for eigval in result_spinavg.valence_eigvals]
@@ -225,11 +302,11 @@ class SkgenAtomCalculation:
     def _calc_deriv_matrix(self, workdir, shells_to_calculate,
                            reference_energies, spin_averaged):
         ncalcshells = len(shells_to_calculate)
-        tmp = np.zeros(( ncalcshells, ncalcshells ), dtype=float)
+        tmp = np.zeros((ncalcshells, ncalcshells), dtype=float)
         if spin_averaged:
             deriv_matrix = tmp
         else:
-            deriv_matrix = ( tmp, np.array(tmp) )
+            deriv_matrix = (tmp, np.array(tmp))
         for ishell, shell_to_variate in enumerate(shells_to_calculate):
             deriv = self._calc_de_shells_docc(
                 workdir, shells_to_calculate, reference_energies,
@@ -247,7 +324,7 @@ class SkgenAtomCalculation:
             return all_hubbus
         nvalshells = len(self._atomconfig.valenceshells)
         # noinspection PyNoneFunctionAssignment
-        valence_hubbus = np.empty(( nvalshells, nvalshells ), dtype=float)
+        valence_hubbus = np.empty((nvalshells, nvalshells), dtype=float)
         hubbu_inds = [ihomo if self._valence_shell_empty[ii] else ii
                       for ii in range(nvalshells)]
         for ii, ii_hubbu in enumerate(hubbu_inds):
@@ -268,6 +345,20 @@ class SkgenAtomCalculation:
         spinws = 0.5 * (spinws + np.transpose(spinws))
         valence_spinws = self._get_valence_derivs(spinws, ihomo,
                                                   replace_empty_with_homo)
+        xcn = self._xcf.type
+        if xcn in ('pbe0', 'b3lyp', 'lcy-pbe', 'lcy-bnl', 'camy-b3lyp',
+                   'camy-pbeh'):
+            valence_cam_hubbus = self._calculate_cam_hubbus(
+                result_spinavg, replace_empty_with_homo=True)
+            valence_hubbus = self._calculate_hubbus(
+                result_spinavg, replace_empty_with_homo=True)
+            # apply correction for CAM-functionals
+            logger.info("Apply correction for CAM spinw values")
+            for ll in range(np.shape(valence_spinws)[0]):
+                valence_spinws[ll, ll] += \
+                    valence_cam_hubbus[ll, ll] \
+                    - valence_hubbus[ll, ll]
+
         return valence_spinws
 
 
@@ -303,31 +394,31 @@ class SkgenAtomCalculation:
         # Calculate derivative via finite differences
         tmp = finite_diff_coeff0 * np.array(reference_eigvals)
         if spin_averaged:
-            de_shells_docc = [ tmp, ]
+            de_shells_docc = [tmp,]
         else:
-            de_shells_docc = [ tmp, np.array(tmp) ]
+            de_shells_docc = [tmp, np.array(tmp)]
 
         for ii in range(len(delta_occ_prefacs)):
             localname = "{:d}{:s}_{:d}".format(nvar, sc.ANGMOM_TO_SHELL[lvar],
                                                ii + 1)
             localworkdir = os.path.join(workdir, localname)
             occs = self._atomconfig.occupations[lvar][nvar - lvar - 1]
-            new_occs = ( occs[0] + delta_occ_prefacs[ii] * delta_occ[0],
-                         occs[1] + delta_occ_prefacs[ii] * delta_occ[1] )
+            new_occs = (occs[0] + delta_occ_prefacs[ii] * delta_occ[0],
+                        occs[1] + delta_occ_prefacs[ii] * delta_occ[1])
             atomconfig.occupations[lvar][nvar - lvar - 1] = new_occs
             result = self._oncenter_calculator.do_calculation(
-                atomconfig, self._xcfunc, None, self._binary, localworkdir)
+                atomconfig, self._xcf, None, self._binary, localworkdir)
             for ss in range(len(de_shells_docc)):
-                e_shells = [ result.get_eigenvalue(ss, nn, ll)
-                             for nn, ll in derived_shells]
+                e_shells = [result.get_eigenvalue(ss, nn, ll)
+                            for nn, ll in derived_shells]
                 de_shells_docc[ss] += (finite_diff_coeffs_delta[ii]
                                        * np.array(e_shells, dtype=float))
             atomconfig.occupations = copy.deepcopy(orig_occ)
 
         if spin_averaged:
             return de_shells_docc[0]
-        else:
-            return de_shells_docc
+
+        return de_shells_docc
 
 
     def _log_free_atom_result(self, result):

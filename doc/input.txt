@@ -26,12 +26,12 @@ Line 3:
 Line 4:
   num_occ
     integer :: num_occ, number of occupied shells
-  
+
   NOTE: This are in fact max_l+1 lines, one for each angular momentum
 
 Line 5:
   num_exp num_poly
-    integer :: num_exp, number of exponents  
+    integer :: num_exp, number of exponents
     integer :: number of polynomial coefficients
 
   NOTE: This are in fact max_l+1 lines, one for each angular momentum

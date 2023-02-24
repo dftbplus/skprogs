@@ -15,11 +15,13 @@ set(sources-f90
   output.f90
   total_energy.f90
   utilities.f90
+  xcfunctionals.f90
   zora_routines.f90)
 
 add_library(skprogs-slateratom ${sources-f90})
 
-target_link_libraries(skprogs-slateratom skprogs-common Libxc::xcf90 Libxc::xc)
+target_link_libraries(skprogs-slateratom skprogs-common Libxc::xcf03 Libxc::xc)
+target_link_libraries(skprogs-slateratom skprogs-common LAPACK::LAPACK)
 
 set(moddir ${CMAKE_CURRENT_BINARY_DIR}/modfiles)
 set_target_properties(skprogs-slateratom PROPERTIES Fortran_MODULE_DIRECTORY ${moddir})

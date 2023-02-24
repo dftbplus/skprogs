@@ -6,6 +6,7 @@ set(sources-f90
 
 add_executable(sktwocnt ${sources-f90})
 
+target_link_libraries(skprogs-sktwocnt skprogs-common Libxc::xcf03 Libxc::xc)
 target_link_libraries(sktwocnt skprogs-sktwocnt)
 
 install(TARGETS sktwocnt EXPORT skprogs-targets DESTINATION ${CMAKE_INSTALL_BINDIR})

@@ -1,8 +1,33 @@
-# Data for auorg
 SkdefVersion = 1
 
 Globals {
-  XCFunctional = pbe
+  # supported (semi-)local xc-functionals:
+  # XCFunctional = LDA {}
+  # XCFunctional = PBE {}
+  # XCFunctional = BLYP {}
+
+  # supported long-range corrected xc-functionals:
+  # (omega: range-separation parameter)
+  # XCFunctional = LCY-PBE {omega = 0.3}
+  # XCFunctional = LCY-BNL {omega = 0.3}
+
+  # supported global hybrid xc-functionals:
+  # XCFunctional = PBE0 {alpha = 0.25}
+  # XCFunctional = B3LYP {}
+
+  # supported CAMY xc-functionals:
+  # XCFunctional = CAMY-PBEh {
+  #   omega = 0.3
+  #   alpha = 0.25
+  #   beta = 0.75
+  # }
+  # XCFunctional = CAMY-B3LYP {
+  #   omega = 0.3
+  #   alpha = 0.19
+  #   beta = 0.46
+  # }
+
+  XCFunctional = PBE {}
   Superposition = density
 }
 
@@ -14,7 +39,7 @@ AtomParameters {
     2S = 1.0 1.0
     2P = 3.0 3.0
   }
-  
+
   $OCCUPATIONS_Ar {
     $OCCUPATIONS_Ne
     3S = 1.0 1.0
@@ -34,14 +59,14 @@ AtomParameters {
     5S = 1.0 1.0
     5P = 3.0 3.0
   }
-  
+
   $OCCUPATIONS_Hg {
     $OCCUPATIONS_Xe
     4F = 7.0 7.0
     5D = 5.0 5.0
     6S = 1.0 1.0
   }
-  
+
   $OCCUPATIONS_Rn {
     $OCCUPATIONS_Hg
     6P = 3.0 3.0
@@ -200,7 +225,7 @@ AtomParameters {
 	4P = 0.0 0.0
 	3D = 1.0 1.0
       }
-      ValenceShells = 4s 4p 3d 
+      ValenceShells = 4s 4p 3d
       Relativistics = None
     }
     DftbAtom {
@@ -278,7 +303,7 @@ OnecenterParameters {
       }
     }
   }
-  
+
   N {
     $StandardDeltaFilling
     Calculator = SlaterAtom {
@@ -354,7 +379,7 @@ OnecenterParameters {
       }
     }
   }
-    
+
   Au {
     $StandardDeltaFilling
     Calculator = SlaterAtom {
@@ -406,14 +431,14 @@ TwoCenterParameters {
       MaxDistance = -12.39
   }
 
-  $SkTwocnt_300_150 = Sktwocnt { 
+  $SkTwocnt_300_150 = Sktwocnt {
     IntegrationPoints = 300 150
   }
 
-  $SkTwocnt_400_200 = Sktwocnt { 
+  $SkTwocnt_400_200 = Sktwocnt {
     IntegrationPoints = 400 200
   }
-  
+
   H-H { Grid = $EqGridCutoff10; Calculator = $SkTwocnt_300_150 }
   H-C { Grid = $EqGridCutoff10; Calculator = $SkTwocnt_300_150 }
   H-N { Grid = $EqGridCutoff10; Calculator = $SkTwocnt_300_150 }
@@ -448,9 +473,8 @@ TwoCenterParameters {
   P-Ti { Grid = $EqGrid; Calculator = $SkTwocnt_400_200 }
   P-Au { Grid = $EqGrid; Calculator = $SkTwocnt_400_200 }
   Ti-Ti { Grid = $EqGridCutoff12; Calculator = $SkTwocnt_400_200 }
-  Ti-Au { Grid = $EqGrid; Calculator = $SkTwocnt_400_200 }  
+  Ti-Au { Grid = $EqGrid; Calculator = $SkTwocnt_400_200 }
   Au-Au { Grid = $EqGrid; Calculator = $SkTwocnt_400_200 }
 }
 
-
-# skgen -o slateratom -t sktwocnt sktable H,O H,O | tee output
+# skgen -o slateratom -t sktwocnt sktable H,O H,O |& tee -a output

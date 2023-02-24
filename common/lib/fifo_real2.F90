@@ -1,14 +1,13 @@
 !> Implements fifo for rank 2 real (double precision) arrays.
 module common_fifo_real2
 
+  use common_accuracy, only : dp
   use common_fifobase, only : TFiFoBase, size
 
   implicit none
   private
 
   public :: TFiFoReal2
-
-  integer, parameter :: dp = kind(1.0d0)
 
 
   !> Extended data type.

@@ -37,11 +37,6 @@ RELATIVISTICS_ZORA = 1
 RELATIVISTICS_TYPES = {'none': RELATIVISTICS_NONE,
                        'zora': RELATIVISTICS_ZORA}
 
-XC_FUNCTIONAL_LDA = 0
-XC_FUNCTIONAL_PBE = 1
-XC_FUNCTIONAL_TYPES = {'lda': XC_FUNCTIONAL_LDA,
-                       'pbe': XC_FUNCTIONAL_PBE}
-
 SUPERPOSITION_POTENTIAL = 0
 SUPERPOSITION_DENSITY = 1
 SUPERPOSITION_TYPES = {'potential': SUPERPOSITION_POTENTIAL,
@@ -58,6 +53,10 @@ INPUT_FLOAT_TOLERANCE = 1E-8
 
 class SkgenException(Exception):
     '''Custom exception of the skgen script.'''
+
+
+class CollectwavecoeffsException(Exception):
+    '''Custom exception of the collectwavecoeffs script.'''
 
 
 def openfile(fobj, mode):
@@ -312,6 +311,10 @@ class ClassDict:
     def keys(self):
         '''Returns view that contains the keys of the dictionary.'''
         return self._dict.keys()
+
+    def classnamelower(self):
+        '''Returns lower-case class name of instance.'''
+        return self.__class__.__name__.lower()
 
 
 def fatalerror(msg, errorcode=-1):
