@@ -6,7 +6,7 @@ module cmdargs
   public :: parse_command_arguments
 
   character(*), parameter :: programName = 'slateratom'
-  character(*), parameter :: programVersion = '22.1'
+  character(*), parameter :: programVersion = '0.1'
 
 contains
 
