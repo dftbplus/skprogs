@@ -32,6 +32,9 @@ module globals
   !> maximum number of SCF calculations
   integer :: maxiter
 
+  !> scf tolerance, i.e. convergence criteria
+  real(dp) :: scftol
+
   !> smallest exponent if generate_alpha
   real(dp) :: min_alpha
 

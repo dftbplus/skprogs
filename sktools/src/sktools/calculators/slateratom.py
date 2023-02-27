@@ -45,10 +45,12 @@ class SlaterAtomSettings(sc.ClassDict):
         Maximal power for every angular momentum.
     """
 
-    def __init__(self, exponents, maxpowers):
+    def __init__(self, exponents, maxpowers, scftol, maxscfiter):
         super().__init__()
         self.exponents = exponents
         self.maxpowers = maxpowers
+        self.scftol = scftol
+        self.maxscfiter = maxscfiter
 
     @classmethod
     def fromhsd(cls, root, query):
@@ -56,7 +58,11 @@ class SlaterAtomSettings(sc.ClassDict):
         exponents = sc.get_shellvalues_list(node, query, conv.float1)
         node = query.getchild(root, "maxpowers")
         maxpowers = sc.get_shellvalues_list(node, query, conv.int0)
-        return cls(exponents, maxpowers)
+        scftol = query.getvalue(
+            root, "scftolerance", converter=conv.float0, defvalue=1.0e-10)
+        maxscfiter = query.getvalue(
+            root, "maxscfiterations", converter=conv.int0, defvalue=120)
+        return cls(exponents, maxpowers, scftol, maxscfiter)
 
     def __eq__(self, other):
         if not isinstance(other, SlaterAtomSettings):
@@ -75,6 +81,11 @@ class SlaterAtomSettings(sc.ClassDict):
             for ii in range(len(myexps)):
                 if abs(myexps[ii] - otherexps[ii]) > sc.INPUT_FLOAT_TOLERANCE:
                     return False
+        if (abs(self.scftol - other.scftol)
+                > sc.INPUT_FLOAT_TOLERANCE):
+            return False
+        if self.maxscfiter != other.maxscfiter:
+            return False
         return True
 
 
@@ -128,6 +139,14 @@ class SlateratomInput:
             raise sc.SkgenException(msg)
         if len(settings.maxpowers) != atomconfig.maxang + 1:
             msg = "Slateratom: Missing STO max. powers for some shells"
+            raise sc.SkgenException(msg)
+
+        if self._settings.scftol <= 0.0:
+            msg = "Slateratom: SCF tolerance must be >0.0 a.u."
+            raise sc.SkgenException(msg)
+
+        if self._settings.maxscfiter < 1:
+            msg = "Slateratom: Maximum number of SCF iterations must be >=1"
             raise sc.SkgenException(msg)
 
         if self.isXCFunctionalSupported(functional):
@@ -206,11 +225,13 @@ class SlateratomInput:
         """
         maxang = self._atomconfig.maxang
         out = [
-            "{:d} {:d} {:d} {:s} \t{:s} znuc maxang nscc relativistic".format(
-                int(self._atomconfig.atomicnumber), maxang, 120,
-                self._LOGICALSTRS[self._relativistic], self._COMMENT),
+            "{:d} {:d} {:d} {:g} {:s} \t{:s}".format(
+                int(self._atomconfig.atomicnumber), maxang,
+                self._settings.maxscfiter, self._settings.scftol,
+                self._LOGICALSTRS[self._relativistic], self._COMMENT) + \
+            " znuc maxang nscc scftol relativistic",
 
-            "{:d} \t{:s} functional".format(
+            "{:d} \t\t\t{:s} functional".format(
                 self._functional, self._COMMENT)
         ]
 
@@ -261,43 +282,43 @@ class SlateratomInput:
 
         # Compressions
         if len(self._compressions) == 0:
-            out += ["{:g} {:d} \t{:s} Compr. radius and power ({:s})".format(
+            out += ["{:g} {:d} \t\t{:s} Compr. radius and power ({:s})".format(
                 1e30, 0, self._COMMENT, sc.ANGMOM_TO_SHELL[ll])
                     for ll in range(maxang + 1)]
         else:
-            out += ["{:g} {:d} \t{:s} Compr. radius and power ({:s})".format(
+            out += ["{:g} {:d} \t\t{:s} Compr. radius and power ({:s})".format(
                 compr.radius, int(compr.power), self._COMMENT,
                 sc.ANGMOM_TO_SHELL[ll])
                     for ll, compr in enumerate(self._compressions)]
 
-        out += ["{:d} \t{:s} nr. of occupied shells ({:s})".format(
+        out += ["{:d} \t\t\t{:s} nr. of occupied shells ({:s})".format(
             len(occ), self._COMMENT, sc.ANGMOM_TO_SHELL[ll])
                 for ll, occ in enumerate(self._atomconfig.occupations)]
 
         # STO powers and exponents
         exponents = self._settings.exponents
         maxpowers = self._settings.maxpowers
-        out += ["{:d} {:d} \t{:s} nr. of exponents, max. power ({:s})".format(
+        out += ["{:d} {:d} \t\t\t{:s} nr. of exponents, max. power ({:s})".format(
             len(exponents[ll]), maxpowers[ll], self._COMMENT,
             sc.ANGMOM_TO_SHELL[ll])
                 for ll in range(maxang + 1)]
-        out.append("{:s} \t{:s} automatic exponent generation".format(
+        out.append("{:s} \t\t{:s} automatic exponent generation".format(
             self._LOGICALSTRS[False], self._COMMENT))
         for ll, skexp_ang in enumerate(exponents):
             for ii, skexp in enumerate(skexp_ang):
-                out.append("{:10f} \t{:s} exponent {:d} ({:s})".format(
+                out.append("{:10f} \t\t{:s} exponent {:d} ({:s})".format(
                     skexp, self._COMMENT, ii + 1, sc.ANGMOM_TO_SHELL[ll]))
 
-        out.append("{:s} \t{:s} write eigenvectors".format(
+        out.append("{:s} \t\t{:s} write eigenvectors".format(
             self._LOGICALSTRS[False], self._COMMENT))
-        out.append("{} {:g} \t{:s} broyden mixer, mixing factor".format(
+        out.append("{} {:g} \t\t{:s} broyden mixer, mixing factor".format(
             self._LOGICALSTRS[True], 0.1, self._COMMENT))
 
         # Occupations
         for ll, occperl in enumerate(self._atomconfig.occupations):
             for ii, occ in enumerate(occperl):
                 nn = ii + 1 + ll  # principal quantum number
-                out.append("{:g} {:g} \t{:s} occupations ({:d}{:s})".format(
+                out.append("{:g} {:g} \t\t\t{:s} occupations ({:d}{:s})".format(
                     occ[0], occ[1], self._COMMENT, nn, sc.ANGMOM_TO_SHELL[ll]))
 
         # Occupied shell range
@@ -308,7 +329,7 @@ class SlateratomInput:
             occqns[ll][0] = min(occqns[ll][0], nn)
             occqns[ll][1] = max(occqns[ll][1], nn)
         for ll, vqns in enumerate(occqns):
-            out.append("{:d} {:d} \t{:s} occupied shells from to ({:s})".format(
+            out.append("{:d} {:d} \t\t\t{:s} occupied shells from to ({:s})".format(
                 vqns[0], vqns[1], self._COMMENT, sc.ANGMOM_TO_SHELL[ll]))
 
         fp = open(os.path.join(workdir, INPUT_FILE), "w")
