@@ -57,7 +57,7 @@ contains
     real(dp), intent(out) :: conf_r0(0:4)
 
     !> power of confinement
-    integer, intent(out) :: conf_power(0:4)
+    real(dp), intent(out) :: conf_power(0:4)
 
     !> maximal occupied shell
     integer, intent(out) :: num_occ
@@ -146,7 +146,7 @@ contains
       stop
     end if
 
-    write(*, '(A)') 'Enter Confinement: r_0 and integer power, power=0 -> off'
+    write(*, '(A)') 'Enter Confinement: r_0 and integer power, power=0.0 -> off'
     do ii = 0, max_l
       write(*, '(A,I3)') 'l=', ii
       read(*,*) conf_r0(ii), conf_power(ii)
@@ -288,7 +288,7 @@ contains
     real(dp), intent(in) :: conf_r0(0:)
 
     !> power of confinement
-    integer, intent(in) :: conf_power(0:)
+    real(dp), intent(in) :: conf_power(0:)
 
     !> occupation numbers
     real(dp), intent(in) :: occ(:,0:,:)
@@ -383,8 +383,9 @@ contains
 
     write(*, '(A)') ' '
     do ii = 0, max_l
-      if (conf_power(ii) /= 0) then
-        write(*, '(A,I3,A,E15.7,A,I3)') 'l= ', ii, ', r0= ', conf_r0(ii), ' power= ', conf_power(ii)
+      if (conf_power(ii) > 1.0e-06_dp) then
+        write(*, '(A,I3,A,E15.7,A,E15.7)') 'l= ', ii, ', r0= ', conf_r0(ii), ' power= ',&
+            & conf_power(ii)
       else
         write(*, '(A,I3,A)') 'l= ', ii, ' no confinement '
       end if

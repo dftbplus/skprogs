@@ -9,7 +9,7 @@ module globals
   real(dp) :: conf_r0(0:4)
 
   !> power of confinement
-  integer :: conf_power(0:4)
+  real(dp) :: conf_power(0:4)
 
   !> basis exponents
   real(dp) :: alpha(0:4, 10)

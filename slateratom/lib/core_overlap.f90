@@ -10,6 +10,11 @@ module core_overlap
   public :: overlap, kinetic, nuclear, moments, v, confinement
 
 
+  interface v
+    module procedure v_int, v_real
+  end interface
+
+
 contains
 
   !> Calculates overlap matrix elements,
@@ -210,7 +215,7 @@ contains
     real(dp), intent(in) :: conf_r0(0:)
 
     !> power of confinement
-    integer, intent(in) :: conf_power(0:)
+    real(dp), intent(in) :: conf_power(0:)
 
     !> temporary storage
     real(dp) :: alpha1
@@ -221,7 +226,7 @@ contains
     vconf(:,:,:) = 0.0_dp
 
     do ii = 0, max_l
-      if (conf_power(ii) /= 0) then
+      if (conf_power(ii) > 1.0e-06_dp) then
         nn = 0
         do jj = 1, num_alpha(ii)
           do ll = 1, poly_order(ii)
@@ -344,7 +349,7 @@ contains
 
 
   !> Auxiliary function V_{i}(x), see Rev. Mod. Phys. 32, 186 (1960) eqn. 20.
-  pure function v(xx, ii) result(res)
+  pure function v_int(xx, ii) result(res)
 
     !> argument
     real(dp), intent(in) :: xx
@@ -357,7 +362,24 @@ contains
 
     res = fak(ii) / (xx**(ii + 1))
 
-  end function v
+  end function v_int
+
+
+  !> Auxiliary function V_{i}(x), see Rev. Mod. Phys. 32, 186 (1960) eqn. 20.
+  pure function v_real(xx, ii) result(res)
+
+    !> argument
+    real(dp), intent(in) :: xx
+
+    !> index
+    real(dp), intent(in) :: ii
+
+    !> result
+    real(dp) :: res
+
+    res = gamma(ii + 1.0_dp) / xx**(ii + 1.0_dp)
+
+  end function v_real
 
 
   !> Auxiliary function W_{ij}(x), see Rev. Mod. Phys. 32, 186 (1960) eqn. 20.
