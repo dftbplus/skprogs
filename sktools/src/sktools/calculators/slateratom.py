@@ -3,6 +3,8 @@ Module to perform or find atomic DFT calculations, using slateratom.
 '''
 
 import os
+import sys
+import logging
 import subprocess as subproc
 import numpy as np
 import sktools.hsd.converter as conv
@@ -12,6 +14,8 @@ import sktools.compressions
 import sktools.radial_grid as oc
 
 
+LOGGER = logging.getLogger('slateratom')
+
 SUPPORTED_FUNCTIONALS = {'lda' : 2, 'pbe' : 3, 'blyp' : 4, 'lcy-pbe' : 5,
                          'lcy-bnl' : 6, 'pbe0' : 7, 'b3lyp' : 8,
                          'camy-b3lyp' : 9, 'camy-pbeh' : 10}
@@ -19,6 +23,20 @@ SUPPORTED_FUNCTIONALS = {'lda' : 2, 'pbe' : 3, 'blyp' : 4, 'lcy-pbe' : 5,
 INPUT_FILE = "slateratom.in"
 STDOUT_FILE = "output"
 DEFAULT_BINARY = "slateratom"
+
+
+def fatalerror(msg, errorcode=-1):
+    '''Issue error message and exit.
+
+    Args:
+
+        msg (str): error message
+        errorcode (int): error code to raise
+
+    '''
+
+    LOGGER.critical(msg)
+    sys.exit(errorcode)
 
 
 def register_onecenter_calculator():
@@ -371,9 +389,36 @@ class SlateratomResult:
 
     def __init__(self, workdir):
         self._workdir = workdir
-        fp = open(os.path.join(self._workdir, "energies.tag"), "r")
+        self._check_output()
+        fp = open(os.path.join(self._workdir, "energies.tag"), "r",
+                  encoding="utf8")
         self._energiestag = TaggedFile.fromfile(fp, transpose=True)
         fp.close()
+
+    def _check_output(self):
+        """Checks calculation for SCF convergence and energies.tag file."""
+
+        error_str = "SCF is NOT converged, maximal SCF iterations exceeded."
+        troubleshoot_str = "Possible troubleshooting steps:" \
+            + "\n" \
+            + "1) Check skdef.hsd (e.g. an extremely large basis can result" \
+            + " in unstable SCF cycles, ...)" \
+            + "\n" \
+            + "2) Increase MaxSCFIterations" \
+            + "\n" \
+            + "3) Choose less tight SCFTolerance"
+        output_fname = os.path.join(self._workdir, "output")
+
+        # Check for SCF convergence
+        with open(output_fname, "r", encoding="utf8") as outfile:
+            if error_str in outfile.read():
+                fatalerror(error_str + "\n" + "Path: " + self._workdir
+                           + "\n\n" + troubleshoot_str)
+
+        # Check for any other reason, causing a missing energies.tag file
+        error_str = "energies.tag absent, reason unknown (check yourself)."
+        if not os.path.exists(os.path.join(self._workdir, "energies.tag")):
+            fatalerror(error_str + "\n" + "Path: " + self._workdir)
 
     def get_homo_or_lowest_nl(self, ss):
         """Returns homo. If spin channel has no electrons, lowest level.

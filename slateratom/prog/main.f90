@@ -174,7 +174,7 @@ program HFAtom
 
   ! handle non-converged calculations
   if (.not. tConverged) then
-    call error('SCC is NOT converged, maximal SCC iterations exceeded.')
+    call error('SCF is NOT converged, maximal SCF iterations exceeded.')
   end if
 
   ! handle output of requested data
