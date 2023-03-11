@@ -1,0 +1,5 @@
+sphinx >= 1.8
+sphinxcontrib-bibtex
+sphinx-book-theme
+sphinx-copybutton
+sphinx-design
