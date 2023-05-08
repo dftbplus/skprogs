@@ -8,12 +8,6 @@ module output
 
   public :: write_sktables
 
-  !> maximal angular momentum in the old and the extended old SK file
-  integer, parameter :: LMAX_OLD = 2
-
-  !> maximal angular momentum in the old and the extended old SK file
-  integer, parameter :: LMAX_EXTENDED = 3
-
 
 contains
 

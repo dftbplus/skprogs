@@ -306,14 +306,10 @@ contains
     !> 1st derivative of spline at x
     real(dp), intent(out):: der
 
-    !! number of knots
-    integer nn
-
     !! index i of interval [xi(i), xi(i+1)] containing x
     integer i1
 
     ! initialize, check input parameters
-    nn = size(xi)
     if (size(cc, 1) /= 5) call stop_error("spline3 error: size(c,1) /= 5.")
     if (size(cc, 2) /= size(xi) - 1) call stop_error("spline3 error: size(c,2) /= size(xi)-1.")
 

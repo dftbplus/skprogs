@@ -4,12 +4,11 @@ module dft
   use, intrinsic :: iso_c_binding, only : c_size_t
   use common_accuracy, only : dp
   use common_constants, only : pi, rec4pi
-  use xcfunctionals, only : xcFunctional, radial_divergence, getExcVxc_LDA_PW91,&
+  use xcfunctionals, only : xcFunctional, getExcVxc_LDA_PW91,&
       & getExcVxc_GGA_PBE96, getExcVxc_GGA_BLYP, getExcVxc_LCY_PBE96, getExcVxc_LCY_BNL,&
       & getExcVxc_HYB_B3LYP, getExcVxc_HYB_PBE0, getExcVxc_CAMY_B3LYP, getExcVxc_CAMY_PBEh
   use density, only : basis, basis_times_basis_times_r2, density_at_point, density_at_point_1st,&
       & density_at_point_2nd
-  use utilities, only : zeroOutCpotOfEmptyDensitySpinChannels
 
   implicit none
   private
@@ -134,21 +133,14 @@ contains
     !! number of density grid points
     integer(c_size_t) :: nn
 
-    !! exchange and correlation energy on grid
-    real(dp), allocatable :: ex(:), ex_sr(:), ec(:)
-
-    !! exchange and correlation potential on grid
-    real(dp), allocatable :: vx(:,:), vx_sr(:,:), vc(:,:)
-
     !! density in libxc compatible format, i.e. rho/(4pi)
     real(dp), allocatable :: rhor(:,:)
 
     !! temporary storage
-    real(dp), allocatable :: tmpv1(:), tmpv2(:), exc_tmp(:), vxc_tmp(:,:)
-    real(dp), allocatable :: sigma(:,:), vxsigma(:,:), vxsigma_sr(:,:), vcsigma(:,:), vxcsigma(:,:)
+    real(dp), allocatable :: sigma(:,:)
 
-    !! auxiliary variables
-    integer :: ii, iSpin, iSpin2, iSigma
+    !! auxiliary variable
+    integer :: ii
 
     nn = size(rho, dim=1)
 

@@ -21,11 +21,10 @@ module twocnt
 
   use, intrinsic :: iso_c_binding, only : c_size_t
 
-  use xc_f03_lib_m, only : xc_f03_func_t, xc_f03_func_info_t, xc_f03_func_init, xc_f03_func_end,&
-      & xc_f03_func_get_info, xc_f03_lda_vxc, xc_f03_gga_vxc, XC_LDA_X, XC_LDA_X_YUKAWA,&
-      & XC_LDA_C_PW, XC_GGA_X_PBE, XC_GGA_C_PBE, XC_GGA_X_B88, XC_GGA_C_LYP, XC_GGA_X_SFAT_PBE,&
-      & XC_HYB_GGA_XC_PBEH, XC_HYB_GGA_XC_B3LYP, XC_HYB_GGA_XC_CAMY_B3LYP, XC_UNPOLARIZED,&
-      & xc_f03_func_set_ext_params
+  use xc_f03_lib_m, only : xc_f03_func_t, xc_f03_func_init, xc_f03_func_end, xc_f03_lda_vxc,&
+      & xc_f03_gga_vxc, XC_LDA_X, XC_LDA_X_YUKAWA, XC_LDA_C_PW, XC_GGA_X_PBE, XC_GGA_C_PBE,&
+      & XC_GGA_X_B88, XC_GGA_C_LYP, XC_GGA_X_SFAT_PBE, XC_HYB_GGA_XC_B3LYP,&
+      & XC_HYB_GGA_XC_CAMY_B3LYP, XC_UNPOLARIZED, xc_f03_func_set_ext_params
 
   implicit none
   private
@@ -220,7 +219,6 @@ contains
 
     !! libxc related objects
     type(xc_f03_func_t) :: xcfunc_xc, xcfunc_x, xcfunc_xsr, xcfunc_c
-    type(xc_f03_func_info_t) :: xcinfo
 
     !! Becke integrator instances
     type(TBeckeIntegrator) :: beckeInt
@@ -233,58 +231,41 @@ contains
 
     if (inp%iXC == xcFunctional%LDA_PW91) then
       call xc_f03_func_init(xcfunc_x, XC_LDA_X, XC_UNPOLARIZED)
-      xcinfo = xc_f03_func_get_info(xcfunc_x)
       call xc_f03_func_init(xcfunc_c, XC_LDA_C_PW, XC_UNPOLARIZED)
-      xcinfo = xc_f03_func_get_info(xcfunc_c)
     elseif (inp%iXC == xcFunctional%GGA_PBE96) then
       call xc_f03_func_init(xcfunc_x, XC_GGA_X_PBE, XC_UNPOLARIZED)
-      xcinfo = xc_f03_func_get_info(xcfunc_x)
       call xc_f03_func_init(xcfunc_c, XC_GGA_C_PBE, XC_UNPOLARIZED)
-      xcinfo = xc_f03_func_get_info(xcfunc_c)
     elseif (inp%iXC == xcFunctional%GGA_BLYP) then
       call xc_f03_func_init(xcfunc_x, XC_GGA_X_B88, XC_UNPOLARIZED)
-      xcinfo = xc_f03_func_get_info(xcfunc_x)
       call xc_f03_func_init(xcfunc_c, XC_GGA_C_LYP, XC_UNPOLARIZED)
-      xcinfo = xc_f03_func_get_info(xcfunc_c)
     elseif (inp%iXC == xcFunctional%LCY_PBE96) then
       call xc_f03_func_init(xcfunc_x, XC_GGA_X_SFAT_PBE, XC_UNPOLARIZED)
       call xc_f03_func_set_ext_params(xcfunc_x, [inp%omega])
-      xcinfo = xc_f03_func_get_info(xcfunc_x)
       call xc_f03_func_init(xcfunc_c, XC_GGA_C_PBE, XC_UNPOLARIZED)
-      xcinfo = xc_f03_func_get_info(xcfunc_c)
     elseif (inp%iXC == xcFunctional%LCY_BNL) then
       call xc_f03_func_init(xcfunc_x, XC_LDA_X_YUKAWA, XC_UNPOLARIZED)
       call xc_f03_func_set_ext_params(xcfunc_x, [inp%omega])
-      xcinfo = xc_f03_func_get_info(xcfunc_x)
       call xc_f03_func_init(xcfunc_c, XC_GGA_C_PBE, XC_UNPOLARIZED)
-      xcinfo = xc_f03_func_get_info(xcfunc_c)
     elseif (inp%iXC == 6) then
       ! xpbe96
       call xc_f03_func_init(xcfunc_x, XC_GGA_X_PBE, XC_UNPOLARIZED)
-      xcinfo = xc_f03_func_get_info(xcfunc_x)
       ! cpbe96
       call xc_f03_func_init(xcfunc_c, XC_GGA_C_PBE, XC_UNPOLARIZED)
-      xcinfo = xc_f03_func_get_info(xcfunc_c)
     elseif (inp%iXC == 7) then
       call xc_f03_func_init(xcfunc_xc, XC_HYB_GGA_XC_B3LYP, XC_UNPOLARIZED)
       call xc_f03_func_set_ext_params(xcfunc_xc, [0.20_dp, 0.72_dp, 0.81_dp])
-      xcinfo = xc_f03_func_get_info(xcfunc_xc)
     elseif (inp%iXC == 8) then
       call xc_f03_func_init(xcfunc_xc, XC_HYB_GGA_XC_CAMY_B3LYP, XC_UNPOLARIZED)
       call xc_f03_func_set_ext_params(xcfunc_xc, [0.81_dp, inp%camAlpha + inp%camBeta,&
           & -inp%camBeta, inp%omega])
-      xcinfo = xc_f03_func_get_info(xcfunc_xc)
     elseif (inp%iXC == 9) then
       ! short-range xpbe96
       call xc_f03_func_init(xcfunc_xsr, XC_GGA_X_SFAT_PBE, XC_UNPOLARIZED)
       call xc_f03_func_set_ext_params(xcfunc_xsr, [inp%omega])
-      xcinfo = xc_f03_func_get_info(xcfunc_xsr)
       ! xpbe96
       call xc_f03_func_init(xcfunc_x, XC_GGA_X_PBE, XC_UNPOLARIZED)
-      xcinfo = xc_f03_func_get_info(xcfunc_x)
       ! cpbe96
       call xc_f03_func_init(xcfunc_c, XC_GGA_C_PBE, XC_UNPOLARIZED)
-      xcinfo = xc_f03_func_get_info(xcfunc_c)
     end if
 
     if (inp%tLC .or. inp%tCam) then
@@ -746,13 +727,8 @@ contains
     !! libXC's contracted gradients of the density
     real(dp), allocatable :: sigma(:)
 
-    !! number of tabulated grid points
-    integer :: nn
-
     !! recurring factors
     real(dp), allocatable :: f1(:), f2(:)
-
-    nn = size(drho1)
 
     f1 = drho1 + dots * drho2
     f2 = drho2 + dots * drho1
