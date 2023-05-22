@@ -104,7 +104,7 @@ contains
     this%memorylimit = memorylimit
     this%filename = filename
     this%fileid = fileid
-  
+
   end subroutine TFiFoBase_initswap
 
 
@@ -187,7 +187,7 @@ contains
         this%inmemory = this%inmemory - 1
       end if
     end if
-    
+
     if (.not. associated(this%current%data)) then
       call this%readnodedata(this%current)
     end if
@@ -242,14 +242,14 @@ contains
       deallocate(node)
       node => this%head
     end do
-    
+
     if (this%memorylimit /= -1) then
       inquire(this%fileid, opened=opened)
       if (opened) then
         close(this%fileid, status="delete")
       end if
     end if
-    
+
   end subroutine TFiFoBase_freeresources
 
 
@@ -320,11 +320,11 @@ contains
     class(TFiFoBase), intent(inout) :: this
     integer, intent(in) :: fileid, filepos
     class(*), intent(inout), pointer :: data
-    
+
     stop "Collection does not support swapping to file."
-    
+
   end subroutine TFiFoBase_datatofile
-  
+
 
   !> Reads the content of a data node from a file.
   !!
@@ -340,7 +340,7 @@ contains
     class(*), intent(out), pointer :: data
 
     stop "Collection does not support swapping to file."
-    
+
   end subroutine TFiFoBase_datafromfile
 
 

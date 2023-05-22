@@ -5,10 +5,9 @@ module xcfunctionals
   use common_accuracy, only : dp
   use common_constants, only : rec4pi
   use utilities, only : zeroOutCpotOfEmptyDensitySpinChannels
-  use xc_f03_lib_m, only : xc_f03_func_t, xc_f03_func_info_t, xc_f03_func_init, xc_f03_func_end,&
-      & xc_f03_func_get_info, xc_f03_lda_exc_vxc, xc_f03_gga_exc_vxc, xc_f03_gga_fxc,&
-      & xc_f03_func_set_ext_params, XC_LDA_X, XC_LDA_X_YUKAWA, XC_LDA_C_PW, XC_GGA_X_PBE,&
-      & XC_GGA_X_B88, XC_GGA_X_SFAT_PBE, XC_HYB_GGA_XC_PBEH, XC_HYB_GGA_XC_B3LYP,&
+  use xc_f03_lib_m, only : xc_f03_func_t, xc_f03_func_init, xc_f03_func_end, xc_f03_lda_exc_vxc,&
+      & xc_f03_gga_exc_vxc, xc_f03_func_set_ext_params, XC_LDA_X, XC_LDA_X_YUKAWA, XC_LDA_C_PW,&
+      & XC_GGA_X_PBE, XC_GGA_X_B88, XC_GGA_X_SFAT_PBE, XC_HYB_GGA_XC_B3LYP,&
       & XC_HYB_GGA_XC_CAMY_B3LYP, XC_GGA_C_PBE, XC_GGA_C_LYP, XC_POLARIZED
 
   implicit none
@@ -216,7 +215,6 @@ contains
 
     !! libxc related objects
     type(xc_f03_func_t) :: xcfunc_x, xcfunc_c
-    type(xc_f03_func_info_t) :: xcinfo
 
     !! number of density grid points
     integer(c_size_t) :: nn
@@ -237,9 +235,7 @@ contains
     allocate(vc(2, nn))
 
     call xc_f03_func_init(xcfunc_x, XC_LDA_X, XC_POLARIZED)
-    xcinfo = xc_f03_func_get_info(xcfunc_x)
     call xc_f03_func_init(xcfunc_c, XC_LDA_C_PW, XC_POLARIZED)
-    xcinfo = xc_f03_func_get_info(xcfunc_c)
 
     ! exchange
     call xc_f03_lda_exc_vxc(xcfunc_x, nn, rhor(1, 1), ex(1), vx(1, 1))
@@ -290,7 +286,6 @@ contains
 
     !! libxc related objects
     type(xc_f03_func_t) :: xcfunc_x, xcfunc_c
-    type(xc_f03_func_info_t) :: xcinfo
 
     !! number of density grid points
     integer(c_size_t) :: nn
@@ -327,9 +322,7 @@ contains
     vcsigma(:,:) = 0.0_dp
 
     call xc_f03_func_init(xcfunc_x, XC_GGA_X_PBE, XC_POLARIZED)
-    xcinfo = xc_f03_func_get_info(xcfunc_x)
     call xc_f03_func_init(xcfunc_c, XC_GGA_C_PBE, XC_POLARIZED)
-    xcinfo = xc_f03_func_get_info(xcfunc_c)
 
     ! exchange
     call xc_f03_gga_exc_vxc(xcfunc_x, nn, rhor(1, 1), sigma(1, 1), ex(1), vx(1, 1), vxsigma(1, 1))
@@ -382,7 +375,6 @@ contains
 
     !! libxc related objects
     type(xc_f03_func_t) :: xcfunc_x, xcfunc_c
-    type(xc_f03_func_info_t) :: xcinfo
 
     !! number of density grid points
     integer(c_size_t) :: nn
@@ -419,9 +411,7 @@ contains
     vcsigma(:,:) = 0.0_dp
 
     call xc_f03_func_init(xcfunc_x, XC_GGA_X_B88, XC_POLARIZED)
-    xcinfo = xc_f03_func_get_info(xcfunc_x)
     call xc_f03_func_init(xcfunc_c, XC_GGA_C_LYP, XC_POLARIZED)
-    xcinfo = xc_f03_func_get_info(xcfunc_c)
 
     ! exchange
     call xc_f03_gga_exc_vxc(xcfunc_x, nn, rhor(1, 1), sigma(1, 1), ex(1), vx(1, 1), vxsigma(1, 1))
@@ -477,7 +467,6 @@ contains
 
     !! libxc related objects
     type(xc_f03_func_t) :: xcfunc_x, xcfunc_c
-    type(xc_f03_func_info_t) :: xcinfo
 
     !! number of density grid points
     integer(c_size_t) :: nn
@@ -515,9 +504,7 @@ contains
 
     call xc_f03_func_init(xcfunc_x, XC_GGA_X_SFAT_PBE, XC_POLARIZED)
     call xc_f03_func_set_ext_params(xcfunc_x, [omega])
-    xcinfo = xc_f03_func_get_info(xcfunc_x)
     call xc_f03_func_init(xcfunc_c, XC_GGA_C_PBE, XC_POLARIZED)
-    xcinfo = xc_f03_func_get_info(xcfunc_c)
 
     ! exchange
     call xc_f03_gga_exc_vxc(xcfunc_x, nn, rhor(1, 1), sigma(1, 1), ex(1), vx(1, 1), vxsigma(1, 1))
@@ -573,7 +560,6 @@ contains
 
     !! libxc related objects
     type(xc_f03_func_t) :: xcfunc_x, xcfunc_c
-    type(xc_f03_func_info_t) :: xcinfo
 
     !! number of density grid points
     integer(c_size_t) :: nn
@@ -606,9 +592,7 @@ contains
 
     call xc_f03_func_init(xcfunc_x, XC_LDA_X_YUKAWA, XC_POLARIZED)
     call xc_f03_func_set_ext_params(xcfunc_x, [omega])
-    xcinfo = xc_f03_func_get_info(xcfunc_x)
     call xc_f03_func_init(xcfunc_c, XC_GGA_C_PBE, XC_POLARIZED)
-    xcinfo = xc_f03_func_get_info(xcfunc_c)
 
     ! exchange
     call xc_f03_lda_exc_vxc(xcfunc_x, nn, rhor(1, 1), ex(1), vx(1, 1))
@@ -664,7 +648,6 @@ contains
 
     !! libxc related objects
     type(xc_f03_func_t) :: xcfunc_x, xcfunc_c
-    type(xc_f03_func_info_t) :: xcinfo
 
     !! number of density grid points
     integer(c_size_t) :: nn
@@ -706,9 +689,7 @@ contains
     vxcsigma(:,:) = 0.0_dp
 
     call xc_f03_func_init(xcfunc_x, XC_GGA_X_PBE, XC_POLARIZED)
-    xcinfo = xc_f03_func_get_info(xcfunc_x)
     call xc_f03_func_init(xcfunc_c, XC_GGA_C_PBE, XC_POLARIZED)
-    xcinfo = xc_f03_func_get_info(xcfunc_c)
 
     ! exchange
     call xc_f03_gga_exc_vxc(xcfunc_x, nn, rhor(1, 1), sigma(1, 1), ex(1), vx(1, 1), vxsigma(1, 1))
@@ -763,7 +744,6 @@ contains
 
     !! libxc related objects
     type(xc_f03_func_t) :: xcfunc_xc
-    type(xc_f03_func_info_t) :: xcinfo
 
     !! number of density grid points
     integer(c_size_t) :: nn
@@ -793,7 +773,6 @@ contains
 
     call xc_f03_func_init(xcfunc_xc, XC_HYB_GGA_XC_B3LYP, XC_POLARIZED)
     call xc_f03_func_set_ext_params(xcfunc_xc, [0.20_dp, 0.72_dp, 0.81_dp])
-    xcinfo = xc_f03_func_get_info(xcfunc_xc)
 
     ! exchange + correlation
     call xc_f03_gga_exc_vxc(xcfunc_xc, nn, rhor(1, 1), sigma(1, 1), exc_tmp(1), vxc_tmp(1, 1),&
@@ -854,7 +833,6 @@ contains
 
     !! libxc related objects
     type(xc_f03_func_t) :: xcfunc_xc
-    type(xc_f03_func_info_t) :: xcinfo
 
     !! number of density grid points
     integer(c_size_t) :: nn
@@ -881,7 +859,6 @@ contains
 
     call xc_f03_func_init(xcfunc_xc, XC_HYB_GGA_XC_CAMY_B3LYP, XC_POLARIZED)
     call xc_f03_func_set_ext_params(xcfunc_xc, [0.81_dp, camAlpha + camBeta, -camBeta, omega])
-    xcinfo = xc_f03_func_get_info(xcfunc_xc)
 
     ! exchange + correlation
     call xc_f03_gga_exc_vxc(xcfunc_xc, nn, rhor(1, 1), sigma(1, 1), exc_tmp(1), vxc_tmp(1, 1),&
@@ -939,7 +916,6 @@ contains
 
     !! libxc related objects
     type(xc_f03_func_t) :: xcfunc_x, xcfunc_xsr, xcfunc_c
-    type(xc_f03_func_info_t) :: xcinfo
 
     !! number of density grid points
     integer(c_size_t) :: nn
@@ -990,15 +966,12 @@ contains
     ! short-range exchange
     call xc_f03_func_init(xcfunc_xsr, XC_GGA_X_SFAT_PBE, XC_POLARIZED)
     call xc_f03_func_set_ext_params(xcfunc_xsr, [omega])
-    xcinfo = xc_f03_func_get_info(xcfunc_xsr)
 
     ! full-range exchange
     call xc_f03_func_init(xcfunc_x, XC_GGA_X_PBE, XC_POLARIZED)
-    xcinfo = xc_f03_func_get_info(xcfunc_x)
 
     ! correlation
     call xc_f03_func_init(xcfunc_c, XC_GGA_C_PBE, XC_POLARIZED)
-    xcinfo = xc_f03_func_get_info(xcfunc_c)
 
     ! short-range exchange
     call xc_f03_gga_exc_vxc(xcfunc_xsr, nn, rhor(1, 1), sigma(1, 1), ex_sr(1), vx_sr(1, 1),&

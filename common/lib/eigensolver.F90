@@ -3,7 +3,7 @@
 !! removed.
 module common_eigensolver
 
-  use common_accuracy, only : rsp, rdp
+  use common_accuracy, only : rdp
 
   implicit none
   private

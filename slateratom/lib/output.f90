@@ -474,7 +474,7 @@ contains
     real(dp), intent(in) :: cof(:,0:,:,:), alpha(0:,:), occ(:,0:,:)
     integer, intent(in) :: qnvalorbs(:,0:)
 
-    integer :: fp, ii, ll, ncoeff
+    integer :: fp, ii, ll
     type(TTaggedwriter) :: twriter
     character(len=20) :: fname
     real(dp), allocatable :: coeffs(:,:)
@@ -482,7 +482,6 @@ contains
     call TTaggedwriter_init(twriter)
     fp = 95
     do ll = 0, max_l
-      ncoeff = poly_order(ll) * num_alpha(ll)
       allocate(coeffs(poly_order(ll), num_alpha(ll)))
       do ii = 1, num_alpha(ll) * poly_order(ll)
         if (ii < qnvalorbs(1, ll) .or. ii > qnvalorbs(2, ll)) then
