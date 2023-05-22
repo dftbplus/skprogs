@@ -1,7 +1,7 @@
-The Hartree-Fock core of the code is a near one-to-one implementation of
-the Roothaan formulas, see especially rmp_32_186_1960.pdf in the
-references directory (Here, only the special case of 1S atoms is
-implemented).
+The Hartree-Fock core of the code is a near one-to-one implementation
+of the Roothaan formulas, see especially Rev. Mod Phys. 32, 186 (1960)
+https://doi.org/10.1103/RevModPhys.32.186 (Here, only the special case
+of 1S atoms is implemented).
 
 Due to this, the matrix elements of the Coulomb potential are calculated
 directly without recourse to the potential, except in the
