@@ -152,6 +152,9 @@ module globals
   !> exc energy density on grid
   real(dp), allocatable :: exc(:)
 
+  !> average local, effective potential
+  real(dp), allocatable :: avgPot(:,:)
+
   !> generate alphas automatically
   logical :: tAutoAlphas
 
@@ -166,6 +169,9 @@ module globals
 
   !> true, if Broyden mixing is desired, otherwise simple mixing is applied
   logical :: tBroyden
+
+  !> true, if average local, effective potential should be calculated
+  logical :: tAvgPot
 
   !> mixing factor
   real(dp) :: mixing_factor
@@ -230,6 +236,8 @@ contains
 
     cof(:,:,:,:) = 0.0_dp
     pp(:,:,:,:) = 0.0_dp
+
+    if (tAvgPot) allocate(avgPot(num_mesh_points, 2), source=0.0_dp)
 
   end subroutine allocate_globals
 

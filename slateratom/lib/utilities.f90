@@ -8,6 +8,13 @@ module utilities
 
   public :: check_convergence, check_electron_number
   public :: vector_length, fak, zeroOutCpotOfEmptyDensitySpinChannels
+  public :: index_heap_sort
+
+
+  !> Heap sort returning an index array.
+  interface index_heap_sort
+    module procedure index_heap_sort_real
+  end interface
 
 
 contains
@@ -181,5 +188,75 @@ contains
     end do
 
   end function fak
+
+
+  !> Real case heap sort returning an index array.
+  !> based on Numerical Recipes Software 1986-92
+  subroutine index_heap_sort_real(indx, array, tolerance)
+
+    !> Indexing array on return
+    integer, intent(out) :: indx(:)
+
+    !> Array of values to be sorted
+    real(dp), intent(in) :: array(:)
+
+    !> Tolerance for equality of two elements
+    real(dp), intent(in), optional :: tolerance
+
+    integer :: nn, ir, ij, il, ii, ik
+    integer :: indxTmp
+    real(dp) :: arrayTmp, tol
+
+    if (present(tolerance)) then
+      tol = tolerance
+    else
+      tol = epsilon(0.0_dp)
+    end if
+
+    do ii = 1, size(indx)
+      indx(ii) = ii
+    end do
+
+    nn = size(array)
+
+    if (nn <= 1) return
+    il = nn / 2 + 1
+    ir = nn
+    ik = 1
+    do while (ik == 1)
+      if (il .gt. 1) then
+        il = il - 1
+        indxTmp = indx(il)
+        arrayTmp = array(indxTmp)
+      else
+        indxTmp = indx(ir)
+        arrayTmp = array(indxTmp)
+        indx(ir) = indx(1)
+        ir = ir - 1
+        if (ir .lt. 1) then
+          indx(1) = indxTmp
+          return
+        end if
+      end if
+      ii = il
+      ij = 2 * il
+      do while (ij <= ir)
+        if (ij < ir) then
+          if (array(indx(ij)) < array(indx(ij+1)) - tol) then
+            ij = ij + 1
+          end if
+        end if
+        if(arrayTmp < array(indx(ij)) - tol) then
+          indx(ii) = indx(ij)
+          ii = ij
+          ij = 2 * ij
+        else
+          ij = ir + 1
+        end if
+      end do
+      indx(ii) = indxTmp
+    end do
+
+  end subroutine index_heap_sort_real
 
 end module utilities

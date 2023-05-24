@@ -1,7 +1,7 @@
 !> Module that provides basic routines to write out various results.
 module output
 
-  use common_accuracy, only : dp
+  use common_accuracy, only : dp, mc
   use common_constants, only : pi
   use core_overlap, only : moments
   use density, only : wavefunction, wavefunction_1st, wavefunction_2nd, density_at_point,&
@@ -17,6 +17,7 @@ module output
   public :: write_potentials_file_standard, write_densities_file_standard
   public :: write_waves_file_standard, cusp_values, write_energies_tagged
   public :: write_wave_coeffs_file
+  public :: writeAveragePotential
 
   character(len=1), parameter :: orbnames(0:4) = ["s", "p", "d", "f", "g"]
 
@@ -406,6 +407,43 @@ contains
     end do
 
   end subroutine write_waves_file_standard
+
+
+  !> Writes average potential to disk.
+  subroutine writeAveragePotential(abcissa, avgPot)
+
+    !> Numerical integration abcissas
+    real(dp), intent(in) :: abcissa(:)
+
+    !! Average local, effective potential
+    real(dp), intent(in) :: avgPot(:,:)
+
+    !! Number of numerical integration points
+    integer :: num_mesh_points
+
+    !! Iterates over radial grid points
+    integer :: iRad
+
+    !! File name and identifier
+    character(mc) :: fname
+    integer :: fp
+
+    fname = "avgpot.dat"
+    num_mesh_points = size(abcissa)
+
+    open(newunit=fp, file=fname, status="replace", action="write")
+
+    write(fp, "(A)") "# 1st line: number of mesh points"
+    write(fp, "(A)") "# abcissa avgpot_up avgpot_down"
+    write(fp, "(I0)") num_mesh_points
+
+    do iRad = 1, size(avgPot, dim=1)
+      write(fp, "(3ES21.12E3)") abcissa(iRad), avgPot(iRad, 1), avgPot(iRad, 2)
+    end do
+
+    close(fp)
+
+  end subroutine writeAveragePotential
 
 
   subroutine cusp_values(max_l, cof, p, alpha, num_alpha, poly_order)

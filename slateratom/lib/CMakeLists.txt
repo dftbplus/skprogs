@@ -1,4 +1,5 @@
 set(sources-f90
+  avgpot.f90
   broyden.f90
   core_overlap.f90
   coulomb_hfex.f90
