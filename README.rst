@@ -46,9 +46,42 @@ Follow the usual CMake build workflow:
   CMake) or the ``PKG_CONFIG_PATH`` environment variable (if libXC was built
   with autotools) in order to guide the library search::
 
-    CMAKE_PREFIX_PATH=YOUR_LIBXC_INSTALL_FOLDER FC=gfortan cmake [...]
+    CMAKE_PREFIX_PATH=$HOME/opt/libxc FC=gfortan cmake [...]
 
     PKG_CONFIG_PATH=FOLDER_WITH_LIBXC_PC_FILES FC=gfortran cmake [...]
+
+* If the configuration was successful, build the code ::
+
+    cmake --build _build -- -j
+
+* After successful build, you should test the code by running ::
+
+    pushd _build
+    ctest -j
+    popd
+
+* If the tests were successful, install the package via ::
+
+    cmake --install _build
+
+
+Obtaining libXC
+---------------
+
+Follow the usual CMake build workflow:
+
+* Clone the official libXC repository and checkout the latest release tag, e.g.
+  ``6.2.2``::
+
+    git clone https://gitlab.com/libxc/libxc.git libxc
+    cd libxc/
+    git checkout 6.2.2
+
+* Configure the project, specify your compilers (e.g. ``gfortran`` and ``gcc``),
+  the install location (e.g. ``$HOME/opt/libxc``) and the build directory
+  (e.g. ``_build``)::
+
+      FC=gfortran CC=gcc cmake -DENABLE_FORTRAN=True -DCMAKE_INSTALL_PREFIX=$HOME/opt/libxc -B _build .
 
 * If the configuration was successful, build the code ::
 
@@ -85,7 +118,7 @@ variable. If you want to load an external toolchain file instead of one from the
 source tree, you can specify the file path with the ``-DTOOLCHAIN_FILE`` option
 ::
 
-  -DTOOLCHAIN_FILE=/some/path/myintel.cmake
+  -DTOOLCHAIN_FILE=/path/to/myintel.cmake
 
 or with the ``SKPROGS_TOOLCHAIN_FILE`` environment variable.
 
