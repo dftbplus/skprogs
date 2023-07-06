@@ -7,7 +7,7 @@ module cmdargs
   public :: parse_command_arguments
 
   character(len=*), parameter :: programName = 'sktwocnt'
-  character(len=*), parameter :: programVersion = '0.1'
+  character(len=*), parameter :: programVersion = '0.2'
 
 
 contains
