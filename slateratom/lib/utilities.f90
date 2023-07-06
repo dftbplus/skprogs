@@ -1,87 +1,144 @@
+!> Module that provides common utilities used by the slateratom program.
 module utilities
 
   use common_accuracy, only : dp
-  use common_constants
 
   implicit none
   private
 
-  public :: check_convergence, check_electron_number, vector_length
-  public :: fak, polcart, cartpol, dscalar
-  
+  public :: check_convergence, check_electron_number
+  public :: vector_length, fak, zeroOutCpotOfEmptyDensitySpinChannels
+
+
 contains
 
-  subroutine check_convergence(pot_old,pot_new,max_l,problemsize,iter,&
-      &change_max,final)
+  pure subroutine zeroOutCpotOfEmptyDensitySpinChannels(rho, vc)
 
-    ! check SCF convergence
+    !> density on grid
+    real(dp), intent(in) :: rho(:,:)
 
+    !> correlation potential on grid, shape: (nSpin, nGridPoints)
+    real(dp), intent(inout) :: vc(:,:)
+
+    !! maximum density in up/down channels
+    real(dp) :: maxSpinUp, maxSpinDn
+
+    maxSpinUp = maxval(abs(rho(:, 1)))
+    maxSpinDn = maxval(abs(rho(:, 2)))
+
+    if (maxSpinUp < 1e-16_dp) vc(1, :) = 0.0_dp
+    if (maxSpinDn < 1e-16_dp) vc(2, :) = 0.0_dp
+
+  end subroutine zeroOutCpotOfEmptyDensitySpinChannels
+
+
+  !> Checks SCF convergence by comparing new and old potential.
+  pure subroutine check_convergence(pot_old, pot_new, max_l, problemsize, scftol, iScf, change_max,&
+      & tConverged)
+
+    !> old and new potential to compare
+    real(dp), intent(in) :: pot_old(:,0:,:,:), pot_new(:,0:,:,:)
+
+    !> maximum angular momentum
+    integer, intent(in) :: max_l
+
+    !> size of the problem at hand
+    integer, intent(in) :: problemsize
+
+    !> scf tolerance, i.e. convergence criteria
+    real(dp), intent(in) :: scftol
+
+    !> current SCF step
+    integer, intent(in) :: iScf
+
+    !> obtained maximum change in potential
     real(dp), intent(out) :: change_max
-    real(dp), intent(in) :: pot_old(:,0:,:,:),pot_new(:,0:,:,:)
-    integer, intent(in) :: max_l,problemsize,iter
-    logical, intent(out) :: final
-    integer ii,jj,kk,ll
 
-    change_max=0.0d0
-    if (iter<3) then
-      final=.false.
+    !> true, if SCF converged
+    logical, intent(out) :: tConverged
+
+    !> auxiliary variables
+    integer ii, jj, kk, ll
+
+    change_max = 0.0_dp
+
+    if (iScf < 3) then
+      tConverged = .false.
     end if
 
-    do ii=1,2
-      do jj=0,max_l
-        do kk=1,problemsize
-          do ll=1,problemsize
-            change_max=max(change_max,&
-                &abs(pot_old(ii,jj,kk,ll)-pot_new(ii,jj,kk,ll)))
+    do ii = 1, 2
+      do jj = 0, max_l
+        do kk = 1, problemsize
+          do ll = 1, problemsize
+            change_max = max(change_max, abs(pot_old(ii, jj, kk, ll) - pot_new(ii, jj, kk, ll)))
           end do
         end do
       end do
     end do
 
-    if (change_max<1.0d-8) then
-      final=.true.
+    if (change_max < scftol) then
+      tConverged = .true.
+    else
+      tConverged = .false.
     end if
 
   end subroutine check_convergence
 
-  subroutine check_electron_number(cof,s,occ,max_l,num_alpha,poly_order,&
-      &problemsize)
 
-    ! check conservation of electron number during SCF
-    ! if this fluctuates you are in deep trouble 
+  !> Checks conservation of electron number during SCF. If this fluctuates you are in deep trouble.
+  subroutine check_electron_number(cof, ss, occ, max_l, num_alpha, poly_order, problemsize)
 
-    real(dp) :: cof(:,0:,:,:)
-    real(dp), intent(in) :: s(0:,:,:),occ(:,0:,:)
-    integer, intent(in) :: max_l,num_alpha(0:),poly_order(0:),problemsize
-    integer :: ii,jj,kk,ll,mm,nn,oo,pp,qq
+    !> wavefunction coefficients
+    real(dp), intent(in) :: cof(:,0:,:,:)
+
+    !> overlap supervector
+    real(dp), intent(in) :: ss(0:,:,:)
+
+    !> occupation numbers
+    real(dp), intent(in) :: occ(:,0:,:)
+
+    !> maximum angular momentum
+    integer, intent(in) :: max_l
+
+    !> number of exponents in each shell
+    integer, intent(in) :: num_alpha(0:)
+
+    !> highest polynomial order + l in each shell
+    integer, intent(in) :: poly_order(0:)
+
+    !> size of the problem at hand
+    integer, intent(in) :: problemsize
+
+    !> actual number of electrons during SCF
     real(dp) :: electron_number
-    real(dp) :: scaling
+
+    !> auxiliary variables
+    integer :: ii, jj, kk, ll, mm, nn, oo, pp, qq
 
     ! get actual number per shell by multiplying dens matrix and overlap
-    do mm=1,2
-      do ii=0,max_l
-        do qq=1,problemsize
-          electron_number=0.0d0
-          ll=0
-          do jj=1,num_alpha(ii)
-            do kk=1,poly_order(ii)
-              ll=ll+1
-              pp=0
-              do nn=1,num_alpha(ii)
-                do oo=1,poly_order(ii)
-                  pp=pp+1
+    do mm = 1, 2
+      do ii = 0, max_l
+        do qq = 1, problemsize
+          electron_number = 0.0_dp
+          ll = 0
+          do jj = 1, num_alpha(ii)
+            do kk = 1, poly_order(ii)
+              ll = ll + 1
+              pp = 0
+              do nn = 1, num_alpha(ii)
+                do oo = 1, poly_order(ii)
+                  pp = pp + 1
 
-                  electron_number=electron_number+&
-                      &occ(mm,ii,qq)*cof(mm,ii,ll,qq)*cof(mm,ii,pp,qq)*s(ii,ll,pp)
+                  electron_number = electron_number + occ(mm, ii, qq)&
+                      & * cof(mm, ii, ll, qq) * cof(mm, ii, pp, qq) * ss(ii, ll, pp)
 
                 end do
               end do
             end do
           end do
 
-          if (abs(occ(mm,ii,qq)-electron_number)>1.0d-8) then
-            write(*,*) 'Electron number fluctuation',&
-                &occ(mm,ii,qq)-electron_number
+          if (abs(occ(mm, ii, qq) - electron_number) > 1.0e-08_dp) then
+            write(*,*) 'Electron number fluctuation', occ(mm, ii, qq) - electron_number
           end if
 
         end do
@@ -90,68 +147,39 @@ contains
 
   end subroutine check_electron_number
 
-  function vector_length(vector,size)
 
-    real(dp) :: vector_length
+  !> Calculates the Euclidean vector norm.
+  pure function vector_length(vector) result(norm)
+
+    !> vector to calculate the Euclidean norm for
     real(dp), intent(in) :: vector(:)
-    integer, intent(in) :: size
-    integer :: ii
 
-    vector_length=0.0d0
+    !> norm of vector
+    real(dp) :: norm
 
-    do ii=1,size
-      vector_length=vector_length+vector(ii)*vector(ii)
-    end do
-
-    vector_length=sqrt(vector_length)
+    norm = norm2(vector)
 
   end function vector_length
 
-  FUNCTION fak(n)
-    REAL(dp) :: fak
-    INTEGER :: n
-    INTEGER :: h
+
+  !> Calculates the factorial of nn.
+  pure function fak(nn)
+
+    !> integer argument to calculate factorial for
+    integer, intent(in) :: nn
+
+    !> resulting factorial
+    real(dp) :: fak
+
+    !> auxiliary variable
+    integer :: ii
+
     fak = 1.0_dp
-    DO h = 1,n 
-      fak = fak*dble(h) 
-    END DO
-    RETURN
-  END function fak
-  !
-  SUBROUTINE polcart(r,zeta,phi,vec)
-    ! zeta=cos(theta)
-    REAL(dp) :: vec(3),r,zeta,phi,s_teta
-    s_teta=SQRT(1.0_dp-zeta*zeta)
-    vec(3)=r*zeta
-    vec(2)=r*s_teta*SIN(phi)
-    vec(1)=r*s_teta*COS(phi)
-    RETURN
-  END subroutine polcart
-  !
-  SUBROUTINE cartpol(vec1,vec2,vec3,r,zeta,phi)
-    REAL(dp) :: eps, tol
-    PARAMETER ( eps=1.d-8 )
-    PARAMETER ( tol=1.d-8 )
-    REAL(dp) :: vec(3), r, zeta, phi,vec1,vec2,vec3
-    !c      external dscalar
-    vec(1)=vec1
-    vec(2)=vec2
-    vec(3)=vec3
-    r = SQRT(dscalar(vec,vec))
-    IF(((ABS(vec(1)).LT.eps).AND.(ABS(vec(2)).LT.eps))) &
-        & phi = 0.0_dp
-    IF(.NOT.((ABS(vec(1)).LT.eps).AND.(ABS(vec(2)).LT.eps))) &
-        & phi = ATAN2(vec(2),vec(1))
-    IF((ABS(r).LT.eps)) zeta = 0.0_dp
-    IF(.NOT.(ABS(r).LT.eps)) zeta = vec(3)/r
-    RETURN
-  END subroutine cartpol
-  !
-  FUNCTION dscalar(r1,r2)
-    REAL(dp) :: r1(3), r2(3), dscalar
-    dscalar = r1(1)*r2(1)+r1(2)*r2(2)+r1(3)*r2(3)
-    RETURN
-  END function dscalar
+
+    do ii = 1, nn
+      fak = fak * real(ii, dp)
+    end do
+
+  end function fak
 
 end module utilities
-

@@ -6,10 +6,16 @@ module common_constants
   implicit none
   private
 
-  public :: pi, Bohr__AA, AA__Bohr, Hartree__eV, eV__Hartree, cc
+  public :: pi, pi_hlf, rec4pi, Bohr__AA, AA__Bohr, Hartree__eV, eV__Hartree, cc
 
   !> pi
   real(dp), parameter :: pi = 3.14159265358979323846_dp
+
+  !> pi / 2
+  real(dp), parameter :: pi_hlf = pi / 2.0_dp
+
+  !> 1 / (4 * pi)
+  real(dp), parameter :: rec4pi = 1.0_dp / (4.0_dp * pi)
 
   !> Bohr->Angstrom
   real(dp), parameter :: Bohr__AA = 0.529177249_dp

@@ -79,9 +79,9 @@ class SkgenTwocnt:
         self._hetero = (self._elem1 != self._elem2)
         self._skdefs = skdefs
         if _elements_reversed:
-            self._compression_prereqs = ( comp_prereq2, comp_prereq1 )
+            self._compression_prereqs = (comp_prereq2, comp_prereq1)
         else:
-            self._compression_prereqs = ( comp_prereq1, comp_prereq2 )
+            self._compression_prereqs = (comp_prereq1, comp_prereq2)
         self._input = SkgenTwocntInput(self._skdefs, self._elem1, self._elem2)
         self._twocenter_searchdirs = ssc.get_twocenter_searchdirs(
             self._searchdirs, self._elem1, self._elem2)
@@ -210,7 +210,7 @@ class SkgenTwocntInput(ssc.InputWithSignature):
         self.grid = twocentpars.grid
         self.hetero = elem1 != elem2
         self.superposition = skdefs.globals.superposition
-        self.functional = skdefs.globals.xcfunctional
+        self.xcf = skdefs.globals.xcf
 
 
     def get_signature(self):
@@ -221,7 +221,7 @@ class SkgenTwocntInput(ssc.InputWithSignature):
             "grid": self.grid,
             "hetero": self.hetero,
             "superposition": self.superposition,
-            "functional": self.functional
+            "xcf": self.xcf
         }
         return signature
 
@@ -244,7 +244,7 @@ class SkgenTwocntCalculation:
         else:
             atom2data = None
         self._twocnt_calculator.do_calculation(
-            self._input.superposition, self._input.functional, self._input.grid,
+            self._input.superposition, self._input.xcf, self._input.grid,
             atom1data, atom2data, twocnt_binary, workdir)
         result = self._twocnt_calculator.get_output(workdir)
         self._store_results(result, workdir)
@@ -256,7 +256,33 @@ class SkgenTwocntCalculation:
         atomdata.density = atomcalcs.dens_result.get_density()
         atomdata.wavefuncs = self._get_standardized_compressed_wfcs(
             atomconfig, atomcalcs.wave_result)
+        atomdata.dens_wavefuncs = self._get_standardized_compressed_dens_wfcs(
+            atomconfig, atomcalcs.dens_result)
+        atomdata.occshells = atomconfig.occshells
         return atomdata
+
+
+    @staticmethod
+    def _get_standardized_compressed_dens_wfcs(atomconfig, wavecomp_result):
+        wavefuncs = []
+
+        for qn, _ in atomconfig.occshells:
+            nn = qn[0]
+            ll = qn[1]
+            wfc012 = wavecomp_result.get_dens_wavefunction(nn, ll)
+            wfc0_data = wfc012.data[:, 0]
+            wfc0_grid = wfc012.grid
+            norm = wfc0_grid.dot(wfc0_data, wfc0_data)
+            logger.debug("Norm for wavefunc {:d}{:s}: {:f}".format(
+                nn, sc.ANGMOM_TO_SHELL[ll], norm))
+            wfc0 = soc.GridData(wfc0_grid, wfc0_data)
+            sign = get_normalized_sign(nn, ll, wfc0)
+            logger.debug("Sign for wavefunc {:d}{:s}: {:.1f}".format(
+                nn, sc.ANGMOM_TO_SHELL[ll], sign))
+            wfc012.data *= sign
+            newwave = (nn, ll, wfc012)
+            wavefuncs.append(newwave)
+        return wavefuncs
 
 
     @staticmethod
@@ -265,7 +291,7 @@ class SkgenTwocntCalculation:
         waves_found_for_shell = {}
         for nn, ll in atomconfig.valenceshells:
             wfc012 = wavecomp_result.get_wavefunction(nn, ll)
-            wfc0_data = wfc012.data[:,0]
+            wfc0_data = wfc012.data[:, 0]
             wfc0_grid = wfc012.grid
             norm = wfc0_grid.dot(wfc0_data, wfc0_data)
             logger.debug("Norm for wavefunc {:d}{:s}: {:f}".format(
@@ -283,7 +309,7 @@ class SkgenTwocntCalculation:
                 logger.debug(msg.format(*coeffs))
                 wfc012 = orthogonalize_wave_and_derivatives(
                     wfc012, previous_wfcs, coeffs)
-            newwave = ( nn, ll, wfc012 )
+            newwave = (nn, ll, wfc012)
             if ll in waves_found_for_shell:
                 waves_found_for_shell[ll].append(newwave)
             else:
@@ -343,6 +369,6 @@ def orthogonalize_wave_and_derivatives(wavefunc, prev_wavefuncs, coeffs):
     wfcnew_data = wavefunc.data.copy()
     for coeff, wfcprev in zip(coeffs, prev_wavefuncs):
         wfcnew_data -= coeff * wfcprev.data
-    norm = wavefunc.grid.dot(wfcnew_data[:,0], wfcnew_data[:,0])
+    norm = wavefunc.grid.dot(wfcnew_data[:, 0], wfcnew_data[:, 0])
     wfcnew_data /= norm
     return soc.GridData(wavefunc.grid, wfcnew_data)

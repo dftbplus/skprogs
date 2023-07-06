@@ -1,4 +1,10 @@
+'''
+Module to perform or find atomic DFT calculations, using slateratom.
+'''
+
 import os
+import sys
+import logging
 import subprocess as subproc
 import numpy as np
 import sktools.hsd.converter as conv
@@ -8,10 +14,29 @@ import sktools.compressions
 import sktools.radial_grid as oc
 
 
-AVAILABLE_FUNCTIONALS = [ sc.XC_FUNCTIONAL_LDA, sc.XC_FUNCTIONAL_PBE ]
+LOGGER = logging.getLogger('slateratom')
+
+SUPPORTED_FUNCTIONALS = {'lda' : 2, 'pbe' : 3, 'blyp' : 4, 'lcy-pbe' : 5,
+                         'lcy-bnl' : 6, 'pbe0' : 7, 'b3lyp' : 8,
+                         'camy-b3lyp' : 9, 'camy-pbeh' : 10}
+
 INPUT_FILE = "slateratom.in"
 STDOUT_FILE = "output"
 DEFAULT_BINARY = "slateratom"
+
+
+def fatalerror(msg, errorcode=-1):
+    '''Issue error message and exit.
+
+    Args:
+
+        msg (str): error message
+        errorcode (int): error code to raise
+
+    '''
+
+    LOGGER.critical(msg)
+    sys.exit(errorcode)
 
 
 def register_onecenter_calculator():
@@ -38,10 +63,12 @@ class SlaterAtomSettings(sc.ClassDict):
         Maximal power for every angular momentum.
     """
 
-    def __init__(self, exponents, maxpowers):
+    def __init__(self, exponents, maxpowers, scftol, maxscfiter):
         super().__init__()
         self.exponents = exponents
         self.maxpowers = maxpowers
+        self.scftol = scftol
+        self.maxscfiter = maxscfiter
 
     @classmethod
     def fromhsd(cls, root, query):
@@ -49,7 +76,11 @@ class SlaterAtomSettings(sc.ClassDict):
         exponents = sc.get_shellvalues_list(node, query, conv.float1)
         node = query.getchild(root, "maxpowers")
         maxpowers = sc.get_shellvalues_list(node, query, conv.int0)
-        return cls(exponents, maxpowers)
+        scftol = query.getvalue(
+            root, "scftolerance", converter=conv.float0, defvalue=1.0e-10)
+        maxscfiter = query.getvalue(
+            root, "maxscfiterations", converter=conv.int0, defvalue=120)
+        return cls(exponents, maxpowers, scftol, maxscfiter)
 
     def __eq__(self, other):
         if not isinstance(other, SlaterAtomSettings):
@@ -68,6 +99,11 @@ class SlaterAtomSettings(sc.ClassDict):
             for ii in range(len(myexps)):
                 if abs(myexps[ii] - otherexps[ii]) > sc.INPUT_FLOAT_TOLERANCE:
                     return False
+        if (abs(self.scftol - other.scftol)
+                > sc.INPUT_FLOAT_TOLERANCE):
+            return False
+        if self.maxscfiter != other.maxscfiter:
+            return False
         return True
 
 
@@ -96,7 +132,7 @@ class SlateratomInput:
     atomconfig : AtomConfig
         Configuration of the atom to be calculated.
     functional : str
-        DFT functional type ('lda' or 'pbe')
+        DFT functional type ('lda', 'pbe', 'blyp', 'lcpbe', 'lcbnl')
     compressions : list
         List of PowerCompression objects. Either empty (no compression applied)
         or has a compression object for every angular momentum of the atom.
@@ -104,9 +140,7 @@ class SlateratomInput:
         Further detailed settings of the program.
     """
 
-    _XCFUNCTIONALS = { sc.XC_FUNCTIONAL_LDA: 2, sc.XC_FUNCTIONAL_PBE: 3 }
-
-    _LOGICALSTRS = { True: ".true.", False: ".false." }
+    _LOGICALSTRS = {True: ".true.", False: ".false."}
 
     _COMMENT = "#"
 
@@ -124,11 +158,37 @@ class SlateratomInput:
         if len(settings.maxpowers) != atomconfig.maxang + 1:
             msg = "Slateratom: Missing STO max. powers for some shells"
             raise sc.SkgenException(msg)
-        myxcfuncs = sc.XC_FUNCTIONAL_LDA, sc.XC_FUNCTIONAL_PBE
-        if functional not in myxcfuncs:
-            msg = "Invalid xc-functional type for slateratom"
+
+        if self._settings.scftol <= 0.0:
+            msg = "Slateratom: SCF tolerance must be >0.0 a.u."
             raise sc.SkgenException(msg)
-        self._functional = self._XCFUNCTIONALS[functional]
+
+        if self._settings.maxscfiter < 1:
+            msg = "Slateratom: Maximum number of SCF iterations must be >=1"
+            raise sc.SkgenException(msg)
+
+        if self.isXCFunctionalSupported(functional):
+            xcfkey = functional.type
+            self._functional = SUPPORTED_FUNCTIONALS[xcfkey]
+
+            if xcfkey in ('lcy-pbe', 'lcy-bnl', 'camy-b3lyp', 'camy-pbeh'):
+                self._omega = functional.omega
+            else:
+                self._omega = None
+
+            if xcfkey in ('camy-b3lyp', 'camy-pbeh'):
+                self._alpha = functional.alpha
+                self._beta = functional.beta
+            elif xcfkey == 'pbe0':
+                self._alpha = functional.alpha
+                self._beta = None
+            else:
+                self._alpha = None
+                self._beta = None
+
+        else:
+            msg = 'Invalid xc-functional type for slateratom'
+            raise sc.SkgenException(msg)
 
         if compressions is None:
             compressions = []
@@ -136,9 +196,6 @@ class SlateratomInput:
             if not isinstance(comp, sktools.compressions.PowerCompression):
                 msg = "Invalid compressiont type {} for slateratom".format(
                     comp.__class__.__name__)
-                raise sc.SkgenException(msg)
-            if abs(comp.power - float(int(comp.power))) > 1e-8:
-                msg = "Slateratom only supports integer compression exponents"
                 raise sc.SkgenException(msg)
         maxang = atomconfig.maxang
         ncompr = len(compressions)
@@ -153,6 +210,26 @@ class SlateratomInput:
         self._relativistic = atomconfig.relativistics == sc.RELATIVISTICS_ZORA
 
 
+    def isXCFunctionalSupported(self, functional):
+        '''Checks if the given xc-functional is supported by the calculator,
+           in particular: checks if AVAILABLE_FUNCTIONALS intersect with
+           sktools.xcfunctionals.XCFUNCTIONALS
+
+        Args:
+            functional: xc-functional, defined in xcfunctionals.py
+
+        Returns:
+            true, if xc-functional is supported, otherwise false
+        '''
+
+        tmp = []
+        for xx in SUPPORTED_FUNCTIONALS:
+            if xx in sktools.xcfunctionals.XCFUNCTIONALS:
+                tmp.append(sktools.xcfunctionals.XCFUNCTIONALS[xx])
+
+        return bool(functional.__class__ in tmp)
+
+
     def write(self, workdir):
         """Writes a valid input for the program.
 
@@ -163,62 +240,111 @@ class SlateratomInput:
         """
         maxang = self._atomconfig.maxang
         out = [
-            "{:d} {:d} {:d} {:s} \t{:s} znuc maxang nscc relativistic".format(
-                int(self._atomconfig.atomicnumber), maxang, 120,
-                self._LOGICALSTRS[self._relativistic], self._COMMENT),
+            "{:d} {:d} {:d} {:g} {:s} \t{:s}".format(
+                int(self._atomconfig.atomicnumber), maxang,
+                self._settings.maxscfiter, self._settings.scftol,
+                self._LOGICALSTRS[self._relativistic], self._COMMENT) + \
+            " znuc maxang nscc scftol relativistic",
 
-            "{:d}\t{:s} functional: 0=HF, 1=X-Alpha, 2=PW-LDA, 3=PBE ".format(
+            "{:d} \t\t\t{:s} functional".format(
                 self._functional, self._COMMENT)
         ]
 
-        # Compressions
-        if not len(self._compressions):
-            out += [ "{:g} {:d} \t{:s} Compr. radius and power ({:s})".format(
-                1e30, 0, self._COMMENT, sc.ANGMOM_TO_SHELL[ll])
-                for ll in range(maxang + 1) ]
-        else:
-            out += [ "{:g} {:d} \t{:s} Compr. radius and power ({:s})".format(
-                compr.radius, int(compr.power), self._COMMENT,
-                sc.ANGMOM_TO_SHELL[ll])
-                for ll, compr in enumerate(self._compressions) ]
+        # range-separated functionals
+        xctype = list(SUPPORTED_FUNCTIONALS.keys())[
+            list(SUPPORTED_FUNCTIONALS.values()).index(self._functional)]
+        if xctype in ('lcy-pbe', 'lcy-bnl'):
+            out += [
+                "{:g} \t{:s} range-separation parameter (omega)".format(
+                    self._omega, self._COMMENT),
 
-        out += [ "{:d} \t{:s} nr. of occupied shells ({:s})".format(
+                # numerical interator
+                # hardcoded parameters for the Becke integration
+                # --> should be moved to skdef.hsd!
+                "2000 194 11 1.0 \t{:s} Becke integrator settings"
+                .format(self._COMMENT)]
+        # B3LYP
+        elif xctype == 'b3lyp':
+            out += [
+                # numerical interator
+                # hardcoded parameters for the Becke integration
+                # --> should be moved to skdef.hsd!
+                "2000 194 11 1.0 \t{:s} Becke integrator settings"
+                .format(self._COMMENT)]
+        # PBE0
+        elif xctype == 'pbe0':
+            out += [
+                "{:g} \t{:s} ".format(self._alpha, self._COMMENT) + \
+                "Global portion of HFX",
+
+                # numerical interator
+                # hardcoded parameters for the Becke integration
+                # --> should be moved to skdef.hsd!
+                "2000 194 11 1.0 \t{:s} Becke integrator settings"
+                .format(self._COMMENT)]
+        # CAM functionals
+        elif xctype in ('camy-b3lyp', 'camy-pbeh'):
+            out += [
+                "{:g} {:g} {:g} \t{:s} ".format(
+                    self._omega, self._alpha, self._beta, self._COMMENT) + \
+                "range-separation parameter (omega), CAM alpha, CAM beta",
+
+                # numerical interator
+                # hardcoded parameters for the Becke integration
+                # --> should be moved to skdef.hsd!
+                "2000 194 11 1.0 \t{:s} Becke integrator settings"
+                .format(self._COMMENT)]
+
+        # Compressions
+        if len(self._compressions) == 0:
+            out += ["{:g} {:d} \t\t{:s} Compr. radius and power ({:s})".format(
+                1e30, 0, self._COMMENT, sc.ANGMOM_TO_SHELL[ll])
+                    for ll in range(maxang + 1)]
+        else:
+            out += ["{:g} {:g} \t\t{:s} Compr. radius and power ({:s})".format(
+                compr.radius, compr.power, self._COMMENT,
+                sc.ANGMOM_TO_SHELL[ll])
+                    for ll, compr in enumerate(self._compressions)]
+
+        out += ["{:d} \t\t\t{:s} nr. of occupied shells ({:s})".format(
             len(occ), self._COMMENT, sc.ANGMOM_TO_SHELL[ll])
-            for ll, occ in enumerate(self._atomconfig.occupations) ]
+                for ll, occ in enumerate(self._atomconfig.occupations)]
 
         # STO powers and exponents
         exponents = self._settings.exponents
         maxpowers = self._settings.maxpowers
-        out += [ "{:d} {:d} \t{:s} nr. of exponents, max. power ({:s})".format(
+        out += ["{:d} {:d} \t\t\t{:s} nr. of exponents, max. power ({:s})".format(
             len(exponents[ll]), maxpowers[ll], self._COMMENT,
             sc.ANGMOM_TO_SHELL[ll])
-            for ll in range(maxang + 1) ]
-        out.append("{:s} \t{:s} automatic exponent generation".format(
+                for ll in range(maxang + 1)]
+        out.append("{:s} \t\t{:s} automatic exponent generation".format(
             self._LOGICALSTRS[False], self._COMMENT))
         for ll, skexp_ang in enumerate(exponents):
             for ii, skexp in enumerate(skexp_ang):
-                out.append("{:10f} \t{:s} exponent {:d} ({:s})".format(
+                out.append("{:10f} \t\t{:s} exponent {:d} ({:s})".format(
                     skexp, self._COMMENT, ii + 1, sc.ANGMOM_TO_SHELL[ll]))
 
-        out.append("{:s} \t{:s} write eigenvectors".format(
+        out.append("{:s} \t\t{:s} write eigenvectors".format(
             self._LOGICALSTRS[False], self._COMMENT))
-        out.append("{} {:g} \t{:s} broyden mixer, mixing factor".format(
+        out.append("{} {:g} \t\t{:s} broyden mixer, mixing factor".format(
             self._LOGICALSTRS[True], 0.1, self._COMMENT))
 
         # Occupations
         for ll, occperl in enumerate(self._atomconfig.occupations):
             for ii, occ in enumerate(occperl):
                 nn = ii + 1 + ll  # principal quantum number
-                out.append("{:g} {:g} \t{:s} occupations ({:d}{:s})".format(
+                out.append("{:g} {:g} \t\t\t{:s} occupations ({:d}{:s})".format(
                     occ[0], occ[1], self._COMMENT, nn, sc.ANGMOM_TO_SHELL[ll]))
 
-        # Valence shell range
-        valenceqns = [[ sc.MAX_PRINCIPAL_QN, 0 ], ] * (maxang + 1)
-        for nn, ll in self._atomconfig.valenceshells:
-            valenceqns[ll][0] = min(valenceqns[ll][0], nn)
-            valenceqns[ll][1] = max(valenceqns[ll][1], nn)
-        for ll, vqns in enumerate(valenceqns):
-            out.append("{:d} {:d} \t{:s} valence shells from to ({:s})".format(
+        # Occupied shell range
+        occqns = [[sc.MAX_PRINCIPAL_QN, 0],] * (maxang + 1)
+        for qn, occ in self._atomconfig.occshells:
+            nn = qn[0]
+            ll = qn[1]
+            occqns[ll][0] = min(occqns[ll][0], nn)
+            occqns[ll][1] = max(occqns[ll][1], nn)
+        for ll, vqns in enumerate(occqns):
+            out.append("{:d} {:d} \t\t\t{:s} occupied shells from to ({:s})".format(
                 vqns[0], vqns[1], self._COMMENT, sc.ANGMOM_TO_SHELL[ll]))
 
         fp = open(os.path.join(workdir, INPUT_FILE), "w")
@@ -263,9 +389,36 @@ class SlateratomResult:
 
     def __init__(self, workdir):
         self._workdir = workdir
-        fp = open(os.path.join(self._workdir, "energies.tag"), "r")
+        self._check_output()
+        fp = open(os.path.join(self._workdir, "energies.tag"), "r",
+                  encoding="utf8")
         self._energiestag = TaggedFile.fromfile(fp, transpose=True)
         fp.close()
+
+    def _check_output(self):
+        """Checks calculation for SCF convergence and energies.tag file."""
+
+        error_str = "SCF is NOT converged, maximal SCF iterations exceeded."
+        troubleshoot_str = "Possible troubleshooting steps:" \
+            + "\n" \
+            + "1) Check skdef.hsd (e.g. an extremely large basis can result" \
+            + " in unstable SCF cycles, ...)" \
+            + "\n" \
+            + "2) Increase MaxSCFIterations" \
+            + "\n" \
+            + "3) Choose less tight SCFTolerance"
+        output_fname = os.path.join(self._workdir, "output")
+
+        # Check for SCF convergence
+        with open(output_fname, "r", encoding="utf8") as outfile:
+            if error_str in outfile.read():
+                fatalerror(error_str + "\n" + "Path: " + self._workdir
+                           + "\n\n" + troubleshoot_str)
+
+        # Check for any other reason, causing a missing energies.tag file
+        error_str = "energies.tag absent, reason unknown (check yourself)."
+        if not os.path.exists(os.path.join(self._workdir, "energies.tag")):
+            fatalerror(error_str + "\n" + "Path: " + self._workdir)
 
     def get_homo_or_lowest_nl(self, ss):
         """Returns homo. If spin channel has no electrons, lowest level.

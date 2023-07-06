@@ -8,13 +8,29 @@ module common_accuracy
   implicit none
   private
 
-  public :: dp, cp, sc, mc, lc
+  public :: dp, cp, r8, r4, rdp, rsp, sc, mc, lc
 
   !> precision of the real data type
   integer, parameter :: dp = real64
 
   !> precision of the complex data type
   integer, parameter :: cp = dp
+
+  !> parameter for real with 8 byte
+  !! (use those only for interfacing F77 routines)
+  integer, parameter :: r8 = kind(1.0d0)
+
+  !> parameter for real with 4 byte
+  !! (use those only for interfacing F77 routines)
+  integer, parameter :: r4 = kind(1.0)
+
+  !> parameter for real with 8 byte
+  !! (use those only for interfacing F77 routines)
+  integer, parameter :: rdp = kind(1.0d0)
+
+  !> parameter for real with 4 byte
+  !! (use those only for interfacing F77 routines)
+  integer, parameter :: rsp = kind(1.0)
 
   !> length of a short string
   integer, parameter :: sc = 10

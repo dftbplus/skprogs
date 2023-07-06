@@ -18,7 +18,7 @@ Line 2:
 Line 3:
   r_0 power
     real(dp) :: r_0, compression radius in Bohr radii
-    integer :: power, power of confining potential
+    real(dp) :: power, power of confining potential
 
   NOTE: This are in fact max_l+1 lines, one for each angular momentum
   SPECIAL VALUE: power=0 switches confinement off !

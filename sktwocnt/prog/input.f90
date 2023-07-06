@@ -4,6 +4,7 @@ module input
   use common_accuracy, only : dp
   use gridorbital, only : TGridorb2_init
   use twocnt, only : TTwocntInp, TAtomdata
+  use xcfunctionals, only : xcFunctional
 
   implicit none
   private
@@ -43,37 +44,109 @@ contains
     !! error status
     integer :: iErr
 
+    !! xc-functional type
+    !! (1: LDA-PW91, 2: GGA-PBE96, 3: GGA-BLYP, 4: LCY-PBE96, 5: LCY-BNL, 6: PBE0, 7: B3LYP,
+    !! 8: CAMY-B3LYP, 9: CAMY-PBEh)
+    integer :: iXC
+
     !! potential data columns, summed up in order to receive the total atomic potential
     integer, allocatable :: potcomps(:)
 
     !! true, if radial grid-orbital 1st/2nd derivative shall be read
     logical :: tReadRadDerivs
 
+    inp%tLC = .false.
+    inp%tCam = .false.
+    inp%tGlobalHybrid = .false.
+
     fp = 14
     open(fp, file=fname, form="formatted", action="read")
     ! general part
     iLine = 0
+
     call nextline_(fp, iLine, line)
-    read(line, *, iostat=iErr) buffer1, buffer2
+    read(line, *, iostat=iErr) buffer1, buffer2, iXC
     call checkerror_(fname, line, iLine, iErr)
-    if (buffer1 /= "hetero" .and. buffer1 /= "homo") then
-      call error_("Wrong interaction (must be hetero or homo)", fname, line, iLine)
+    if ((buffer1 /= "hetero") .and. (buffer1 /= "homo")) then
+      call error_("Wrong interaction (must be 'hetero' or 'homo')!", fname, line, iLine)
     end if
     inp%tHetero = (buffer1 == "hetero")
+
     select case (buffer2)
-    case ("potential")
+    case("potential")
       inp%tDensitySuperpos = .false.
-      inp%ixc = 0
-    case ("density_lda")
+    case("density")
       inp%tDensitySuperpos = .true.
-      inp%ixc = 1
-    case ("density_pbe")
-      inp%tDensitySuperpos = .true.
-      inp%ixc = 2
     case default
-      call error_("Wrong superposition mode (must be potential, density_lda or density_pbe", fname,&
-          & line, iLine)
+      call error_("Wrong superposition mode (must be 'potential' or 'density')!", fname, line,&
+          & iline)
     end select
+
+    select case (iXC)
+    case(xcFunctional%LDA_PW91)
+      ! LDA-PW91
+    case(xcFunctional%GGA_PBE96)
+      ! GGA-PBE96
+    case(xcFunctional%GGA_BLYP)
+      ! GGA-BLYP
+    case(xcFunctional%LCY_PBE96)
+      ! LCY-PBE96 (long-range corrected)
+      inp%tLC = .true.
+    case(xcFunctional%LCY_BNL)
+      ! LCY-BNL (long-range corrected)
+      inp%tLC = .true.
+    case(xcFunctional%HYB_PBE0)
+      ! PBE0 (global hybrid)
+      inp%tGlobalHybrid = .true.
+    case(xcFunctional%HYB_B3LYP)
+      ! B3LYP (global hybrid)
+      inp%tGlobalHybrid = .true.
+    case(xcFunctional%CAMY_B3LYP)
+      ! CAMY-B3LYP (CAM-functional)
+      inp%tCam = .true.
+    case(xcFunctional%CAMY_PBEh)
+      ! CAMY-PBEh (CAM-functional)
+      inp%tCam = .true.
+    case default
+      call error_("Unknown exchange-correlation functional!", fname, line, iline)
+    end select
+    inp%iXC = iXC
+
+    if (inp%iXC == xcFunctional%HYB_B3LYP) then
+      call nextline_(fp, iLine, line)
+      read(line, *, iostat=iErr) inp%nRadial, inp%nAngular, inp%ll_max, inp%rm
+      call checkerror_(fname, line, iLine, iErr)
+    elseif (inp%iXC == xcFunctional%HYB_PBE0) then
+      call nextline_(fp, iLine, line)
+      ! currently only HYB-PBE0 does support arbitrary HFX portions (HYB-B3LYP does not)
+      read(line, *, iostat=iErr) inp%camAlpha
+      call checkerror_(fname, line, iLine, iErr)
+      call nextline_(fp, iLine, line)
+      read(line, *, iostat=iErr) inp%nRadial, inp%nAngular, inp%ll_max, inp%rm
+      call checkerror_(fname, line, iLine, iErr)
+    elseif (inp%tLC) then
+      call nextline_(fp, iLine, line)
+      read(line, *, iostat=iErr) inp%omega
+      if (inp%omega < 1.0e-08_dp) then
+        write(*,'(a)') 'Chosen omega too small!'
+        stop
+      end if
+      call checkerror_(fname, line, iLine, iErr)
+      call nextline_(fp, iLine, line)
+      read(line, *, iostat=iErr) inp%nRadial, inp%nAngular, inp%ll_max, inp%rm
+      call checkerror_(fname, line, iLine, iErr)
+    elseif (inp%tCam) then
+      call nextline_(fp, iLine, line)
+      read(line, *, iostat=iErr) inp%omega, inp%camAlpha, inp%camBeta
+      if (inp%omega < 1.0e-08_dp) then
+        write(*,'(a)') 'Chosen omega too small!'
+        stop
+      end if
+      call checkerror_(fname, line, iLine, iErr)
+      call nextline_(fp, iLine, line)
+      read(line, *, iostat=iErr) inp%nRadial, inp%nAngular, inp%ll_max, inp%rm
+      call checkerror_(fname, line, iLine, iErr)
+    end if
 
     call nextline_(fp, iLine, line)
     read(line, *, iostat=iErr) inp%r0, inp%dr, inp%epsilon, inp%maxdist
@@ -91,9 +164,12 @@ contains
       potcomps = [2, 3, 4]
     end if
     tReadRadDerivs = .not. inp%tHetero
-    call readatom_(fname, fp, iLine, potcomps, inp%tDensitySuperpos, tReadRadDerivs, inp%atom1)
+
+    call readatom_(fname, fp, iLine, potcomps, inp%tDensitySuperpos, tReadRadDerivs,&
+        & (inp%tGlobalHybrid .or. inp%tLC .or. inp%tCam), inp%atom1)
     if (inp%tHetero) then
-      call readatom_(fname, fp, iLine, potcomps, inp%tDensitySuperpos, .true., inp%atom2)
+      call readatom_(fname, fp, iLine, potcomps, inp%tDensitySuperpos, .true., (inp%tGlobalHybrid&
+          & .or. inp%tLC .or. inp%tCam), inp%atom2)
     end if
 
     close(fp)
@@ -102,7 +178,8 @@ contains
 
 
   !> Fills TAtomdata instance based on slateratom's output.
-  subroutine readatom_(fname, fp, iLine, potcomps, tDensitySuperpos, tReadRadDerivs, atom)
+  subroutine readatom_(fname, fp, iLine, potcomps, tDensitySuperpos, tReadRadDerivs, tNonLocal,&
+      & atom)
 
     !> filename
     character(len=*), intent(in) :: fname
@@ -122,11 +199,17 @@ contains
     !> true, if radial grid-orbital 1st/2nd derivative shall be read
     logical, intent(in) :: tReadRadDerivs
 
+    !! true, there are non-local exchange contributions to calculate
+    logical, intent(in) :: tNonLocal
+
     !> atomic properties instance
     type(TAtomdata), intent(out) :: atom
 
     !! character buffer
     character(maxlen) :: line, buffer
+
+    !! temporary storage for checking radial wavefunction sign
+    real(dp) :: vals(2)
 
     !! temporarily stores atomic wavefunction and potential
     real(dp), allocatable :: data(:,:), potval(:)
@@ -138,7 +221,11 @@ contains
     integer :: ii, imax
 
     call nextline_(fp, iLine, line)
-    read(line, *, iostat=iErr) atom%nBasis
+    if (tNonLocal) then
+      read(line, *, iostat=iErr) atom%nBasis, atom%nCore
+    else
+      read(line, *, iostat=iErr) atom%nBasis
+    end if
     call checkerror_(fname, line, iLine, iErr)
 
     allocate(atom%angmoms(atom%nBasis))
@@ -172,8 +259,27 @@ contains
         stop
       end if
     end do
-
     call checkangmoms_(atom%angmoms)
+
+    ! read core orbitals, LC functionals only
+    if (tNonLocal) then
+      allocate(atom%coreAngmoms(atom%nCore))
+      allocate(atom%coreOcc(atom%nCore))
+      allocate(atom%coreRad(atom%nCore))
+
+      do ii = 1, atom%nCore
+        call nextline_(fp, iLine, line)
+        read(line, *, iostat=iErr) buffer, atom%coreAngmoms(ii), atom%coreOcc(ii)
+        call checkerror_(fname, line, iLine, iErr)
+        call readdata_(buffer, [1, 3], data)
+        call TGridorb2_init(atom%coreRad(ii), data(:, 1), data(:, 2))
+        vals = atom%coreRad(ii)%getValue([0.01_dp, 0.02_dp])
+        if ((vals(2) - vals(1)) < 0.0_dp) then
+          call atom%coreRad(ii)%rescale(-1.0_dp)
+        end if
+      end do
+
+    end if
 
     call nextline_(fp, iLine, line)
     read(line, *, iostat=iErr) buffer

@@ -14,26 +14,29 @@ risk!
 Installing
 ==========
 
+|build status|
+
 Prerequisites
 -------------
 
-* Fortran 2003 compiler
+* Fortran 2003 compliant compiler
 
 * CMake (>= 3.16)
 
-* Python3
+* Python3 (>= 3.2)
 
-* LibXC library with f90 interface (tested with version 4.3.4, version 5.x does
-  not work due to inteface changes in LibXC)
+* LAPACK/BLAS libraries (or compatible equivalents)
 
-  
+* libXC library with f03 interface (version >=6.0.0)
+
+
 Building the code
 -----------------
 
 Follow the usual CMake build workflow:
 
-* Configure the project, specify your compiler (e.g. ``gfortran``), the install
-  location (e.g. ``$HOME/opt/skprogs``) and the build directory
+* Configure the project, specify your compilers (e.g. ``gfortran``),
+  the install location (e.g. ``$HOME/opt/skprogs``) and the build directory
   (e.g. ``_build``)::
 
     FC=gfortran cmake -DCMAKE_INSTALL_PREFIX=$HOME/opt/skprogs -B _build .
@@ -44,16 +47,52 @@ Follow the usual CMake build workflow:
   with autotools) in order to guide the library search::
 
     CMAKE_PREFIX_PATH=YOUR_LIBXC_INSTALL_FOLDER FC=gfortan cmake [...]
-    
+
     PKG_CONFIG_PATH=FOLDER_WITH_LIBXC_PC_FILES FC=gfortran cmake [...]
 
 * If the configuration was successful, build the code ::
 
     cmake --build _build -- -j
 
-* If the build was successful, install the code ::
+* After successful build, you should test the code by running ::
+
+    pushd _build
+    ctest -j
+    popd
+
+* If the tests were successful, install the package via ::
 
     cmake --install _build
+
+
+Advanced build configuration
+============================
+
+Controlling the toolchain file selection
+----------------------------------------
+
+You can override the toolchain file, and select a different provided case,
+passing the ``-DTOOLCHAIN`` option with the relevant name, e.g.::
+
+  -DTOOLCHAIN=gnu
+
+or ::
+
+  -DTOOLCHAIN=intel
+
+or by setting the toolchain name in the ``SKPROGS_TOOLCHAIN`` environment
+variable. If you want to load an external toolchain file instead of one from the
+source tree, you can specify the file path with the ``-DTOOLCHAIN_FILE`` option
+::
+
+  -DTOOLCHAIN_FILE=/some/path/myintel.cmake
+
+or with the ``SKPROGS_TOOLCHAIN_FILE`` environment variable.
+
+Similarly, you can also use an alternative build config file instead of
+`config.cmake` in the source tree by specifying it with the
+``-DBUILD_CONFIG_FILE`` option or by defining the ``SKPROGS_BUILD_CONFIG_FILE``
+environment variable.
 
 
 Generating SK-files
@@ -94,3 +133,7 @@ General Public License as published by the Free Software Foundation, either
 version 3 of the License, or (at your option) any later version. See the files
 `COPYING <COPYING>`_ and `COPYING.LESSER <COPYING.LESSER>`_ for the detailed
 licensing conditions.
+
+
+.. |build status| image:: https://img.shields.io/github/actions/workflow/status/dftbplus/skprogs/build.yml
+    :target: https://github.com/dftbplus/skprogs/actions/

@@ -8,12 +8,6 @@ module output
 
   public :: write_sktables
 
-  !> maximal angular momentum in the old and the extended old SK file
-  integer, parameter :: LMAX_OLD = 2
-
-  !> maximal angular momentum in the old and the extended old SK file
-  integer, parameter :: LMAX_EXTENDED = 3
-
 
 contains
 
@@ -51,11 +45,10 @@ contains
     character(len=11) :: formstr
 
     ninteg = size(sktable, dim=1)
-    print *, "NINTEG:", ninteg
     nline = size(sktable, dim=2)
     write(formstr, "(A,I0,A)") "(", ninteg, "ES21.12)"
-    fp = 14
-    open(fp, file=fname, status="replace", action="write")
+
+    open(newunit=fp, file=fname, status="replace", action="write")
     write(fp, "(I0)") nline
     write(fp, formstr) sktable
     close(fp)
