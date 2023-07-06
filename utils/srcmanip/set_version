@@ -37,6 +37,11 @@ _FILES_AND_PATTERNS = [
         r"^PACKAGE_VERSION = '{}'".format(_VERSION_PATTERN),
         "PACKAGE_VERSION = '{version}'"
     ),
+    (
+        'sktools/setup.cfg',
+        r'version = {}'.format(_VERSION_PATTERN),
+        'version = {version}'
+    ),
     #
 ]
 
