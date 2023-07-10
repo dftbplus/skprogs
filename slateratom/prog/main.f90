@@ -50,7 +50,7 @@ program HFAtom
   type(TBeckeGridParams) :: grid_params
 
   ! deactivate average potential calculation for now
-  tAvgPot = .false.
+  isAvgPotNeeded = .false.
 
   call parse_command_arguments()
   call read_input_1(nuc, max_l, occ_shells, maxiter, scftol, poly_order, min_alpha, max_alpha,&
@@ -234,7 +234,7 @@ program HFAtom
 
   call write_wave_coeffs_file(max_l, num_alpha, poly_order, cof, alpha, occ, qnvalorbs)
 
-  if (tAvgPot) then
+  if (isAvgPotNeeded) then
     if (.not. tZora) kinetic_energy_ref = kinetic_energy
     call getAveragePotential(cof, eigval, occ, abcissa, weight, max_l, num_alpha, alpha,&
         & poly_order, problemsize, scftol, maxiter, avgPot, kinetic_energy_ref=kinetic_energy_ref)

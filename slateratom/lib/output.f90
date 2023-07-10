@@ -409,7 +409,7 @@ contains
   end subroutine write_waves_file_standard
 
 
-  !> Writes average potential to disk.
+  !> Writes average local potential to disk.
   subroutine writeAveragePotential(abcissa, avgPot)
 
     !> Numerical integration abcissas

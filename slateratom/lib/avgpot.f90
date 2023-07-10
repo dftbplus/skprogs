@@ -1,13 +1,14 @@
-!> Module to calculate the approximate average potential and effective orbital energies proposed in:
-!! Baer R, Livshits E, Salzner U. Tuned range-separated hybrids in density functional theory.
-!! Annual review of physical chemistry. 2010 May 5;61:85-109.
+!> Module to calculate the approximate average potential and effective orbital energies as proposed
+!! in:
+!! Baer R, Livshits E, Salzner U. “Tuned Range-Separated Hybrids in Density Functional Theory”.
+!! In: Annu. Rev. Phys. Chem. 61.1 (2010), pp. 85–109.
+!! DOI: 10.1146/annurev.physchem.012809.103321
 module average_potential
 
-  use common_accuracy, only : dp, mc
+  use common_accuracy, only : rsp, dp, mc
   use common_constants, only : pi
   use common_message, only : error
 
-  use utilities, only : index_heap_sort
   use density, only : wavefunction, wavefunction_1st, wavefunction_2nd
 
   implicit none
@@ -18,12 +19,8 @@ module average_potential
 
 contains
 
-
   !> Tries to infer the energy of the highest occupied atomic orbital (HOAO) and the associated
   !! principal and angular quantum number from the eigenvalues and occupations handed over.
-  !!
-  !! The effort made here would be an argument for moving this functionality to the sktools
-  !! sometime in the future.
   subroutine getHoaoOrLowestNl(eigval, occ, max_l, num_alpha, poly_order, hoaoN, hoaoL, eHoao)
 
     !> Eigenvalues of selected spin-channel
@@ -41,48 +38,29 @@ contains
     !> Highest polynomial order + l in each shell
     integer, intent(in) :: poly_order(0:)
 
-    !> Principal and angular quantum number of HOAO eigenvalue
+    !> Principal and angular quantum numbers of the HOAO eigenvalue
     integer, intent(out) :: hoaoN, hoaoL
 
     !> Energy of highest occupied atomic orbital
     real(dp), intent(out) :: eHoao
 
-    !! Flattened, one-dimensional versions of occupations and eigenvalues
-    real(dp), allocatable :: occFlat(:), eigvalFlat(:)
-
-    !! Index array that sorts the flattened eigenvalues
-    integer, allocatable :: eigvalFlatSortInds(:)
-
     !! True, if all occupations of current spin channel are below threshold
     logical :: isUnoccupied
 
     !! Auxiliary variables
-    integer :: ll, nn, iDummy1, iDummy2, iHoao, ii, ind
+    integer :: ll, nn, iDummy1, iDummy2, loc(2)
 
-    eigvalFlat = reshape(eigval, [size(eigval)])
-    occFlat = reshape(occ, [size(occ)])
-
-    allocate(eigvalFlatSortInds(size(eigvalFlat)))
-    call index_heap_sort(eigvalFlatSortInds, eigvalFlat)
-
-    ! reverse order, since we would like to iterate over the eigenvalues from unoccupied to occupied
-    eigvalFlatSortInds(:) = eigvalFlatSortInds(size(eigvalFlatSortInds):1:-1)
-
-    isUnoccupied = all(occFlat < 1.0e-08_dp)
+    isUnoccupied = all(occ < 1.0e-08_dp)
 
     if (isUnoccupied) then
-      iHoao = eigvalFlatSortInds(1)
-    else
-      lpIndx: do ii = 1, size(eigvalFlatSortInds)
-        ind = eigvalFlatSortInds(ii)
-        if (occFlat(ind) >= 1.0e-08_dp) then
-          iHoao = ind
-          exit lpIndx
-        end if
-      end do lpIndx
+      loc(:) = minloc(eigval)
+      hoaoN = loc(2)
+      hoaoL = loc(1)
+      eHoao = eigval(hoaoL, hoaoN)
+      return
     end if
 
-    eHoao = eigvalFlat(iHoao)
+    eHoao = -huge(1.0_dp)
 
     lpAng: do ll = 0, max_l
       nn = 0
@@ -90,10 +68,10 @@ contains
         do iDummy2 = 1, poly_order(ll)
           nn = nn + 1
 
-          if (abs(eigval(ll, nn) - eHoao) < 1e-10_dp) then
+          if (eigval(ll, nn) > eHoao .and. occ(ll, nn) > 0.0_dp) then
+            eHoao = eigval(ll, nn)
             hoaoN = nn
             hoaoL = ll
-            exit lpAng
           end if
 
         end do
@@ -104,7 +82,7 @@ contains
 
 
   !> Determines an approximate, average, local potential and associated effective orbital energies
-  !! by minimizing the deviance from local Schrödinger equations.
+  !! by minimizing the deviation from a local potential Schrödinger equation.
   !!
   !! See the following reference for full details:
   !!
@@ -112,7 +90,7 @@ contains
   !! “Tuned Range-Separated Hybrids in Density Functional Theory”.
   !! In: Annu. Rev. Phys. Chem. 61.1 (2010), pp. 85–109.
   !! DOI: 10.1146/annurev.physchem.012809.103321
-  subroutine getAveragePotential(cof, eigval, occ, abcissa, weights, max_l, num_alpha, alpha,&
+  subroutine getAveragePotential(cof, eigval, occ, abscissa, weights, max_l, num_alpha, alpha,&
       & poly_order, problemsize, scftol, maxiter, avgPot, kinetic_energy_ref)
 
     !> wavefunction coefficients
@@ -124,8 +102,8 @@ contains
     !> occupation numbers
     real(dp), intent(in) :: occ(:, 0:, :)
 
-    !> numerical integration abcissas
-    real(dp), intent(in) :: abcissa(:)
+    !> numerical integration abscissae
+    real(dp), intent(in) :: abscissa(:)
 
     !> numerical integration weights
     real(dp), intent(in) :: weights(:)
@@ -157,7 +135,7 @@ contains
     !> Reference kinetic energy
     real(dp), intent(in), optional :: kinetic_energy_ref
 
-    !! HOAO shift required to resolve the ambiguity caused by the common constant
+    !! HOAO shift required to resolve the ambiguity of the effective orbital energies
     real(dp) :: hoaoShift(2)
 
     !! Maximum change in effective orbital energies
@@ -210,7 +188,7 @@ contains
 
     tConverged = .false.
 
-    nRadial = size(abcissa)
+    nRadial = size(abscissa)
     nSpin = size(occ, dim=1)
 
     do iSpin = 1, nSpin
@@ -239,11 +217,11 @@ contains
 
             do iRad = 1, nRadial
               rad(iRad, nn, ll, iSpin) = wavefunction(cof(iSpin, ll, :, nn), alpha, num_alpha,&
-                  & poly_order, ll, abcissa(iRad))
+                  & poly_order, ll, abscissa(iRad))
               radp(iRad, nn, ll, iSpin) = wavefunction_1st(cof(iSpin, ll, :, nn), alpha, num_alpha,&
-                  & poly_order, ll, abcissa(iRad))
+                  & poly_order, ll, abscissa(iRad))
               radpp(iRad, nn, ll, iSpin) = wavefunction_2nd(cof(iSpin, ll, :, nn), alpha,&
-                  & num_alpha, poly_order, ll, abcissa(iRad))
+                  & num_alpha, poly_order, ll, abscissa(iRad))
             end do
 
             ! Electron density as occupation-weighted absolute squares of the orbitals
@@ -255,14 +233,14 @@ contains
     end do
 
     ! Check if established density integrates up to the correct number of electrons
-    electron_number = sum(weights * (rho(:, 1) + rho(:, 2)) * abcissa**2)
+    electron_number = sum(weights * (rho(:, 1) + rho(:, 2)) * abscissa**2)
     if (abs(sum(occ) - electron_number) > 1.0e-08_dp) then
       call error("Average-potential: Mismatch in number of electrons.")
     end if
 
     ! Optionally check if the original kinetic energy is reproduced by the local quantities
     if (present(kinetic_energy_ref)) then
-      kinetic_energy = getKineticEnergy(occ, abcissa, weights, max_l, num_alpha, poly_order, rad,&
+      kinetic_energy = getKineticEnergy(occ, abscissa, weights, max_l, num_alpha, poly_order, rad,&
           & radp, radpp)
       if (abs(kinetic_energy - kinetic_energy_ref) > 1.0e-06_dp) then
         call error("Average-potential: Mismatch in kinetic energy.")
@@ -290,7 +268,7 @@ contains
               avgPot(:, iSpin) = avgPot(:, iSpin) + occ(iSpin, ll, nn)&
                   & * (epsLast(iSpin, ll, nn) * rad(:, nn, ll, iSpin)**2&
                   & + rad(:, nn, ll, iSpin) * (0.5_dp * radpp(:, nn, ll, iSpin)&
-                  & + radp(:, nn, ll, iSpin) / abcissa - 0.5_dp * ll * (ll + 1) / abcissa**2&
+                  & + radp(:, nn, ll, iSpin) / abscissa - 0.5_dp * ll * (ll + 1) / abscissa**2&
                   & * rad(:, nn, ll, iSpin)))
             end do
           end do
@@ -301,6 +279,8 @@ contains
       do iSpin = 1, nSpin
         where (rho(:, iSpin) > 0.0_dp)
           avgPot(:, iSpin) = avgPot(:, iSpin) / rho(:, iSpin)
+        elsewhere
+          avgPot(:, iSpin) = 0.0_dp
         end where
       end do
 
@@ -313,9 +293,9 @@ contains
               nn = nn + 1
               ! uses -laplace / 2
               eps(iSpin, ll, nn)&
-                  & = sum(weights * abcissa**2 * (rad(:, nn, ll, iSpin) * (-0.5_dp&
-                  & * radpp(:, nn, ll, iSpin) - radp(:, nn, ll, iSpin) / abcissa&
-                  & + 0.5_dp * ll * (ll + 1) / abcissa**2 * rad(:, nn, ll, iSpin)&
+                  & = sum(weights * abscissa**2 * (rad(:, nn, ll, iSpin) * (-0.5_dp&
+                  & * radpp(:, nn, ll, iSpin) - radp(:, nn, ll, iSpin) / abscissa&
+                  & + 0.5_dp * ll * (ll + 1) / abscissa**2 * rad(:, nn, ll, iSpin)&
                   & + avgPot(:, iSpin) * rad(:, nn, ll, iSpin))))
             end do
           end do
@@ -376,9 +356,7 @@ contains
 
     ! Clean up and deal with numerical instability
     do iSpin = 1, nSpin
-      where (abs(rho(:, iSpin)) < 1.0e-20_dp)
-        avgPot(:, iSpin) = 0.0_dp
-      end where
+      where (abs(rho(:, iSpin)) < 1.0e-20_dp) avgPot(:, iSpin) = 0.0_dp
     end do
 
   end subroutine getAveragePotential
@@ -387,14 +365,14 @@ contains
   !> Calculates the kinetic energy contribution based on the properties present in the average
   !! potential module. The result should always match the one obtained from the kinetic supervector.
   !! While this calculation is not strictly required, it is an important sanity-check.
-  pure function getKineticEnergy(occ, abcissa, weights, max_l, num_alpha, poly_order, rad, radp,&
+  pure function getKineticEnergy(occ, abscissa, weights, max_l, num_alpha, poly_order, rad, radp,&
       & radpp) result(kinetic_energy)
 
     !> Occupation numbers
     real(dp), intent(in) :: occ(:, 0:, :)
 
-    !> Numerical integration abcissas
-    real(dp), intent(in) :: abcissa(:)
+    !> Numerical integration abscissae
+    real(dp), intent(in) :: abscissa(:)
 
     !> Numerical integration weights
     real(dp), intent(in) :: weights(:)
@@ -438,8 +416,8 @@ contains
             nn = nn + 1
             kinetic_energy = kinetic_energy&
                 & + occ(iSpin, ll, nn) * sum(weights * (rad(:, nn, ll, iSpin) * (-0.5_dp&
-                & * radpp(:, nn, ll, iSpin) - radp(:, nn, ll, iSpin) / abcissa&
-                & + 0.5_dp * ll * (ll + 1) / abcissa**2 * rad(:, nn, ll, iSpin))) * abcissa**2)
+                & * radpp(:, nn, ll, iSpin) - radp(:, nn, ll, iSpin) / abscissa&
+                & + 0.5_dp * ll * (ll + 1) / abscissa**2 * rad(:, nn, ll, iSpin))) * abscissa**2)
           end do
         end do
       end do
