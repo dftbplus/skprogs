@@ -36,17 +36,17 @@ Building the code
 Follow the usual CMake build workflow:
 
 * Configure the project, specify your compilers (e.g. ``gfortran``),
-  the install location (e.g. ``$HOME/opt/skprogs``) and the build directory
-  (e.g. ``_build``)::
+  the install location (i.e. path stored in ``YOUR_SKPROGS_INSTALL_FOLDER``,
+  e.g. ``$HOME/opt/skprogs``) and the build directory (e.g. ``_build``)::
 
-    FC=gfortran cmake -DCMAKE_INSTALL_PREFIX=$HOME/opt/skprogs -B _build .
+    FC=gfortran cmake -DCMAKE_INSTALL_PREFIX=YOUR_SKPROGS_INSTALL_FOLDER -B _build .
 
   If libXC is installed in a non-standard location, you may need to specify
   either the ``CMAKE_PREFIX_PATH`` environment variable (if libXC was built with
   CMake) or the ``PKG_CONFIG_PATH`` environment variable (if libXC was built
   with autotools) in order to guide the library search::
 
-    CMAKE_PREFIX_PATH=$HOME/opt/libxc FC=gfortan cmake [...]
+    CMAKE_PREFIX_PATH=YOUR_LIBXC_INSTALL_FOLDER FC=gfortan cmake [...]
 
     PKG_CONFIG_PATH=FOLDER_WITH_LIBXC_PC_FILES FC=gfortran cmake [...]
 
@@ -78,10 +78,10 @@ Follow the usual CMake build workflow:
     git checkout 6.2.2
 
 * Configure the project, specify your compilers (e.g. ``gfortran`` and ``gcc``),
-  the install location (e.g. ``$HOME/opt/libxc``) and the build directory
-  (e.g. ``_build``)::
+  the install location (i.e. path stored in ``YOUR_LIBXC_INSTALL_FOLDER``, e.g.
+  ``$HOME/opt/libxc``) and the build directory (e.g. ``_build``)::
 
-      FC=gfortran CC=gcc cmake -DENABLE_FORTRAN=True -DCMAKE_INSTALL_PREFIX=$HOME/opt/libxc -B _build .
+      FC=gfortran CC=gcc cmake -DENABLE_FORTRAN=True -DCMAKE_INSTALL_PREFIX=YOUR_LIBXC_INSTALL_FOLDER -B _build .
 
 * If the configuration was successful, build the code ::
 
