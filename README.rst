@@ -11,8 +11,8 @@ robust. Make sure, you check results as careful as possible. Use at your own
 risk!
 
 
-Installing
-==========
+Installation
+============
 
 |build status|
 
@@ -30,8 +30,34 @@ Prerequisites
 * libXC library with f03 interface (version >=6.0.0)
 
 
-Building the code
------------------
+Obtaining via Conda
+-------------------
+
+The preferred way of obtaining SkProgs is to install it via the conda package
+management framework using `Miniconda
+<https://docs.conda.io/en/latest/miniconda.html>`_ or `Anaconda
+<https://www.anaconda.com/products/individual>`_. Make sure to add/enable the
+``conda-forge`` channel in order to be able to access SkProgs::
+
+  conda config --add channels conda-forge
+  conda config --set channel_priority strict
+
+We recommend to set up a dedicated conda environment and to use the
+`mamba solver <https://mamba.readthedocs.io/>`_ ::
+
+  conda create --name skprogs
+  conda activate skprogs
+  conda install conda-libmamba-solver
+  conda config --set solver libmamba
+
+to install the latest stable release of SkProgs (Fortran and Python
+components)::
+
+  mamba install skprogs skprogs-python
+
+
+Building from source
+--------------------
 
 Follow the usual CMake build workflow:
 
@@ -65,8 +91,8 @@ Follow the usual CMake build workflow:
     cmake --install _build
 
 
-Obtaining libXC
----------------
+Building libXC from source
+--------------------------
 
 Follow the usual CMake build workflow:
 
@@ -134,9 +160,10 @@ Generating SK-files
 The basic steps of generating the electronic part of the SK-tables are as
 follows:
 
-* Initialize the necessary environment variables by sourceing the
-  ``skprogs-activate.sh`` script (provided you have BASH or compatible shell,
-  otherwise inspect the script and set up the environment variables manually)::
+* If you have build SkProgs from source, initialize the necessary environment
+  variables by sourceing the ``skprogs-activate.sh`` script (provided you have
+  BASH or a compatible shell, otherwise inspect the script and set up the
+  environment variables manually)::
 
     source <SKPROGS_INSTALL_FOLDER>/bin/skprogs-activate.sh
 
