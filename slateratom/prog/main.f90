@@ -11,7 +11,7 @@ program HFAtom
   use diagonalizations, only : diagonalize, diagonalize_overlap
   use output, only : write_eigvec, write_eigval, write_moments, write_energies,&
       & write_energies_tagged, write_potentials_file_standard, write_densities_file_standard,&
-      & write_waves_file_standard, write_wave_coeffs_file, cusp_values
+      & write_waves_file_standard, write_wave_coeffs_file, cusp_values, writeAveragePotential
   use totalenergy, only : getTotalEnergy, getTotalEnergyZora
   use dft, only : check_accuracy, dft_start_pot, density_grid
   use utilities, only : check_electron_number, check_convergence
@@ -19,6 +19,7 @@ program HFAtom
   use cmdargs, only : parse_command_arguments
   use common_poisson, only : TBeckeGridParams
   use xcfunctionals, only : xcFunctional
+  use average_potential, only : getAveragePotential
   use globals
 
   implicit none
@@ -42,8 +43,14 @@ program HFAtom
   !! CAM beta parameter
   real(dp) :: camBeta
 
+  !! Kinetic energy reference for average potential calculation
+  real(dp), allocatable :: kinetic_energy_ref
+
   !! holds parameters, defining a Becke integration grid
   type(TBeckeGridParams) :: grid_params
+
+  ! deactivate average potential calculation for now
+  isAvgPotNeeded = .false.
 
   call parse_command_arguments()
   call read_input_1(nuc, max_l, occ_shells, maxiter, scftol, poly_order, min_alpha, max_alpha,&
@@ -226,5 +233,12 @@ program HFAtom
       & max_l, problemsize, occ, qnvalorbs, cof)
 
   call write_wave_coeffs_file(max_l, num_alpha, poly_order, cof, alpha, occ, qnvalorbs)
+
+  if (isAvgPotNeeded) then
+    if (.not. tZora) kinetic_energy_ref = kinetic_energy
+    call getAveragePotential(cof, eigval, occ, abcissa, weight, max_l, num_alpha, alpha,&
+        & poly_order, problemsize, scftol, maxiter, avgPot, kinetic_energy_ref=kinetic_energy_ref)
+    call writeAveragePotential(abcissa, avgPot)
+  end if
 
 end program HFAtom
