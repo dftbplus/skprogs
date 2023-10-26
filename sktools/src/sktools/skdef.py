@@ -198,6 +198,19 @@ class AtomConfig(sc.ClassDict):
         # Sort valenceshells (and occupations) by ascending nn and ll
         tmp = [nn * (sc.MAX_ANGMOM + 1) + ll for nn, ll in valenceshells]
         self.valenceshells = [valenceshells[ii] for ii in np.argsort(tmp)]
+
+        # check for uniqueness and continuity of angular quantum numbers
+        angmom = sorted([tpl[1] for tpl in self.valenceshells])
+        unique_and_continuous = all(ii + 1 == jj
+                                    for ii, jj in zip(angmom, angmom[1:]))
+        if not unique_and_continuous:
+            shell_str = ' '.join([sc.shell_ind_to_name(nn, ll)
+                                  for nn, ll in self.valenceshells])
+            raise sc.SkgenException(
+                "Invalid valence shell configuration '" + shell_str \
+                + "' found:\nDuplicate angular momenta and/or omitting " + \
+                "intermediate shells is not supported by the SK-file format.")
+
         # Sort occshells by ascending nn and ll
         tmp = [qn[0] * (sc.MAX_ANGMOM + 1) + qn[1] for qn, occ in occshells]
         self.occshells = [occshells[ii] for ii in np.argsort(tmp)]
