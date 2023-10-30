@@ -14,7 +14,6 @@ import sys
 import shutil
 import subprocess
 import argparse
-from distutils.dir_util import copy_tree
 from argparse import RawTextHelpFormatter
 
 sys.path.append(os.path.abspath('../../../../sktools/src/'))
@@ -43,8 +42,8 @@ def main(cmdlineargs=None):
 
     args = parse_cmdline_args(cmdlineargs)
 
-    copy_tree(os.path.join(args.templateroot, args.test),
-              os.path.join(args.workdir, args.test))
+    shutil.copytree(os.path.join(args.templateroot, args.test),
+                    os.path.join(args.workdir, args.test), dirs_exist_ok=True)
 
     cwd = os.path.join(args.workdir, args.test)
 
