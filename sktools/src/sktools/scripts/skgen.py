@@ -168,9 +168,9 @@ def setup_parser_main(parser):
         help='directory to include in the search for calculation '
         '(default: build directory only)')
     parser.add_argument(
-        '-c', '--config-file', action='append', dest='configfiles',
-        default=['skdef.hsd',],
-        help='config file(s) to be parsed (default: ./skdef.hsd)'
+        '-c', '--config-file', default='skdef.hsd', dest='configfiles',
+        metavar='CONFIGFILE',
+        help='config file to be parsed (default: ./skdef.hsd)'
     )
     parser.add_argument(
         '-b', '--build-dir', default='_build', dest='builddir',
@@ -241,6 +241,7 @@ def setup_parser_sktable(subparsers, twocnt_common, target_function):
 
 def parse_command_line_and_run_subcommand(parser, cmdlineargs=None):
     args = parser.parse_args(args=cmdlineargs)
+    args.configfiles = [args.configfiles,]
     args.func(args)
 
 
