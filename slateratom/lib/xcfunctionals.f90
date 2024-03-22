@@ -772,6 +772,8 @@ contains
     vxcsigma(:,:) = 0.0_dp
 
     call xc_f03_func_init(xcfunc_xc, XC_HYB_GGA_XC_B3LYP, XC_POLARIZED)
+    ! Standard parametrization of B3LYP taken from
+    ! J. Phys. Chem. 1994, 98, 45, 11623-11627; DOI: 10.1021/j100096a001
     call xc_f03_func_set_ext_params(xcfunc_xc, [0.20_dp, 0.72_dp, 0.81_dp])
 
     ! exchange + correlation

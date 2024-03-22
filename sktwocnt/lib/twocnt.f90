@@ -253,7 +253,9 @@ contains
       call xc_f03_func_init(xcfunc_c, XC_GGA_C_PBE, XC_UNPOLARIZED)
     elseif (inp%iXC == 7) then
       call xc_f03_func_init(xcfunc_xc, XC_HYB_GGA_XC_B3LYP, XC_UNPOLARIZED)
-      call xc_f03_func_set_ext_params(xcfunc_xc, [0.20_dp, 0.72_dp, 0.81_dp])
+      ! Adjustable fraction of Fock-type exchange, otherwise standard parametrization taken from
+      ! J. Phys. Chem. 1994, 98, 45, 11623-11627; DOI: 10.1021/j100096a001
+      call xc_f03_func_set_ext_params(xcfunc_xc, [inp%camAlpha, 0.72_dp, 0.81_dp])
     elseif (inp%iXC == 8) then
       call xc_f03_func_init(xcfunc_xc, XC_HYB_GGA_XC_CAMY_B3LYP, XC_UNPOLARIZED)
       call xc_f03_func_set_ext_params(xcfunc_xc, [0.81_dp, inp%camAlpha + inp%camBeta,&
@@ -657,17 +659,11 @@ contains
       ! total density: \int (|\phi_1|^2 + |\phi_2|^2)
       dens = getDensity(radval1(:, i1), radval2(:, i2), spherval1, spherval2, weights)
 
-      if (iXC == xcFunctional%HYB_B3LYP) then
-        ! full-range Hartree-Fock exchange contribution
-        frx = 0.5_dp * getFullRangeHFContribution(radialHFQuadrature%xx, rr3, ll_max, atom1, atom2,&
-            & imap, ii, r1, theta1, r2, theta2, weights)
-        ! add up full-range exchange to the Hamiltonian
-        integ1 = integ1 - frx
-      elseif (iXC == xcFunctional%HYB_PBE0) then
+      if (iXC == xcFunctional%HYB_PBE0 .or. iXC == xcFunctional%HYB_B3LYP) then
         ! full-range Hartree-Fock exchange contribution
         frx = 0.5_dp * camAlpha * getFullRangeHFContribution(radialHFQuadrature%xx, rr3, ll_max,&
             & atom1, atom2, imap, ii, r1, theta1, r2, theta2, weights)
-        ! add up full-/long-range exchange to the Hamiltonian
+        ! add up full-range exchange to the Hamiltonian
         integ1 = integ1 - frx
       elseif (tLC) then
         ! long-range Hartree-Fock exchange contribution
