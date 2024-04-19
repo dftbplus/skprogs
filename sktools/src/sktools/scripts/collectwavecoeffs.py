@@ -136,9 +136,9 @@ def setup_parser_main(parser):
         '(default: build directory only)')
 
     parser.add_argument(
-        '-c', '--config-file', action='append', dest='configfiles',
-        default=['skdef.hsd',],
-        help='config file(s) to be parsed (default: skdef.hsd)')
+        '-c', '--config-file', default='skdef.hsd', dest='configfiles',
+        metavar='CONFIGFILE',
+        help='config file to be parsed (default: ./skdef.hsd)')
 
     parser.add_argument(
         '-b', '--build-dir', default='_build', dest='builddir',
