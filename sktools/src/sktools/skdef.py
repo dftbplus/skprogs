@@ -305,7 +305,7 @@ class AtomConfig(sc.ClassDict):
         occnode = query.findchild(root, "occupations")
         for ll, shellname in enumerate(sc.ANGMOM_TO_SHELL):
             occ_l = []
-            for nn in range(ll + 1, sc.MAX_PRINCIPAL_QN):
+            for nn in range(ll + 1, sc.MAX_PRINCIPAL_QN + 1):
                 txt = "{:d}{:s}".format(nn, shellname)
                 shelloccnode = query.findchild(occnode, txt, optional=True)
                 if shelloccnode is None:
