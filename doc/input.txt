@@ -13,7 +13,7 @@ Line 2:
   xc_functional
     integer :: xc_functional, 0=HF, 1=X-Alpha, 2=PW-LDA, 3=PBE
 
-  NOTE: HF only correct for 1S states, X-Aalpha is untested alpha=0.7
+  NOTE: HF only correct for 1S states, X-Alpha is untested alpha=0.7
 
 Line 3:
   r_0 power

@@ -137,7 +137,7 @@ function(skprogs_guess_toolchain toolchain)
 
   if("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "GNU")
     set(_toolchain "gnu")
-  elseif("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "Intel")
+  elseif("${CMAKE_Fortran_COMPILER_ID}" MATCHES "Intel|IntelLLVM")
     set(_toolchain "intel")
   elseif("${CMAKE_Fortran_COMPILER_ID}" STREQUAL "NAG")
     set(_toolchain "nag")
