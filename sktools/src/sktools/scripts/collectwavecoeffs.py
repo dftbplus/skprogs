@@ -6,11 +6,12 @@ Module to extract or calculate wavefunction coefficients for Waveplot.
 
 
 import os
+import argparse
 
 import sktools.common as sc
 from sktools.skgen import compression
-from sktools.scripts.skgen import get_parser_and_subparser_container, \
-    get_onecnt_common_parser, setup_parser_wavecomp, \
+from sktools.scripts.skgen import get_onecnt_common_parser, \
+    setup_parser_wavecomp, \
     parse_command_line_and_run_subcommand, \
     convert_argument_to_elements, merge_skdefs
 from sktools import PACKAGE_VERSION
@@ -20,7 +21,7 @@ from sktools.taggedfile import TaggedFile
 
 SCRIPTNAME = sc.get_script_name()
 
-USAGE = USAGE = \
+USAGE = \
     '''Collects coefficient information for Waveplot. It iterates over the
     elements defined in skdef.hsd and collects the wavefunction coefficients
     and other information necessary for Waveplot. The homonuclear SK-files as
@@ -148,6 +149,19 @@ def setup_parser_main(parser):
         '-l', '--log-level', dest='loglevel', default='info',
         choices=['debug', 'info', 'warning', 'error'],
         help='Logging level (default: info)')
+
+
+def get_parser_and_subparser_container():
+    '''Instantiates parser and subparser for the collectwavecoeffs script.
+
+    Returns:
+        parser (ArgumentParser): parser instance
+        subparser (ArgumentParser): subparser instance
+    '''
+    parser = argparse.ArgumentParser(description=USAGE)
+    subparsers = parser.add_subparsers(
+        title='available subcommands', help='')
+    return parser, subparsers
 
 
 def setup_logger(loglevel):
