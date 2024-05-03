@@ -210,7 +210,7 @@ contains
     case(xcFunctional%HYB_PBE0)
       call getExcVxc_HYB_PBE0(abcissa, dz, dzdr, rho, drho, sigma, camAlpha, exc, vxc)
     case(xcFunctional%HYB_B3LYP)
-      call getExcVxc_HYB_B3LYP(abcissa, dz, dzdr, rho, drho, sigma, exc, vxc)
+      call getExcVxc_HYB_B3LYP(abcissa, dz, dzdr, rho, drho, sigma, camAlpha, exc, vxc)
     case(xcFunctional%CAMY_B3LYP)
       call getExcVxc_CAMY_B3LYP(abcissa, dz, dzdr, rho, drho, sigma, omega, camAlpha, camBeta, exc,&
           & vxc)

@@ -713,7 +713,7 @@ contains
 
 
   !> Calculates exc and vxc for the HYB-B3LYP xc-functional.
-  subroutine getExcVxc_HYB_B3LYP(abcissa, dz, dzdr, rho, drho, sigma, exc, vxc)
+  subroutine getExcVxc_HYB_B3LYP(abcissa, dz, dzdr, rho, drho, sigma, camAlpha, exc, vxc)
 
     !> numerical integration abcissas
     real(dp), intent(in) :: abcissa(:)
@@ -732,6 +732,9 @@ contains
 
     !> contracted gradients of the density
     real(dp), intent(in), allocatable :: sigma(:,:)
+
+    !> CAM alpha parameter
+    real(dp), intent(in) :: camAlpha
 
     !> exc energy density on grid
     real(dp), intent(out) :: exc(:)
@@ -772,9 +775,9 @@ contains
     vxcsigma(:,:) = 0.0_dp
 
     call xc_f03_func_init(xcfunc_xc, XC_HYB_GGA_XC_B3LYP, XC_POLARIZED)
-    ! Standard parametrization of B3LYP taken from
+    ! Adjustable fraction of Fock-type exchange, otherwise standard parametrization taken from
     ! J. Phys. Chem. 1994, 98, 45, 11623-11627; DOI: 10.1021/j100096a001
-    call xc_f03_func_set_ext_params(xcfunc_xc, [0.20_dp, 0.72_dp, 0.81_dp])
+    call xc_f03_func_set_ext_params(xcfunc_xc, [camAlpha, 0.72_dp, 0.81_dp])
 
     ! exchange + correlation
     call xc_f03_gga_exc_vxc(xcfunc_xc, nn, rhor(1, 1), sigma(1, 1), exc_tmp(1), vxc_tmp(1, 1),&

@@ -101,6 +101,10 @@ contains
     !! auxiliary variables
     integer :: ii, jj
 
+    omega = 0.0_dp
+    camAlpha = 0.0_dp
+    camBeta = 0.0_dp
+
     write(*, '(A)') 'Enter nuclear charge, maximal angular momentum (s=0), max. SCF, SCF tol., ZORA'
     read(*,*) nuc, max_l, maxiter, scftol, tZora
 
@@ -115,12 +119,15 @@ contains
     end if
 
     if (xcFunctional%isLongRangeCorrected(xcnr)) then
+      camBeta = 1.0_dp
       write(*, '(A)') 'Enter range-separation parameter:'
       read(*,*) omega
     elseif (xcnr == xcFunctional%HYB_PBE0) then
       ! currently only HYB-PBE0 does support arbitrary HFX portions (HYB-B3LYP does not)
       write(*, '(A)') 'Enter portion of HFX (CAM alpha):'
       read(*,*) camAlpha
+    elseif (xcnr == xcFunctional%HYB_B3LYP) then
+      camAlpha = 0.2_dp
     elseif (xcFunctional%isCAMY(xcnr)) then
       write(*, '(A)') 'Enter range-separation parameter, CAM alpha, CAM beta:'
       read(*,*) omega, camAlpha, camBeta
