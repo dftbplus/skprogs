@@ -27,7 +27,7 @@ def main(cmdlineargs=None):
     logger = sc.get_script_logger(args.loglevel, SCRIPTNAME)
     logger.info('Collecting spinw constants')
 
-    skdef = Skdef.fromfile('skdef.hsd')
+    skdef = Skdef.fromfile(args.configfile)
     searchdirs = [args.builddir]
     elems = skdef.atomparameters.keys()
 
@@ -61,6 +61,11 @@ def parseargs(cmdlineargs):
         'on the calculator specified in the input)'
     parser.add_argument('-o', '--onecenter-binary', dest='onecnt_binary',
                         default=None, help=msg)
+
+    parser.add_argument(
+        '-c', '--config-file', default='skdef.hsd', dest='configfile',
+        metavar='CONFIGFILE',
+        help='config file to be parsed (default: ./skdef.hsd)')
 
     msg = 'Logging level (default: info)'
     parser.add_argument('-l', '--log-level', dest='loglevel', default='info',
