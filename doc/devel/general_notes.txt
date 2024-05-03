@@ -41,7 +41,7 @@ alpha with a known issue: Although I am confident I got the prefactor
 right I cannot reproduce literature results. Not sure why.
 
 For the ZORA stuff see vlenthe.pdf in references. Here, I basically use
-the implementation for ADF Band (Chapter 6.2) which explicitely assumes a 
+the implementation for ADF Band (Chapter 6.2) which explicitely assumes a
 sphericallysymmetric potential with one more step (which has to be
 checked): Impementing 6.13-6.15 directly leads to an matrix element
 containg the second derivative of the basis function. IMHO one can
@@ -60,7 +60,7 @@ ZORA as currently implemented.
 
 The confining potential matrix elements are also evaluated analytically.
 The confinig potential does not enter in the ZORA kinetic energy
-operator, since the kinetic energy would then vanish for r->infty which is 
-clearly wrong. Having the confining potential only in the SCF potential but 
+operator, since the kinetic energy would then vanish for r->infty which is
+clearly wrong. Having the confining potential only in the SCF potential but
 not in the ZORA kinetic energy seems to work reasonanbly judging from the <r>
 expectation values.

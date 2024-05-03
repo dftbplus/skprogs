@@ -4,7 +4,7 @@ OVERVIEW
 main.f90: main program
 
 globals.f90: Variables of the main program, except the mixer all
-  other subroutines/functions use intent(in)/intent(out) to protect 
+  other subroutines/functions use intent(in)/intent(out) to protect
   these variables, so in some sence this is not global
   The variables are also allocated here.
   IMPORTANT: This also gives a short comment what the variable is !
@@ -49,4 +49,3 @@ utilities.f90: misc stuff (factorial etc.)
 
 zora_routines.f90: ZORA routines, contains even the routines for the
   naive implementation, see NAIVE_ZORA for their use
-
