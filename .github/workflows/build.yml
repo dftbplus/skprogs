@@ -3,23 +3,21 @@ on: [push, pull_request]
 
 env:
   CI: "ON"
-  HOMEBREW_NO_ANALYTICS: "ON"
-  HOMEBREW_NO_AUTO_UPDATE: "ON"
-  HOMEBREW_NO_BOTTLE_SOURCE_FALLBACK: "ON"
-  HOMEBREW_NO_GITHUB_API: "ON"
-  HOMEBREW_NO_INSTALL_CLEANUP: "ON"
   BUILD_DIR: _build
   INSTALL_DIR: _install
 
 jobs:
+
   gcc-build:
+
     runs-on: ${{ matrix.os }}
+
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest]
         config: [Debug]
-        version: [11]
+        version: [13]
 
     steps:
     - name: Checkout code
@@ -30,20 +28,7 @@ jobs:
       with:
         python-version: '3.x'
 
-    # Note: xcode version 14.0 (default on macos-latest @ 2022-11-23) fails to link gfortran compiled
-    # code. Therefore, 14.1 is selected below (which seems to be installed.)
-    - name: Install GCC (OSX)
-      if: ${{ contains(matrix.os, 'macos') }}
-      run: |
-        brew install gcc@${{ matrix.version }} openblas
-        ln -s /usr/local/bin/gfortran-${{ matrix.version }} /usr/local/bin/gfortran
-        ln -s /usr/local/bin/gcc-${{ matrix.version }} /usr/local/bin/gcc
-        ln -s /usr/local/bin/g++-${{ matrix.version }} /usr/local/bin/g++
-        echo "PKG_CONFIG_PATH=/usr/local/opt/openblas/lib/pkgconfig" >> $GITHUB_ENV
-        xcversion select 14.1
-
     - name: Install GCC (Linux)
-      if: ${{ contains(matrix.os, 'ubuntu') }}
       run: |
         sudo add-apt-repository ppa:ubuntu-toolchain-r/test
         sudo apt-get update
@@ -53,31 +38,23 @@ jobs:
           --slave /usr/bin/gfortran gfortran /usr/bin/gfortran-${{ matrix.version }} \
           --slave /usr/bin/gcov gcov /usr/bin/gcov-${{ matrix.version }}
 
-    - name: Set Compiler (Linux)
-      if: contains(matrix.os, 'ubuntu')
+    - name: Set Compiler
       run: |
         echo "FC=gfortran" >> $GITHUB_ENV
         echo "CC=gcc" >> $GITHUB_ENV
-
-    - name: Set Compiler (OSX)
-      if: contains(matrix.os, 'macos')
-      run: |
-        echo "FC=gfortran-${{ matrix.version }}" >> $GITHUB_ENV
-        echo "CC=gcc-${{ matrix.version }}" >> $GITHUB_ENV
 
     - name: Compile and Install libXC
       run: |
         git clone https://gitlab.com/libxc/libxc.git
         cd libxc/
-        git checkout 6.1.0
-        FC=gfortran CC=gcc cmake -H. -B ${BUILD_DIR} -DENABLE_FORTRAN=True -DCMAKE_INSTALL_PREFIX=${PWD}/${BUILD_DIR}/${INSTALL_DIR}
+        git checkout 6.2.2
+        cmake -DCMAKE_INSTALL_PREFIX=${PWD}/${BUILD_DIR}/${INSTALL_DIR} -DENABLE_FORTRAN=True -B ${BUILD_DIR} .
         cd ${BUILD_DIR}
-        make -j
+        make -j 2
         make install
         cd ../../
 
     - name: Set libXC search path
-      if: contains(matrix.os, 'ubuntu') || contains(matrix.os, 'macos')
       run: |
         echo "CMAKE_PREFIX_PATH=./libxc/${BUILD_DIR}/${INSTALL_DIR}/" >> $GITHUB_ENV
 
@@ -105,23 +82,20 @@ jobs:
         cmake --install ${BUILD_DIR}
 
   intel-build:
-    runs-on: ${{ matrix.os }}
+
     strategy:
-      fail-fast: false
       matrix:
         os: [ubuntu-latest]
-        fc: [ifx]
-        cc: [icx]
+        config: [RelWithDebInfo]
+
+    runs-on: ${{ matrix.os }}
+
     env:
-      FC: ${{ matrix.fc }}
-      CC: ${{ matrix.cc }}
-      APT_PACKAGES: >-
-        intel-oneapi-compiler-fortran
-        intel-oneapi-compiler-dpcpp-cpp
-        intel-oneapi-mkl
-        intel-oneapi-mkl-devel
+      FC: ifx
+      CC: icx
       CMAKE_OPTIONS: >-
-        -DCMAKE_BUILD_TYPE=RelWithDebInfo
+        -DCMAKE_BUILD_TYPE=${{ matrix.config }}
+        -DFYPP_FLAGS='-DTRAVIS'
 
     steps:
     - name: Checkout code
@@ -132,35 +106,33 @@ jobs:
       with:
         python-version: 3.x
 
-    - name: Add Intel repository
-      if: contains(matrix.os, 'ubuntu')
-      run: |
-        wget -O- https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB | gpg --dearmor | sudo tee /usr/share/keyrings/oneapi-archive-keyring.gpg > /dev/null
-        echo "deb [signed-by=/usr/share/keyrings/oneapi-archive-keyring.gpg] https://apt.repos.intel.com/oneapi all main" | sudo tee /etc/apt/sources.list.d/oneAPI.list
-        sudo apt-get update
+    - name: Setup Intel compiler
+      uses: rscohn2/setup-oneapi@v0
+      with:
+        components: |
+          icx@2024.0.0
+          ifx@2024.0.0
+          mkl@2024.0.0
 
-    - name: Install Intel oneAPI compiler
-      if: contains(matrix.os, 'ubuntu')
+    - name: Setup Intel environment
       run: |
-        sudo apt-get update
-        sudo apt-get install ${APT_PACKAGES}
         source /opt/intel/oneapi/setvars.sh
-        printenv >> $GITHUB_ENV
+        printenv >> ${GITHUB_ENV}
+        echo "FC=ifx" >> ${GITHUB_ENV}
+        echo "CC=icx" >> ${GITHUB_ENV}
 
     - name: Compile and install libXC
-      if: contains(matrix.os, 'ubuntu')
       run: |
         git clone https://gitlab.com/libxc/libxc.git
         cd libxc/
         git checkout 6.2.2
-        cmake -H. -B ${BUILD_DIR} -DENABLE_FORTRAN=True -DCMAKE_INSTALL_PREFIX=${PWD}/${BUILD_DIR}/${INSTALL_DIR}
+        cmake -DCMAKE_INSTALL_PREFIX=${PWD}/${BUILD_DIR}/${INSTALL_DIR} -DENABLE_FORTRAN=True -B ${BUILD_DIR} .
         cd ${BUILD_DIR}
-        make -j
+        make -j 2
         make install
         cd ../../
 
     - name: Set libXC search path
-      if: contains(matrix.os, 'ubuntu')
       run: |
         echo "CMAKE_PREFIX_PATH=./libxc/${BUILD_DIR}/${INSTALL_DIR}/" >> $GITHUB_ENV
 
@@ -176,7 +148,7 @@ jobs:
 
     - name: Configure build
       run: |
-        cmake -B ${BUILD_DIR} -DCMAKE_INSTALL_PREFIX=${PWD}/${BUILD_DIR}/${INSTALL_DIR} .
+        cmake -DCMAKE_INSTALL_PREFIX=${PWD}/${BUILD_DIR}/${INSTALL_DIR} -B ${BUILD_DIR} .
 
     - name: Build project
       run: cmake --build ${BUILD_DIR}
