@@ -441,8 +441,6 @@ class OnecenterParameters(sc.ClassDict):
         `calculator`.
     """
 
-    _PATTERN_DEFAULT = re.compile(r"^([a-z:]+(?:,[a-z:]+)*)$", re.IGNORECASE)
-
     @classmethod
     def fromhsd(cls, root, query):
         """Returns one center parameters with substituted defaults."""
@@ -492,7 +490,8 @@ class TwocenterParameters(sc.ClassDict):
         `calculator`.
     """
 
-    _PATTERN_DEFAULT = re.compile(r"^([a-z:]+)-([a-z:]+)$", re.IGNORECASE)
+    _PATTERN_DEFAULT = re.compile(
+        r"^([a-z][a-z0-9_]*)-([a-z][a-z0-9_]*)$", re.IGNORECASE)
 
     @classmethod
     def fromhsd(cls, root, query):
@@ -504,7 +503,7 @@ class TwocenterParameters(sc.ClassDict):
             name = node.tag
             match = cls._PATTERN_DEFAULT.match(name)
             if not match:
-                msg = "Invalid two center interaction '{}'".name
+                msg = "Invalid two center interaction '{}'".format(name)
                 raise sc.SkgenException(msg)
             name1, name2 = match.groups()
             key = min(name1, name2), max(name1, name2)
