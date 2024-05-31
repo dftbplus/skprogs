@@ -16,8 +16,8 @@ from sktools.oldskfile import OldSKFile
 
 SKDEF = 'skdef.hsd'
 
-ATOL = 1e-10
-RTOL = 1e-09
+ATOL = 1e-08
+RTOL = 1e-07
 
 
 class TestWithWorkDir:

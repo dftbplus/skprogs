@@ -1,6 +1,8 @@
 set(sources-f90
   avgpot.f90
-  broyden.f90
+  blas.f90
+  blasroutines.f90
+  broydenmixer.f90
   core_overlap.f90
   coulomb_hfex.f90
   coulomb_potential.f90
@@ -12,8 +14,12 @@ set(sources-f90
   hamiltonian.f90
   input.f90
   integration.f90
+  lapack.f90
+  lapackroutines.f90
+  mixer.f90
   numerical_differentiation.f90
   output.f90
+  simplemixer.f90
   total_energy.f90
   utilities.f90
   xcfunctionals.f90

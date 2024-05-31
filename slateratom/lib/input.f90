@@ -17,7 +17,7 @@ contains
   !> Reads in all properties, except for occupation numbers.
   subroutine read_input_1(nuc, max_l, occ_shells, maxiter, scftol, poly_order, min_alpha,&
       & max_alpha, num_alpha, tAutoAlphas, alpha, conf_r0, conf_power, num_occ, num_power,&
-      & num_alphas, xcnr, tPrintEigvecs, tZora, tBroyden, mixing_factor, xalpha_const, omega,&
+      & num_alphas, xcnr, tPrintEigvecs, tZora, mixnr, mixing_factor, xalpha_const, omega,&
       & camAlpha, camBeta, grid_params)
 
     !> nuclear charge, i.e. atomic number
@@ -77,8 +77,8 @@ contains
     !> true, if zero-order regular approximation for relativistic effects is desired
     logical, intent(out) :: tZora
 
-    !> true, if Broyden mixing is desired, otherwise simple mixing is applied
-    logical, intent(out) :: tBroyden
+    !> identifier of mixer
+    integer, intent(out) :: mixnr
 
     !> mixing factor
     real(dp), intent(out) :: mixing_factor
@@ -213,8 +213,9 @@ contains
     write(*, '(A)') 'Print Eigenvectors ? .true./.false.'
     read(*,*) tPrintEigvecs
 
-    write(*, '(A)') ' Use Broyden mixer (.true./.false.)? And mixing parameter <1'
-    read(*,*) tBroyden, mixing_factor
+    write(*, '(A)') 'Enter mixer and mixing parameter <1:&
+        & 1: Simple mixer, 2: Broyden mixer'
+    read(*,*) mixnr, mixing_factor
 
   end subroutine read_input_1
 

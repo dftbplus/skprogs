@@ -3,7 +3,7 @@ module hamiltonian
 
   use common_accuracy, only : dp
   use dft, only : dft_exc_matrixelement
-  use broyden, only : mixing_driver
+  use mixer, only : TMixer, TMixer_mix
   use zora_routines, only : zora_t_correction
   use xcfunctionals, only : xcFunctional
 
@@ -17,9 +17,12 @@ module hamiltonian
 contains
 
   !> Main driver routine for Fock matrix build-up. Also calls mixer with potential matrix.
-  subroutine build_hamiltonian(iScf, tt, uu, nuc, vconf, jj, kk, kk_lr, pp, max_l, num_alpha,&
-      & poly_order, problemsize, xcnr, num_mesh_points, weight, abcissa, vxc, alpha, pot_old,&
-      & pot_new, tZora, tBroyden, mixing_factor, ff, camAlpha, camBeta)
+  subroutine build_hamiltonian(pMixer, iScf, tt, uu, nuc, vconf, jj, kk, kk_lr, pp, max_l,&
+      & num_alpha, poly_order, problemsize, xcnr, num_mesh_points, weight, abcissa, vxc, alpha,&
+      & pot_old, pot_new, tZora, ff, camAlpha, camBeta)
+
+    !> mixer instances
+    type(TMixer), intent(inout) :: pMixer
 
     !> current SCF step
     integer, intent(in) :: iScf
@@ -87,12 +90,6 @@ contains
     !> true, if zero-order regular approximation for relativistic effects is desired
     logical, intent(in) :: tZora
 
-    !> true, if Broyden mixing is desired, otherwise simple mixing is applied
-    logical, intent(in) :: tBroyden
-
-    !> mixing factor
-    real(dp), intent(in) :: mixing_factor
-
     !> fock matrix supervector
     real(dp), intent(out) :: ff(:,0:,:,:)
 
@@ -108,8 +105,11 @@ contains
     !> auxiliary matrices for (CAM) hybrids
     real(dp), allocatable :: k_matrix2(:,:,:,:), k_matrix3(:,:,:,:)
 
+    !> potential difference
+    real(dp), allocatable :: pot_diff(:,:,:,:)
+
     !! auxiliary variables
-    integer :: ii, jjj, kkk, ll, mm, ss, ttt, iMix
+    integer :: ii, jjj, kkk, ll, mm, ss, ttt
 
     ff(:,:,:,:) = 0.0_dp
 
@@ -180,9 +180,9 @@ contains
     pot_new(2, :,:,:) = - real(nuc, dp) * uu + j_matrix - k_matrix(2, :,:,:)
 
     ! mixer
-    iMix = int(iScf / 40)
-    call mixing_driver(pot_old, pot_new, max_l, num_alpha, poly_order, problemsize,&
-        & iScf - iMix * 40, tBroyden, mixing_factor)
+    allocate(pot_diff, mold=pot_old)
+    pot_diff(:,0:,:,:) = pot_old - pot_new
+    call TMixer_mix(pMixer, pot_new, pot_diff)
 
     ! Not sure: before or after mixer (potential .ne. Matrix elements)?
     ! Should be irrelevant once self-consistency is reached.

@@ -55,7 +55,7 @@ program HFAtom
   call parse_command_arguments()
   call read_input_1(nuc, max_l, occ_shells, maxiter, scftol, poly_order, min_alpha, max_alpha,&
       & num_alpha, tAutoAlphas, alpha, conf_r0, conf_power, num_occ, num_power, num_alphas, xcnr,&
-      & tPrintEigvecs, tZora, tBroyden, mixing_factor, xalpha_const, omega, camAlpha, camBeta,&
+      & tPrintEigvecs, tZora, mixnr, mixing_factor, xalpha_const, omega, camAlpha, camBeta,&
       & grid_params)
 
   problemsize = num_power * num_alphas
@@ -125,9 +125,9 @@ program HFAtom
   pot_old(:,:,:,:) = 0.0_dp
 
   ! kinetic energy, nuclear-electron, and confinement matrix elements which are constant during SCF
-  call build_hamiltonian(0, tt, uu, nuc, vconf, jj, kk, kk_lr, pp, max_l, num_alpha, poly_order,&
-      & problemsize, xcnr, num_mesh_points, weight, abcissa, vxc, alpha, pot_old, pot_new, tZora,&
-      & tBroyden, mixing_factor, ff, camAlpha, camBeta)
+  call build_hamiltonian(pMixer, 0, tt, uu, nuc, vconf, jj, kk, kk_lr, pp, max_l, num_alpha,&
+      & poly_order, problemsize, xcnr, num_mesh_points, weight, abcissa, vxc, alpha, pot_old,&
+      & pot_new, tZora, ff, camAlpha, camBeta)
 
   ! self-consistency cycles
   write(*,*) 'Energies in Hartree'
@@ -149,9 +149,9 @@ program HFAtom
         & dz, xcnr, omega, camAlpha, camBeta, rho, drho, ddrho, vxc, exc, xalpha_const)
 
     ! build Fock matrix and get total energy during SCF
-    call build_hamiltonian(iScf, tt, uu, nuc, vconf, jj, kk, kk_lr, pp, max_l, num_alpha,&
+    call build_hamiltonian(pMixer, iScf, tt, uu, nuc, vconf, jj, kk, kk_lr, pp, max_l, num_alpha,&
         & poly_order, problemsize, xcnr, num_mesh_points, weight, abcissa, vxc, alpha, pot_old,&
-        & pot_new, tZora, tBroyden, mixing_factor, ff, camAlpha, camBeta)
+        & pot_new, tZora, ff, camAlpha, camBeta)
 
     if (tZora) then
       call getTotalEnergyZora(tt, uu, nuc, vconf, jj, kk, kk_lr, pp, max_l, num_alpha, poly_order,&
