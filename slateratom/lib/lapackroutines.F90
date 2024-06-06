@@ -1,3 +1,5 @@
+#:include 'common.fypp'
+
 !> Contains F90 wrapper functions for some commonly used lapack calls needed in the code.
 !! The interface of all LAPACK calls must be defined in the module lapack.
 module lapackroutines
@@ -56,16 +58,16 @@ contains
     lda = size(aa, dim=1)
     nn = size(aa, dim=2)
     if (present(nRow)) then
-      ! @:ASSERT(nRow >= 1 .and. nRow <= lda)
+      @:ASSERT(nRow >= 1 .and. nRow <= lda)
       mm = nRow
     else
       mm = lda
     end if
     if (present(nColumn)) then
-      ! @:ASSERT(nColumn >= 1 .and. nColumn <= nn)
+      @:ASSERT(nColumn >= 1 .and. nColumn <= nn)
       nn = nColumn
     end if
-    ! @:ASSERT(size(ipiv) == min(mm, nn))
+    @:ASSERT(size(ipiv) == min(mm, nn))
 
     call dgetrf(mm, nn, aa, lda, ipiv, info)
 
@@ -107,11 +109,11 @@ contains
     character(len=1) :: atr
     integer :: info, nn, nrhs, lda, ldb
 
-    ! @:ASSERT(size(amat, 1) == size(amat, dim=2))
-    ! @:ASSERT(size(amat, 1) == size(bmat, dim=1))
+    @:ASSERT(size(amat, 1) == size(amat, dim=2))
+    @:ASSERT(size(amat, 1) == size(bmat, dim=1))
 
     if (present(trans)) then
-      ! @:ASSERT(any(trans == ['n', 'N', 't', 'T', 'c', 'C']))
+      @:ASSERT(any(trans == ['n', 'N', 't', 'T', 'c', 'C']))
       atr = trans
     else
       atr = 'n'

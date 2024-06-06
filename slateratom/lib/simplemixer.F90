@@ -1,3 +1,5 @@
+#:include 'common.fypp'
+
 !> Simple mixer for mixing charges.
 module simplemixer
 
@@ -44,7 +46,7 @@ contains
     !> Length of the vectors to mix
     integer, intent(in) :: nElem
 
-    ! @:ASSERT(nElem > 0)
+    @:ASSERT(nElem > 0)
 
     continue
 
@@ -63,7 +65,7 @@ contains
     !> Charge difference
     real(dp), intent(in) :: qDiff(:)
 
-    ! @:ASSERT(size(qInpResult) == size(qDiff))
+    @:ASSERT(size(qInpResult) == size(qDiff))
 
     qInpResult(:) = qInpResult + this%mixParam * qDiff
 

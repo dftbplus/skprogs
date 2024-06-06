@@ -18,8 +18,25 @@
 
 
 #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-#! DEBUG related macros
+#! ASSERT and DEBUG related macros
 #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+#! Check a condition if WITH_ASSERT is True and call assertError if condition is False.
+#! If an optional text string is included, print this in addition as an error
+#:def ASSERT(cond, msg=None)
+  #:if WITH_ASSERT
+  if (.not. (${cond}$)) then
+    block
+      use common_assert, only : assertError
+      #:if msg
+        call assertError("${_FILE_}$", ${_LINE_}$, ${msg}$)
+      #:else
+      call assertError("${_FILE_}$", ${_LINE_}$)
+      #:endif
+    end block
+  end if
+  #:endif
+#:enddef ASSERT
 
 #! Insert code if DEBUG level is greater than zero.
 #:def DEBUG_CODE(code)

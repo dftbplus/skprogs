@@ -1,3 +1,5 @@
+#:include 'common.fypp'
+
 !> Contains F90 wrapper functions for some commonly used blas calls needed in the code.
 !! The interface of all BLAS calls must be defined in the module blas.
 module blasroutines
@@ -36,8 +38,8 @@ contains
 
     integer :: n, m
 
-    ! @:ASSERT(size(a,dim=1) == size(x))
-    ! @:ASSERT(size(a,dim=2) == size(y))
+    @:ASSERT(size(a,dim=1) == size(x))
+    @:ASSERT(size(a,dim=2) == size(y))
 
     m = size(x)
     n = size(y)

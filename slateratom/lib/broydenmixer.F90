@@ -1,3 +1,5 @@
+#:include 'common.fypp'
+
 !> Contains a modified Broyden mixer.
 !! The modified Broyden mixer implemented here is practically the same as the one in the old DFTB
 !! code. A detailed description of the method can be found in Johnson's paper.
@@ -93,9 +95,9 @@ contains
     !> Numerator of the weight
     real(dp), intent(in) :: weightFac
 
-    ! @:ASSERT(mIter > 0)
-    ! @:ASSERT(mixParam > 0.0_dp)
-    ! @:ASSERT(omega0 > 0.0_dp)
+    @:ASSERT(mIter > 0)
+    @:ASSERT(mixParam > 0.0_dp)
+    @:ASSERT(omega0 > 0.0_dp)
 
     this%nElem = 0
     this%mIter = mIter
@@ -123,7 +125,7 @@ contains
     !> Length of the vectors to mix
     integer, intent(in) :: nElem
 
-    ! @:ASSERT(nElem > 0)
+    @:ASSERT(nElem > 0)
 
     if (nElem /= this%nElem) then
       this%nElem = nElem
@@ -234,13 +236,13 @@ contains
 
     nn_1 = nn - 1
 
-    ! @:ASSERT(nn > 0)
-    ! @:ASSERT(size(qInpResult) == nElem)
-    ! @:ASSERT(size(qInpLast) == nElem)
-    ! @:ASSERT(size(qDiffLast) == nElem)
-    ! @:ASSERT(size(qDiff) == nElem)
-    ! @:ASSERT(all(shape(aa) >= [nn_1, nn_1]))
-    ! @:ASSERT(size(ww) >= nn_1)
+    @:ASSERT(nn > 0)
+    @:ASSERT(size(qInpResult) == nElem)
+    @:ASSERT(size(qInpLast) == nElem)
+    @:ASSERT(size(qDiffLast) == nElem)
+    @:ASSERT(size(qDiff) == nElem)
+    @:ASSERT(all(shape(aa) >= [nn_1, nn_1]))
+    @:ASSERT(size(ww) >= nn_1)
 
     ! First iteration: simple mix and storage of qInp and qDiff
     if (nn == 1) then
