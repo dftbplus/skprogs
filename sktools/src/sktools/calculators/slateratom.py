@@ -327,7 +327,7 @@ class SlateratomInput:
         out.append("{:s} \t\t{:s} write eigenvectors".format(
             self._LOGICALSTRS[False], self._COMMENT))
         out.append("{} {:g} \t\t{:s} broyden mixer, mixing factor".format(
-            self._LOGICALSTRS[True], 0.1, self._COMMENT))
+            2, 0.1, self._COMMENT))
 
         # Occupations
         for ll, occperl in enumerate(self._atomconfig.occupations):
