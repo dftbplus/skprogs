@@ -2,6 +2,9 @@
 module globals
 
   use common_accuracy, only : dp
+  use mixer, only : TMixer, TMixer_init, TMixer_reset, mixerTypes
+  use broydenmixer, only : TBroydenMixer, TBroydenMixer_init
+  use simplemixer, only : TSimpleMixer, TSimpleMixer_init
 
   implicit none
 
@@ -152,6 +155,9 @@ module globals
   !> exc energy density on grid
   real(dp), allocatable :: exc(:)
 
+  !> average local effective potential equivalent to non-local GKS potential (if present)
+  real(dp), allocatable :: avgPot(:,:)
+
   !> generate alphas automatically
   logical :: tAutoAlphas
 
@@ -164,11 +170,23 @@ module globals
   !> true, if SCF cycle reached convergency
   logical :: tConverged
 
-  !> true, if Broyden mixing is desired, otherwise simple mixing is applied
-  logical :: tBroyden
+  !> identifier of mixer
+  integer :: mixnr
+
+  !> mixer instance
+  type(TMixer), allocatable :: pMixer
+
+  !> simple mixer (if used)
+  type(TSimpleMixer), allocatable :: pSimpleMixer
+
+  !> broyden mixer (if used)
+  type(TBroydenMixer), allocatable :: pBroydenMixer
 
   !> mixing factor
   real(dp) :: mixing_factor
+
+  !> true, if average local, effective potential should be calculated
+  logical :: isAvgPotNeeded
 
   !> zora kinetic energy contribution to total energy
   real(dp) :: zora_ekin
@@ -181,6 +199,9 @@ contains
 
   !> Allocates all the variables in the globals module.
   subroutine allocate_globals()
+
+    !! auxiliary variables to count the elements to mix
+    integer :: ind, idx1, idx2, idx3, idx4
 
     allocate(weight(num_mesh_points))
     allocate(abcissa(num_mesh_points))
@@ -230,6 +251,39 @@ contains
 
     cof(:,:,:,:) = 0.0_dp
     pp(:,:,:,:) = 0.0_dp
+
+    if (isAvgPotNeeded) allocate(avgPot(num_mesh_points, 2), source=0.0_dp)
+
+    ! initialize mixer
+    allocate(pMixer)
+    select case(mixnr)
+    case(mixerTypes%simple)
+      allocate(pSimplemixer)
+      call TSimpleMixer_init(pSimpleMixer, mixing_factor)
+      call TMixer_init(pMixer, pSimpleMixer)
+    case(mixerTypes%broyden)
+      allocate(pBroydenMixer)
+      ! defaults taken from DFTB+
+      call TBroydenMixer_init(pBroydenMixer, maxiter, mixing_factor, 0.01_dp, 1.0_dp, 1.0e5_dp,&
+          & 1.0e-2_dp)
+      call TMixer_init(pMixer, pBroydenMixer)
+    case default
+      error stop "Unknown mixer type."
+    end select
+
+    ! count elements to mix
+    ind = 0
+    do idx1 = 1, 2
+      do idx2 = 0, max_l
+        do idx3 = 1, num_alpha(idx2) * poly_order(idx2)
+          do idx4 = 1, problemsize
+            ind = ind + 1
+          end do
+        end do
+      end do
+    end do
+
+    call TMixer_reset(pMixer, ind)
 
   end subroutine allocate_globals
 

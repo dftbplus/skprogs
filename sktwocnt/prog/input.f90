@@ -90,10 +90,10 @@ contains
     case(xcFunctional%GGA_BLYP)
       ! GGA-BLYP
     case(xcFunctional%LCY_PBE96)
-      ! LCY-PBE96 (long-range corrected)
+      ! LCY-PBE96 (purely long-range corrected)
       inp%tLC = .true.
     case(xcFunctional%LCY_BNL)
-      ! LCY-BNL (long-range corrected)
+      ! LCY-BNL (purely long-range corrected)
       inp%tLC = .true.
     case(xcFunctional%HYB_PBE0)
       ! PBE0 (global hybrid)
@@ -102,10 +102,10 @@ contains
       ! B3LYP (global hybrid)
       inp%tGlobalHybrid = .true.
     case(xcFunctional%CAMY_B3LYP)
-      ! CAMY-B3LYP (CAM-functional)
+      ! CAMY-B3LYP (general CAM form)
       inp%tCam = .true.
     case(xcFunctional%CAMY_PBEh)
-      ! CAMY-PBEh (CAM-functional)
+      ! CAMY-PBEh (general CAM form)
       inp%tCam = .true.
     case default
       call error_("Unknown exchange-correlation functional!", fname, line, iline)
@@ -113,10 +113,14 @@ contains
     inp%iXC = iXC
 
     if (inp%iXC == xcFunctional%HYB_B3LYP) then
+      ! 20% fraction of HFX hard-coded at the moment
+      inp%camAlpha = 0.2_dp
+      inp%camBeta = 0.0_dp
       call nextline_(fp, iLine, line)
       read(line, *, iostat=iErr) inp%nRadial, inp%nAngular, inp%ll_max, inp%rm
       call checkerror_(fname, line, iLine, iErr)
     elseif (inp%iXC == xcFunctional%HYB_PBE0) then
+      inp%camBeta = 0.0_dp
       call nextline_(fp, iLine, line)
       ! currently only HYB-PBE0 does support arbitrary HFX portions (HYB-B3LYP does not)
       read(line, *, iostat=iErr) inp%camAlpha
@@ -125,6 +129,8 @@ contains
       read(line, *, iostat=iErr) inp%nRadial, inp%nAngular, inp%ll_max, inp%rm
       call checkerror_(fname, line, iLine, iErr)
     elseif (inp%tLC) then
+      inp%camAlpha = 0.0_dp
+      inp%camBeta = 1.0_dp
       call nextline_(fp, iLine, line)
       read(line, *, iostat=iErr) inp%omega
       if (inp%omega < 1.0e-08_dp) then

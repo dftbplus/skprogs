@@ -1,10 +1,10 @@
-file(TO_NATIVE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../" projectdir)
+set(projectdir ${PROJECT_SOURCE_DIR})
 
 #
 # General options for all targets
 #
-set(fypp_flags ${FYPP_BUILD_FLAGS})
-list(APPEND fypp_flags -I${CMAKE_CURRENT_SOURCE_DIR}/../include -DRELEASE="'${RELEASE}'")
+set(fypp_flags ${FYPP_BUILD_FLAGS} ${FYPP_CONFIG_FLAGS})
+list(APPEND fypp_flags -I${projectdir}/common/include -DRELEASE="'${RELEASE}'")
 
 set(sources-f90
   accuracy.F90
@@ -30,7 +30,12 @@ set(sources-f90
   taggedout.F90
   utils.F90)
 
-add_library(skprogs-common ${sources-f90})
+set(sources-fpp
+  assert.F90)
+
+skprogs_preprocess("${FYPP}" "${fypp_flags}" "F90" "f90" "${sources-fpp}" sources-f90-preproc)
+
+add_library(skprogs-common ${sources-f90} ${sources-f90-preproc})
 
 set(moddir ${CMAKE_CURRENT_BINARY_DIR}/modfiles)
 set_target_properties(skprogs-common PROPERTIES Fortran_MODULE_DIRECTORY ${moddir})

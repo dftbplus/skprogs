@@ -18,8 +18,13 @@
 #
 # Fortran compiler settings
 #
-set(Fortran_FLAGS_RELEASE "-O2 -ip"
-  CACHE STRING "Fortran compiler flags for Release build")
+if("${CMAKE_Fortran_COMPILER_ID}" MATCHES "IntelLLVM")
+  set(Fortran_FLAGS_RELEASE "-O2"
+    CACHE STRING "Fortran compiler flags for Release build")
+else()
+  set(Fortran_FLAGS_RELEASE "-O2 -ip"
+    CACHE STRING "Fortran compiler flags for Release build")
+endif()
 
 set(Fortran_FLAGS_RELWITHDEBINFO "-g ${Fortran_FLAGS_RELEASE}"
   CACHE STRING "Fortran compiler flags for Release build")

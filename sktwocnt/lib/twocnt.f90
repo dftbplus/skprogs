@@ -229,36 +229,39 @@ contains
     !! number of radial and angular integration abscissas
     integer :: nRad, nAng
 
-    if (inp%iXC == xcFunctional%LDA_PW91) then
+    select case (inp%iXC)
+    case(xcFunctional%LDA_PW91)
       call xc_f03_func_init(xcfunc_x, XC_LDA_X, XC_UNPOLARIZED)
       call xc_f03_func_init(xcfunc_c, XC_LDA_C_PW, XC_UNPOLARIZED)
-    elseif (inp%iXC == xcFunctional%GGA_PBE96) then
+    case(xcFunctional%GGA_PBE96)
       call xc_f03_func_init(xcfunc_x, XC_GGA_X_PBE, XC_UNPOLARIZED)
       call xc_f03_func_init(xcfunc_c, XC_GGA_C_PBE, XC_UNPOLARIZED)
-    elseif (inp%iXC == xcFunctional%GGA_BLYP) then
+    case(xcFunctional%GGA_BLYP)
       call xc_f03_func_init(xcfunc_x, XC_GGA_X_B88, XC_UNPOLARIZED)
       call xc_f03_func_init(xcfunc_c, XC_GGA_C_LYP, XC_UNPOLARIZED)
-    elseif (inp%iXC == xcFunctional%LCY_PBE96) then
+    case(xcFunctional%LCY_PBE96)
       call xc_f03_func_init(xcfunc_x, XC_GGA_X_SFAT_PBE, XC_UNPOLARIZED)
       call xc_f03_func_set_ext_params(xcfunc_x, [inp%omega])
       call xc_f03_func_init(xcfunc_c, XC_GGA_C_PBE, XC_UNPOLARIZED)
-    elseif (inp%iXC == xcFunctional%LCY_BNL) then
+    case(xcFunctional%LCY_BNL)
       call xc_f03_func_init(xcfunc_x, XC_LDA_X_YUKAWA, XC_UNPOLARIZED)
       call xc_f03_func_set_ext_params(xcfunc_x, [inp%omega])
       call xc_f03_func_init(xcfunc_c, XC_GGA_C_PBE, XC_UNPOLARIZED)
-    elseif (inp%iXC == 6) then
+    case(xcFunctional%HYB_PBE0)
       ! xpbe96
       call xc_f03_func_init(xcfunc_x, XC_GGA_X_PBE, XC_UNPOLARIZED)
       ! cpbe96
       call xc_f03_func_init(xcfunc_c, XC_GGA_C_PBE, XC_UNPOLARIZED)
-    elseif (inp%iXC == 7) then
+    case(xcFunctional%HYB_B3LYP)
       call xc_f03_func_init(xcfunc_xc, XC_HYB_GGA_XC_B3LYP, XC_UNPOLARIZED)
-      call xc_f03_func_set_ext_params(xcfunc_xc, [0.20_dp, 0.72_dp, 0.81_dp])
-    elseif (inp%iXC == 8) then
+      ! Adjustable fraction of Fock-type exchange, otherwise standard parametrization taken from
+      ! J. Phys. Chem. 1994, 98, 45, 11623-11627; DOI: 10.1021/j100096a001
+      call xc_f03_func_set_ext_params(xcfunc_xc, [inp%camAlpha, 0.72_dp, 0.81_dp])
+    case(xcFunctional%CAMY_B3LYP)
       call xc_f03_func_init(xcfunc_xc, XC_HYB_GGA_XC_CAMY_B3LYP, XC_UNPOLARIZED)
       call xc_f03_func_set_ext_params(xcfunc_xc, [0.81_dp, inp%camAlpha + inp%camBeta,&
           & -inp%camBeta, inp%omega])
-    elseif (inp%iXC == 9) then
+    case(xcFunctional%CAMY_PBEh)
       ! short-range xpbe96
       call xc_f03_func_init(xcfunc_xsr, XC_GGA_X_SFAT_PBE, XC_UNPOLARIZED)
       call xc_f03_func_set_ext_params(xcfunc_xsr, [inp%omega])
@@ -266,7 +269,7 @@ contains
       call xc_f03_func_init(xcfunc_x, XC_GGA_X_PBE, XC_UNPOLARIZED)
       ! cpbe96
       call xc_f03_func_init(xcfunc_c, XC_GGA_C_PBE, XC_UNPOLARIZED)
-    end if
+    end select
 
     if (inp%tLC .or. inp%tCam) then
       beckeGridParams%nRadial = inp%nRadial
@@ -376,11 +379,11 @@ contains
 
     ! finalize libxc objects
     if (inp%tGlobalHybrid .or. inp%tCam) then
-      if (inp%iXC == 9) then
+      if (inp%iXC == xcFunctional%CAMY_PBEh) then
         call xc_f03_func_end(xcfunc_xsr)
         call xc_f03_func_end(xcfunc_x)
         call xc_f03_func_end(xcfunc_c)
-      elseif (inp%iXC == 6) then
+      elseif (inp%iXC == xcFunctional%HYB_PBE0) then
         call xc_f03_func_end(xcfunc_x)
         call xc_f03_func_end(xcfunc_c)
       else
@@ -570,7 +573,7 @@ contains
       end if
 
       ! CAMY-PBEh is assembled manually
-      if (iXC == 9) then
+      if (iXC == xcFunctional%CAMY_PBEh) then
         allocate(vxsigma_sr(nGrid))
         vxsigma_sr(:) = 0.0_dp
         allocate(vx_sr(nGrid))
@@ -657,17 +660,11 @@ contains
       ! total density: \int (|\phi_1|^2 + |\phi_2|^2)
       dens = getDensity(radval1(:, i1), radval2(:, i2), spherval1, spherval2, weights)
 
-      if (iXC == xcFunctional%HYB_B3LYP) then
-        ! full-range Hartree-Fock exchange contribution
-        frx = 0.5_dp * getFullRangeHFContribution(radialHFQuadrature%xx, rr3, ll_max, atom1, atom2,&
-            & imap, ii, r1, theta1, r2, theta2, weights)
-        ! add up full-range exchange to the Hamiltonian
-        integ1 = integ1 - frx
-      elseif (iXC == xcFunctional%HYB_PBE0) then
+      if (iXC == xcFunctional%HYB_PBE0 .or. iXC == xcFunctional%HYB_B3LYP) then
         ! full-range Hartree-Fock exchange contribution
         frx = 0.5_dp * camAlpha * getFullRangeHFContribution(radialHFQuadrature%xx, rr3, ll_max,&
             & atom1, atom2, imap, ii, r1, theta1, r2, theta2, weights)
-        ! add up full-/long-range exchange to the Hamiltonian
+        ! add up full-range exchange to the Hamiltonian
         integ1 = integ1 - frx
       elseif (tLC) then
         ! long-range Hartree-Fock exchange contribution

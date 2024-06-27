@@ -327,7 +327,7 @@ class SlateratomInput:
         out.append("{:s} \t\t{:s} write eigenvectors".format(
             self._LOGICALSTRS[False], self._COMMENT))
         out.append("{} {:g} \t\t{:s} broyden mixer, mixing factor".format(
-            self._LOGICALSTRS[True], 0.1, self._COMMENT))
+            2, 0.1, self._COMMENT))
 
         # Occupations
         for ll, occperl in enumerate(self._atomconfig.occupations):
@@ -337,7 +337,7 @@ class SlateratomInput:
                     occ[0], occ[1], self._COMMENT, nn, sc.ANGMOM_TO_SHELL[ll]))
 
         # Occupied shell range
-        occqns = [[sc.MAX_PRINCIPAL_QN, 0],] * (maxang + 1)
+        occqns = [[sc.MAX_PRINCIPAL_QN + 1, 0],] * (maxang + 1)
         for qn, occ in self._atomconfig.occshells:
             nn = qn[0]
             ll = qn[1]

@@ -198,6 +198,19 @@ class AtomConfig(sc.ClassDict):
         # Sort valenceshells (and occupations) by ascending nn and ll
         tmp = [nn * (sc.MAX_ANGMOM + 1) + ll for nn, ll in valenceshells]
         self.valenceshells = [valenceshells[ii] for ii in np.argsort(tmp)]
+
+        # check for uniqueness and continuity of angular quantum numbers
+        angmom = sorted([tpl[1] for tpl in self.valenceshells])
+        unique_and_continuous = all(ii + 1 == jj
+                                    for ii, jj in zip(angmom, angmom[1:]))
+        if not unique_and_continuous:
+            shell_str = ' '.join([sc.shell_ind_to_name(nn, ll)
+                                  for nn, ll in self.valenceshells])
+            raise sc.SkgenException(
+                "Invalid valence shell configuration '" + shell_str \
+                + "' found:\nDuplicate angular momenta and/or omitting " + \
+                "intermediate shells is not supported by the SK-file format.")
+
         # Sort occshells by ascending nn and ll
         tmp = [qn[0] * (sc.MAX_ANGMOM + 1) + qn[1] for qn, occ in occshells]
         self.occshells = [occshells[ii] for ii in np.argsort(tmp)]
@@ -292,7 +305,7 @@ class AtomConfig(sc.ClassDict):
         occnode = query.findchild(root, "occupations")
         for ll, shellname in enumerate(sc.ANGMOM_TO_SHELL):
             occ_l = []
-            for nn in range(ll + 1, sc.MAX_PRINCIPAL_QN):
+            for nn in range(ll + 1, sc.MAX_PRINCIPAL_QN + 1):
                 txt = "{:d}{:s}".format(nn, shellname)
                 shelloccnode = query.findchild(occnode, txt, optional=True)
                 if shelloccnode is None:
@@ -428,8 +441,6 @@ class OnecenterParameters(sc.ClassDict):
         `calculator`.
     """
 
-    _PATTERN_DEFAULT = re.compile(r"^([a-z:]+(?:,[a-z:]+)*)$", re.IGNORECASE)
-
     @classmethod
     def fromhsd(cls, root, query):
         """Returns one center parameters with substituted defaults."""
@@ -479,7 +490,8 @@ class TwocenterParameters(sc.ClassDict):
         `calculator`.
     """
 
-    _PATTERN_DEFAULT = re.compile(r"^([a-z:]+)-([a-z:]+)$", re.IGNORECASE)
+    _PATTERN_DEFAULT = re.compile(
+        r"^([a-z][a-z0-9_]*)-([a-z][a-z0-9_]*)$", re.IGNORECASE)
 
     @classmethod
     def fromhsd(cls, root, query):
@@ -491,7 +503,7 @@ class TwocenterParameters(sc.ClassDict):
             name = node.tag
             match = cls._PATTERN_DEFAULT.match(name)
             if not match:
-                msg = "Invalid two center interaction '{}'".name
+                msg = "Invalid two center interaction '{}'".format(name)
                 raise sc.SkgenException(msg)
             name1, name2 = match.groups()
             key = min(name1, name2), max(name1, name2)
