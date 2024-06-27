@@ -45,8 +45,8 @@ contains
     integer :: iErr
 
     !! xc-functional type
-    !! (1: LDA-PW91, 2: GGA-PBE96, 3: GGA-BLYP, 4: LCY-PBE96, 5: LCY-BNL, 6: PBE0, 7: B3LYP,
-    !! 8: CAMY-B3LYP, 9: CAMY-PBEh)
+    ! (1: LDA-PW91, 2: GGA-PBE96, 3: GGA-BLYP, 4: LCY-PBE96, 5: LCY-BNL, 6: PBE0, 7: B3LYP,
+    !! 8: CAMY-B3LYP, 9: CAMY-PBEh, 10: TPSS, 11: SCAN, 12: r2SCAN, 13: r4SCAN, 14: TASK)
     integer :: iXC
 
     !! potential data columns, summed up in order to receive the total atomic potential
@@ -58,6 +58,7 @@ contains
     inp%tLC = .false.
     inp%tCam = .false.
     inp%tGlobalHybrid = .false.
+    inp%tMGGA = .false.
 
     fp = 14
     open(fp, file=fname, form="formatted", action="read")
@@ -107,6 +108,10 @@ contains
     case(xcFunctional%CAMY_PBEh)
       ! CAMY-PBEh (general CAM form)
       inp%tCam = .true.
+    case(xcFunctional%MGGA_TPSS, xcFunctional%MGGA_SCAN,&
+      & xcFunctional%MGGA_r2SCAN, xcFunctional%MGGA_r4SCAN,&
+      & xcFunctional%MGGA_TASK, xcFunctional%MGGA_TASK_CC)
+        inp%tMGGA = .true.
     case default
       call error_("Unknown exchange-correlation functional!", fname, line, iline)
     end select
@@ -172,10 +177,10 @@ contains
     tReadRadDerivs = .not. inp%tHetero
 
     call readatom_(fname, fp, iLine, potcomps, inp%tDensitySuperpos, tReadRadDerivs,&
-        & (inp%tGlobalHybrid .or. inp%tLC .or. inp%tCam), inp%atom1)
+        & (inp%tGlobalHybrid .or. inp%tLC .or. inp%tCam), inp%tMGGA, inp%atom1)
     if (inp%tHetero) then
       call readatom_(fname, fp, iLine, potcomps, inp%tDensitySuperpos, .true., (inp%tGlobalHybrid&
-          & .or. inp%tLC .or. inp%tCam), inp%atom2)
+          & .or. inp%tLC .or. inp%tCam), inp%tMGGA, inp%atom2)
     end if
 
     close(fp)
@@ -185,7 +190,7 @@ contains
 
   !> Fills TAtomdata instance based on slateratom's output.
   subroutine readatom_(fname, fp, iLine, potcomps, tDensitySuperpos, tReadRadDerivs, tNonLocal,&
-      & atom)
+      & tMGGA, atom)
 
     !> filename
     character(len=*), intent(in) :: fname
@@ -207,6 +212,9 @@ contains
 
     !! true, there are non-local exchange contributions to calculate
     logical, intent(in) :: tNonLocal
+
+    !! true if tau needs to be read from density file
+    logical, intent(in) :: tMGGA
 
     !> atomic properties instance
     type(TAtomdata), intent(out) :: atom
@@ -302,7 +310,12 @@ contains
     read(line, *, iostat=iErr) buffer
     call checkerror_(fname, line, iLine, iErr)
     if (tDensitySuperpos) then
-      call readdata_(buffer, [1, 3, 4, 5], data)
+      if (tMGGA) then
+        call readdata_(buffer, [1, 3, 4, 5, 6], data)
+        call TGridorb2_init(atom%tau, data(:, 1), data(:, 5))
+     else
+        call readdata_(buffer, [1, 3, 4, 5], data)
+     end if
       call TGridorb2_init(atom%rho, data(:, 1), data(:, 2))
       call TGridorb2_init(atom%drho, data(:, 1), data(:, 3))
       call TGridorb2_init(atom%ddrho, data(:, 1), data(:, 4))

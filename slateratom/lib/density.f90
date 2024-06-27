@@ -13,8 +13,8 @@ module density
   public :: basis_times_basis, basis_times_basis_1st, basis_times_basis_2nd
   public :: basis_1st_times_basis_1st, basis_2nd_times_basis_2nd
   public :: basis_times_basis_times_r2, basis_times_basis_1st_times_r2,&
-      & basis_times_basis_2nd_times_r2, basis_times_basis_1st_times_r,&
-      & basis_1st_times_basis_1st_times_r2
+  & basis_times_basis_2nd_times_r2, basis_times_basis_1st_times_r,&
+  & basis_1st_times_basis_1st_times_r2, tau_at_point
 
 
 contains
@@ -221,6 +221,81 @@ contains
 
   end function density_at_point_2nd
 
+  !> Calculates kinetic energy density at a radial point in space analytically.
+  pure function tau_at_point(pp, max_l, num_alpha, poly_order, alpha, rr)
+
+    !> density matrix supervector
+    real(dp), intent(in) :: pp(0:,:,:)
+
+    !> maximum angular momentum
+    integer, intent(in) :: max_l
+
+    !> number of exponents in each shell
+    integer, intent(in) :: num_alpha(0:)
+
+    !> highest polynomial order + l in each shell
+    integer, intent(in) :: poly_order(0:)
+
+    !> basis exponents
+    real(dp), intent(in) :: alpha(0:,:)
+
+    !> radial point in space, i.e. abcissa
+    real(dp), intent(in) :: rr
+
+    !> resulting analytical 2nd derivative at a radial point in space
+    real(dp) :: tau_at_point
+
+    !> auxiliary variables
+    integer :: ii, jj, kk, ll, mm, nn, oo, start
+
+    tau_at_point = 0.0_dp
+
+    do ii = 0, max_l
+      ll = 0
+      do jj = 1, num_alpha(ii)
+        do kk = 1, poly_order(ii)
+          ll = ll + 1
+
+            ! set global index correctly
+          oo = ll - 1
+          do mm = jj, num_alpha(ii)
+
+              ! catch start index for polynomials, different depending on alpha block
+            start = 1
+            if (mm == jj) start = kk
+
+                do nn = start, poly_order(ii)
+                oo = oo + 1
+
+                  ! TODO: eq. 5, term T in 10.1103/RevModPhys.32.186
+                ! TODO: fix H atom convergence;
+                ! second term seems unrelated, the problem must be in basis_1st_times_basis_1st
+                ! or in some normalization term
+                if (ll == oo) then
+                  tau_at_point = tau_at_point + pp(ii, ll, oo) * (basis_1st_times_basis_1st(&
+                                 & alpha(ii, jj), kk, alpha(ii, mm), nn, ii, rr) + &
+                                 & basis_times_basis_times_rminus2(alpha(ii, jj), kk, alpha(ii, mm), nn, ii, rr) &
+                                 & * real(ii * (ii + 1), dp))
+
+                  end if
+
+                  if (ll /= oo) then
+                   tau_at_point = tau_at_point + 2.0_dp * pp(ii, ll, oo) * (basis_1st_times_basis_1st(&
+                   & alpha(ii, jj), kk, alpha(ii, mm), nn, ii, rr) + &
+                   & basis_times_basis_times_rminus2(alpha(ii, jj), kk, alpha(ii, mm), nn, ii, rr) &
+                   & * real(ii * (ii + 1), dp))
+                end if
+
+                end do
+          end do
+        end do
+      end do
+    end do
+
+    ! Normalize tau
+    tau_at_point = tau_at_point * 0.5_dp
+
+  end function tau_at_point
 
   !> Calculates wavefunction at a radial point in space analytically.
   pure function wavefunction(cof, alpha, num_alpha, poly_order, ang, rr)
@@ -786,6 +861,63 @@ contains
 
   end function basis_times_basis_times_r2
 
+  !> Evaluates product of two primitive Slater basis functions with r^(-2) at a radial point in space.
+  !> r^(-2)r^(m-1)*e^(-alpha*r)*r^(n-1)*exp(-beta*r)=r^(m+n-2)*exp(-(alpha+beta)*r)
+  pure function basis_times_basis_times_rminus2(alpha, poly1, beta, poly2, ll, rr)
+
+    !> basis exponent of 1st basis
+    real(dp), intent(in) :: alpha
+
+    !> highest polynomial order in 1st basis shell
+    integer, intent(in) :: poly1
+
+    !> basis exponent of 2nd basis
+    real(dp), intent(in) :: beta
+
+    !> highest polynomial order in 2nd basis shell
+    integer, intent(in) :: poly2
+
+    !> angular momentum
+    integer, intent(in) :: ll
+
+    !> radial point in space, i.e. abcissa
+    real(dp), intent(in) :: rr
+
+    !> product of two primitive Slater basis functions at a radial point in space
+    real(dp) :: basis_times_basis_times_rminus2
+
+    !> normalization pre-factors
+    real(dp) :: normalization1, normalization2
+
+    ! auxiliary variables
+    integer :: mm, nn
+    real(dp) :: ab
+
+    mm = poly1 + ll
+    nn = poly2 + ll
+    ab = - (alpha + beta)
+
+    normalization1 = (2.0_dp * alpha)**(mm) * sqrt(2.0_dp * alpha) / sqrt(fak(2 * mm))
+    normalization2 = (2.0_dp * beta)**(nn) * sqrt(2.0_dp * beta) / sqrt(fak(2 * nn))
+
+    ! catch 0^0
+    if ((rr == 0.0_dp) .and. ((mm + nn - 4) == 0)) then
+       basis_times_basis_times_rminus2 = normalization1 * normalization2 * exp(ab * rr)
+    else
+       basis_times_basis_times_rminus2 = normalization1 * normalization2 * rr**(mm + nn - 4) * exp(ab * rr)
+    end if
+
+    ! NOTE: there are cases where (mm + n - 4) < 0, resulting in singularity (for example, in calculation of
+    ! kinetic energy density of a product of 1s-orbitals). This, however, does not matter numerically,
+    ! because the product is later multiplied with \lambda (\lambda + 1), which is zero in such cases,
+    ! resulting in no numerical artifacts. The results of the calculations that rely on this function
+    ! were tested against NWChem 7.2.2. (binary distribution from conda-forge), and those usually
+    ! agree up to the 10^(-4) Hartree in total energies for very large basis sets.
+
+    if (abs(basis_times_basis_times_rminus2) < 1.0d-20) basis_times_basis_times_rminus2 = 0.0_dp
+
+  end function basis_times_basis_times_rminus2
+
 
   !> Evaluates product of a basis function with 1st derivative of another basis function and r^2.
   !! beta and poly2 are the arguments of the derivative.
@@ -881,7 +1013,7 @@ contains
     negative = real(2 * (nn - 1), dp) * beta * rr**(nn + mm - 1)
 
     basis_times_basis_2nd_times_r2 = normalization1 * normalization2&
-        & * (positive - negative) * exp(ab * rr)
+                                     & * (positive - negative) * exp(ab * rr)
 
     if (abs(basis_times_basis_2nd_times_r2) < 1.0d-20) basis_times_basis_2nd_times_r2 = 0.0_dp
 

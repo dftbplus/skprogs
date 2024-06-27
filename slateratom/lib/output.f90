@@ -8,7 +8,9 @@ module output
       & density_at_point_1st
   use coulomb_potential, only : cou_pot
   use common_taggedout, only : TTaggedwriter, TTaggedwriter_init, writetag
+  use globals, only : xcnr
   use utilities, only : fak
+  use xcfunctionals, only : xcFunctional
 
   implicit none
   private
@@ -292,10 +294,10 @@ contains
 
   !> Writes potentials and mesh info to file on standard (internal) integration mesh;
   !! in principle one could read in the points from another file to have other meshes!
-  subroutine write_densities_file_standard(num_mesh_points, abcissa, weight, rho, drho, ddrho)
+  subroutine write_densities_file_standard(num_mesh_points, abcissa, weight, rho, drho, ddrho, tau)
 
     real(dp), intent(in) :: abcissa(:), weight(:)
-    real(dp), intent(in) :: rho(:,:), drho(:,:), ddrho(:,:)
+    real(dp), intent(in) :: rho(:,:), drho(:,:), ddrho(:,:), tau(:,:)
     integer, intent(in) :: num_mesh_points
     real(dp) :: enumber, zeta, r_seitz
     integer :: ii
@@ -313,22 +315,29 @@ contains
     ! note division of total density by 4*pi in calculation of r_seitz
     ! commonly r_seitz=((4*pi*rho)/3)**(-1/3) but our rho is from the
     ! radial part only and the angular part must be taken into account
-    ! explicitely; during integration this happens implicitely, see enumber
+    ! explicitly; during integration this happens implicitely, see enumber
 
     do ii = 1, num_mesh_points
 
-      if ((rho(ii, 1) + rho(ii, 2)) > 1.0d-12) then
-        zeta = (rho(ii, 1) - rho(ii, 2)) / (rho(ii, 1) + rho(ii, 2))
-        r_seitz = (4.0_dp * pi / 3.0_dp&
-            & * ((rho(ii, 1) + rho(ii, 2)) / 4.0_dp / pi))**(-1.0_dp / 3.0_dp)
-      else
-        zeta = 0.0_dp
-        r_seitz = 0.0_dp
-      end if
+       if ((rho(ii, 1) + rho(ii, 2)) > 1.0d-12) then
+          zeta = (rho(ii, 1) - rho(ii, 2)) / (rho(ii, 1) + rho(ii, 2))
+          r_seitz = (4.0_dp * pi / 3.0_dp&
+          & * ((rho(ii, 1) + rho(ii, 2)) / 4.0_dp / pi))**(-1.0_dp / 3.0_dp)
+       else
+          zeta = 0.0_dp
+          r_seitz = 0.0_dp
+       end if
 
-      write(95, '(7ES21.12E3)') abcissa(ii), weight(ii), rho(ii, 1) + rho(ii, 2),&
+       if (xcFunctional%isMGGA(xcnr)) then
+          write(95, '(8ES21.12E3)') abcissa(ii), weight(ii), rho(ii, 1) + rho(ii, 2),&
+          & drho(ii, 1) + drho(ii, 2), ddrho(ii, 1) + ddrho(ii, 2), zeta, r_seitz,&
+          & tau(ii, 1) + tau(ii, 2)
+       else
+          write(95, '(7ES21.12E3)') abcissa(ii), weight(ii), rho(ii, 1) + rho(ii, 2),&
           & drho(ii, 1) + drho(ii, 2), ddrho(ii, 1) + ddrho(ii, 2), zeta, r_seitz
-      enumber = enumber + weight(ii) * (rho(ii, 1) + rho(ii, 2)) * abcissa(ii)**2
+       end if
+
+       enumber = enumber + weight(ii) * (rho(ii, 1) + rho(ii, 2)) * abcissa(ii)**2
     end do
 
     close(95)

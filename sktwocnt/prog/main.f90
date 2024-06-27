@@ -22,7 +22,7 @@ program main
 
   call readInput(inp, "sktwocnt.in")
   write(*, "(A)") "Input done."
-
+  
   call get_twocenter_integrals(inp, imap, skham, skover)
   write(*, "(A)") "Twocnt done."
 
