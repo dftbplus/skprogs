@@ -188,6 +188,7 @@ class XCLCYPBE(sc.ClassDict):
         myself.beta = 1.0
         return myself
 
+
 class XCTPSS(sc.ClassDict):
     """mGGA TPSS xc-functional."""
 
@@ -241,7 +242,8 @@ class XCTASK(sc.ClassDict):
         myself = cls()
         myself.type = "task"
         return myself
-    
+
+
 class XCTASK_CC(sc.ClassDict):
     """mGGA TASK+CC xc-functional."""
 
@@ -251,6 +253,7 @@ class XCTASK_CC(sc.ClassDict):
         myself = cls()
         myself.type = "task+cc"
         return myself
+
 
 class XCLocal(sc.ClassDict):
     '''Local xc-functional.'''
@@ -298,20 +301,20 @@ class XCLDA(sc.ClassDict):
 
 # Registered xc-functionals with corresponding HSD name as key:
 XCFUNCTIONALS = {
-    "lcy-bnl": XCLCYBNL,
-    "lcy-pbe": XCLCYPBE,
-    "local": XCLocal,
-    "pbe": XCPBE,
-    "lda": XCLDA,
-    "blyp": XCBLYP,
-    "pbe0": XCPBE0,
-    "b3lyp": XCB3LYP,
-    "camy-b3lyp": XCCAMYB3LYP,
-    "camy-pbeh": XCCAMYPBEH,
-    "tpss": XCTPSS,
-    "scan": XCSCAN,
-    "r2scan": XCR2SCAN,
-    "r4scan": XCR4SCAN,
-    "task": XCTASK,
-    "task+cc": XCTASK_CC
+    'lcy-bnl': XCLCYBNL,
+    'lcy-pbe': XCLCYPBE,
+    'local': XCLocal,
+    'pbe': XCPBE,
+    'lda': XCLDA,
+    'blyp': XCBLYP,
+    'pbe0': XCPBE0,
+    'b3lyp': XCB3LYP,
+    'camy-b3lyp': XCCAMYB3LYP,
+    'camy-pbeh': XCCAMYPBEH,
+    'tpss': XCTPSS,
+    'scan': XCSCAN,
+    'r2scan': XCR2SCAN,
+    'r4scan': XCR4SCAN,
+    'task': XCTASK,
+    'task+cc': XCTASK_CC
 }

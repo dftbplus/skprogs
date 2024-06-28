@@ -6,11 +6,11 @@ module xcfunctionals
   use common_constants, only : rec4pi
   use utilities, only : zeroOutCpotOfEmptyDensitySpinChannels
   use xc_f03_lib_m, only : xc_f03_func_t, xc_f03_func_init, xc_f03_func_end, xc_f03_lda_exc_vxc,&
-  & xc_f03_gga_exc_vxc, xc_f03_mgga_exc_vxc, xc_f03_func_set_ext_params, XC_LDA_X, XC_LDA_X_YUKAWA,&
-  & XC_LDA_C_PW, XC_GGA_X_PBE, XC_GGA_X_B88, XC_GGA_X_SFAT_PBE, XC_HYB_GGA_XC_B3LYP,&
-  & XC_HYB_GGA_XC_CAMY_B3LYP, XC_GGA_C_PBE, XC_GGA_C_LYP, XC_MGGA_X_SCAN, XC_MGGA_X_R4SCAN,&
-  & XC_MGGA_C_SCAN, XC_MGGA_X_TASK, XC_MGGA_X_R2SCAN, XC_MGGA_C_R2SCAN, XC_MGGA_X_TPSS,&
-  & XC_MGGA_C_TPSS, XC_MGGA_C_CC, XC_POLARIZED
+      & xc_f03_gga_exc_vxc, xc_f03_mgga_exc_vxc, xc_f03_func_set_ext_params, XC_LDA_X,&
+      & XC_LDA_X_YUKAWA, XC_LDA_C_PW, XC_GGA_X_PBE, XC_GGA_X_B88, XC_GGA_X_SFAT_PBE,&
+      & XC_HYB_GGA_XC_B3LYP, XC_HYB_GGA_XC_CAMY_B3LYP, XC_GGA_C_PBE, XC_GGA_C_LYP, XC_MGGA_X_SCAN,&
+      & XC_MGGA_X_R4SCAN, XC_MGGA_C_SCAN, XC_MGGA_X_TASK, XC_MGGA_X_R2SCAN, XC_MGGA_C_R2SCAN,&
+      & XC_MGGA_X_TPSS, XC_MGGA_C_TPSS, XC_MGGA_C_CC, XC_POLARIZED
 
   implicit none
   private
@@ -21,9 +21,8 @@ module xcfunctionals
   public :: getExcVxc_LCY_PBE96, getExcVxc_LCY_BNL
   public :: getExcVxc_HYB_B3LYP, getExcVxc_HYB_PBE0
   public :: getExcVxc_CAMY_B3LYP, getExcVxc_CAMY_PBEh
-  public :: getExcVxc_MGGA_TPSS, getExcVxc_MGGA_SCAN,&
-  & getExcVxc_MGGA_r2SCAN, getExcVxc_MGGA_r4SCAN,&
-  & getExcVxc_MGGA_TASK, getExcVxc_MGGA_TASK_CC
+  public :: getExcVxc_MGGA_TPSS, getExcVxc_MGGA_SCAN, getExcVxc_MGGA_r2SCAN, getExcVxc_MGGA_r4SCAN
+  public :: getExcVxc_MGGA_TASK, getExcVxc_MGGA_TASK_CC
 
 
   interface libxcVxcToInternalVxc
@@ -141,24 +140,28 @@ contains
 
   end function TXcFunctionalsEnum_isGGA
 
+
   pure function TXcFunctionalsEnum_isMGGA(this, xcnr) result(isMGGA)
 
-  !> Class instance
-  class(TXcFunctionalsEnum), intent(in) :: this
+    !> Class instance
+    class(TXcFunctionalsEnum), intent(in) :: this
 
-  !> identifier of exchange-correlation type
-  integer, intent(in) :: xcnr
+    !> identifier of exchange-correlation type
+    integer, intent(in) :: xcnr
 
-  !> True, if xc-functional index corresponds to a GGA functional
-  logical :: isMGGA
+    !> True, if xc-functional index corresponds to an MGGA functional
+    logical :: isMGGA
 
-  isMGGA = .false.
-  if (xcnr == this%MGGA_SCAN .or. xcnr == this%MGGA_r2SCAN &
-  & .or. xcnr == this%MGGA_TASK .or. xcnr == this%MGGA_r4SCAN &
-  & .or. xcnr == this%MGGA_TPSS .or. xcnr == this%MGGA_TASK_CC) &
-  & isMGGA = .true.
+    isMGGA = .false.
+
+    if (xcnr == this%MGGA_SCAN .or. xcnr == this%MGGA_r2SCAN .or. xcnr == this%MGGA_TASK&
+        & .or. xcnr == this%MGGA_r4SCAN .or. xcnr == this%MGGA_TPSS&
+        & .or. xcnr == this%MGGA_TASK_CC) then
+      isMGGA = .true.
+    end if
 
   end function TXcFunctionalsEnum_isMGGA
+
 
   pure function TXcFunctionalsEnum_isLongRangeCorrected(this, xcnr) result(isLongRangeCorrected)
 
@@ -384,6 +387,7 @@ contains
 
   end subroutine getExcVxc_GGA_PBE96
 
+
   !> Calculates exc and vxc for the GGA-BLYP xc-functional.
   subroutine getExcVxc_GGA_BLYP(abcissa, dz, dzdr, rho, drho, sigma, exc, vxc)
 
@@ -472,6 +476,7 @@ contains
 
   end subroutine getExcVxc_GGA_BLYP
 
+
   !> Calculates exc, vxc, and vtau for the MGGA-TPSS xc-functional.
   subroutine getExcVxc_MGGA_TPSS(abcissa, dz, dzdr, rho, drho, sigma, tau, exc, vxc, vtau)
 
@@ -493,7 +498,7 @@ contains
     !> contracted gradients of the density
     real(dp), intent(in), allocatable :: sigma(:,:)
 
-    !> Kinetic energy density
+    !> kinetic energy density
     real(dp), intent(in):: tau(:,:)
 
     !> exc energy density on grid
@@ -503,13 +508,13 @@ contains
     real(dp), intent(out) :: vxc(:,:)
 
     !> orbital-dependent tau potential on grid
-    real(dp), intent(out) :: vtau(:, :)
+    real(dp), intent(out) :: vtau(:,:)
 
     !! density in libxc compatible format, i.e. rho/(4pi)
     real(dp), allocatable :: rhor(:,:)
 
-    !! Kinetic energy density (in libxc compatible format)
-    real(dp), allocatable :: tau_libxc(:,:)
+    !! kinetic energy density in libxc compatible format, i.e. tau/(4pi)
+    real(dp), allocatable :: rtau(:,:)
 
     !! libxc related objects
     type(xc_f03_func_t) :: xcfunc_x, xcfunc_c
@@ -538,10 +543,12 @@ contains
     !! laplacian for libxc (dummy)
     real(dp), allocatable :: lapl(:,:)
 
-    !! first partial derivative of the energy per unit volume in terms of laplacian (exchange) (dummy)
+    !! first partial derivative of the energy per unit volume in terms of laplacian (exchange)
+    !! (dummy)
     real(dp), allocatable :: vxlapl(:,:)
 
-    !! first partial derivative of the energy per unit volume in terms of laplacian (correlation) (dummy)
+    !! first partial derivative of the energy per unit volume in terms of laplacian (correlation)
+    !! (dummy)
     real(dp), allocatable :: vclapl(:,:)
 
     nn = size(rho, dim=1)
@@ -549,8 +556,8 @@ contains
     allocate(rhor(2, nn))
     rhor(:,:) = transpose(rho) * rec4pi
 
-    allocate(tau_libxc(2, nn))
-    tau_libxc(:,:) = transpose(tau) * rec4pi
+    allocate(rtau(2, nn))
+    rtau(:,:) = transpose(tau) * rec4pi
 
     allocate(ex(nn))
     ex(:) = 0.0_dp
@@ -572,7 +579,7 @@ contains
     vctau(:,:) = 0.0_dp
 
     allocate(lapl(2, nn))
-    lapl(:, :) = 0.0_dp
+    lapl(:,:) = 0.0_dp
     allocate(vxlapl(2, nn))
     vxlapl(:,:) = 0.0_dp
     allocate(vclapl(2, nn))
@@ -582,17 +589,17 @@ contains
     call xc_f03_func_init(xcfunc_c, XC_MGGA_C_TPSS, XC_POLARIZED)
 
     ! Exchange energy and potential
-    call xc_f03_mgga_exc_vxc(xcfunc_x, nn, rhor(1, 1), sigma(1, 1), lapl(1, 1), tau_libxc(1, 1),&
-    & ex(1), vx(1, 1), vxsigma(1, 1), vxlapl(1, 1), vxtau(1, 1))
+    call xc_f03_mgga_exc_vxc(xcfunc_x, nn, rhor(1, 1), sigma(1, 1), lapl(1, 1), rtau(1, 1), ex(1),&
+        & vx(1, 1), vxsigma(1, 1), vxlapl(1, 1), vxtau(1, 1))
     ! Correlation energy and potential
-    call xc_f03_mgga_exc_vxc(xcfunc_c, nn, rhor(1, 1), sigma(1, 1), lapl(1, 1), tau_libxc(1, 1),&
-    & ec(1), vc(1, 1), vcsigma(1, 1), vclapl(1, 1), vctau(1, 1))
+    call xc_f03_mgga_exc_vxc(xcfunc_c, nn, rhor(1, 1), sigma(1, 1), lapl(1, 1), rtau(1, 1), ec(1),&
+        & vc(1, 1), vcsigma(1, 1), vclapl(1, 1), vctau(1, 1))
 
     call zeroOutCpotOfEmptyDensitySpinChannels(rho, vc)
 
     exc(:) = ex + ec
     vxc(:,:) = transpose(vx + vc)
-    vtau(:, :) = transpose(vxtau + vctau)
+    vtau(:,:) = transpose(vxtau + vctau)
 
     call libxcVxcToInternalVxc(abcissa, dz, dzdr, drho, vxsigma, vcsigma, vxc)
 
@@ -600,10 +607,11 @@ contains
     call xc_f03_func_end(xcfunc_x)
     call xc_f03_func_end(xcfunc_c)
 
- end subroutine getExcVxc_MGGA_TPSS
+  end subroutine getExcVxc_MGGA_TPSS
 
- !> Calculates exc, vxc, and vtau for the MGGA-SCAN xc-functional.
- subroutine getExcVxc_MGGA_SCAN(abcissa, dz, dzdr, rho, drho, sigma, tau, exc, vxc, vtau)
+
+  !> Calculates exc, vxc, and vtau for the MGGA-SCAN xc-functional.
+  subroutine getExcVxc_MGGA_SCAN(abcissa, dz, dzdr, rho, drho, sigma, tau, exc, vxc, vtau)
 
     !> numerical integration abcissas
     real(dp), intent(in) :: abcissa(:)
@@ -623,7 +631,7 @@ contains
     !> contracted gradients of the density
     real(dp), intent(in), allocatable :: sigma(:,:)
 
-    !> Kinetic energy density
+    !> kinetic energy density
     real(dp), intent(in):: tau(:,:)
 
     !> exc energy density on grid
@@ -633,13 +641,13 @@ contains
     real(dp), intent(out) :: vxc(:,:)
 
     !> orbital-dependent tau potential on grid
-    real(dp), intent(out) :: vtau(:, :)
+    real(dp), intent(out) :: vtau(:,:)
 
     !! density in libxc compatible format, i.e. rho/(4pi)
     real(dp), allocatable :: rhor(:,:)
 
-    !! Kinetic energy density (in libxc compatible format)
-    real(dp), allocatable :: tau_libxc(:,:)
+    !! kinetic energy density in libxc compatible format, i.e. tau/(4pi)
+    real(dp), allocatable :: rtau(:,:)
 
     !! libxc related objects
     type(xc_f03_func_t) :: xcfunc_x, xcfunc_c
@@ -668,10 +676,12 @@ contains
     !! laplacian for libxc (dummy)
     real(dp), allocatable :: lapl(:,:)
 
-    !! first partial derivative of the energy per unit volume in terms of laplacian (exchange) (dummy)
+    !! first partial derivative of the energy per unit volume in terms of laplacian (exchange)
+    !! (dummy)
     real(dp), allocatable :: vxlapl(:,:)
 
-    !! first partial derivative of the energy per unit volume in terms of laplacian (correlation) (dummy)
+    !! first partial derivative of the energy per unit volume in terms of laplacian (correlation)
+    !! (dummy)
     real(dp), allocatable :: vclapl(:,:)
 
     nn = size(rho, dim=1)
@@ -679,8 +689,8 @@ contains
     allocate(rhor(2, nn))
     rhor(:,:) = transpose(rho) * rec4pi
 
-    allocate(tau_libxc(2, nn))
-    tau_libxc(:,:) = transpose(tau) * rec4pi
+    allocate(rtau(2, nn))
+    rtau(:,:) = transpose(tau) * rec4pi
 
     allocate(ex(nn))
     ex(:) = 0.0_dp
@@ -702,7 +712,7 @@ contains
     vctau(:,:) = 0.0_dp
 
     allocate(lapl(2, nn))
-    lapl(:, :) = 0.0_dp
+    lapl(:,:) = 0.0_dp
     allocate(vxlapl(2, nn))
     vxlapl(:,:) = 0.0_dp
     allocate(vclapl(2, nn))
@@ -712,17 +722,17 @@ contains
     call xc_f03_func_init(xcfunc_c, XC_MGGA_C_SCAN, XC_POLARIZED)
 
     ! Exchange energy and potential
-    call xc_f03_mgga_exc_vxc(xcfunc_x, nn, rhor(1, 1), sigma(1, 1), lapl(1, 1), tau_libxc(1, 1),&
-    & ex(1), vx(1, 1), vxsigma(1, 1), vxlapl(1, 1), vxtau(1, 1))
+    call xc_f03_mgga_exc_vxc(xcfunc_x, nn, rhor(1, 1), sigma(1, 1), lapl(1, 1), rtau(1, 1), ex(1),&
+        & vx(1, 1), vxsigma(1, 1), vxlapl(1, 1), vxtau(1, 1))
     ! Correlation energy and potential
-    call xc_f03_mgga_exc_vxc(xcfunc_c, nn, rhor(1, 1), sigma(1, 1), lapl(1, 1), tau_libxc(1, 1),&
-    & ec(1), vc(1, 1), vcsigma(1, 1), vclapl(1, 1), vctau(1, 1))
+    call xc_f03_mgga_exc_vxc(xcfunc_c, nn, rhor(1, 1), sigma(1, 1), lapl(1, 1), rtau(1, 1), ec(1),&
+        & vc(1, 1), vcsigma(1, 1), vclapl(1, 1), vctau(1, 1))
 
     call zeroOutCpotOfEmptyDensitySpinChannels(rho, vc)
 
     exc(:) = ex + ec
     vxc(:,:) = transpose(vx + vc)
-    vtau(:, :) = transpose(vxtau + vctau)
+    vtau(:,:) = transpose(vxtau + vctau)
 
     call libxcVxcToInternalVxc(abcissa, dz, dzdr, drho, vxsigma, vcsigma, vxc)
 
@@ -730,10 +740,11 @@ contains
     call xc_f03_func_end(xcfunc_x)
     call xc_f03_func_end(xcfunc_c)
 
- end subroutine getExcVxc_MGGA_SCAN
+  end subroutine getExcVxc_MGGA_SCAN
 
- !> Calculates exc, vxc, and vtau for the MGGA-r2SCAN xc-functional.
- subroutine getExcVxc_MGGA_r2SCAN(abcissa, dz, dzdr, rho, drho, sigma, tau, exc, vxc, vtau)
+
+  !> Calculates exc, vxc, and vtau for the MGGA-r2SCAN xc-functional.
+  subroutine getExcVxc_MGGA_r2SCAN(abcissa, dz, dzdr, rho, drho, sigma, tau, exc, vxc, vtau)
 
     !> numerical integration abcissas
     real(dp), intent(in) :: abcissa(:)
@@ -753,7 +764,7 @@ contains
     !> contracted gradients of the density
     real(dp), intent(in), allocatable :: sigma(:,:)
 
-    !> Kinetic energy density
+    !> kinetic energy density
     real(dp), intent(in):: tau(:,:)
 
     !> exc energy density on grid
@@ -763,13 +774,13 @@ contains
     real(dp), intent(out) :: vxc(:,:)
 
     !> orbital-dependent tau potential on grid
-    real(dp), intent(out) :: vtau(:, :)
+    real(dp), intent(out) :: vtau(:,:)
 
     !! density in libxc compatible format, i.e. rho/(4pi)
     real(dp), allocatable :: rhor(:,:)
 
-    !! Kinetic energy density (in libxc compatible format)
-    real(dp), allocatable :: tau_libxc(:,:)
+    !! kinetic energy density in libxc compatible format, i.e. tau/(4pi)
+    real(dp), allocatable :: rtau(:,:)
 
     !! libxc related objects
     type(xc_f03_func_t) :: xcfunc_x, xcfunc_c
@@ -798,10 +809,12 @@ contains
     !! laplacian for libxc (dummy)
     real(dp), allocatable :: lapl(:,:)
 
-    !! first partial derivative of the energy per unit volume in terms of laplacian (exchange) (dummy)
+    !! first partial derivative of the energy per unit volume in terms of laplacian (exchange)
+    !! (dummy)
     real(dp), allocatable :: vxlapl(:,:)
 
-    !! first partial derivative of the energy per unit volume in terms of laplacian (correlation) (dummy)
+    !! first partial derivative of the energy per unit volume in terms of laplacian (correlation)
+    !! (dummy)
     real(dp), allocatable :: vclapl(:,:)
 
     nn = size(rho, dim=1)
@@ -809,8 +822,8 @@ contains
     allocate(rhor(2, nn))
     rhor(:,:) = transpose(rho) * rec4pi
 
-    allocate(tau_libxc(2, nn))
-    tau_libxc(:,:) = transpose(tau) * rec4pi
+    allocate(rtau(2, nn))
+    rtau(:,:) = transpose(tau) * rec4pi
 
     allocate(ex(nn))
     ex(:) = 0.0_dp
@@ -832,7 +845,7 @@ contains
     vctau(:,:) = 0.0_dp
 
     allocate(lapl(2, nn))
-    lapl(:, :) = 0.0_dp
+    lapl(:,:) = 0.0_dp
     allocate(vxlapl(2, nn))
     vxlapl(:,:) = 0.0_dp
     allocate(vclapl(2, nn))
@@ -842,17 +855,17 @@ contains
     call xc_f03_func_init(xcfunc_c, XC_MGGA_C_R2SCAN, XC_POLARIZED)
 
     ! Exchange energy and potential
-    call xc_f03_mgga_exc_vxc(xcfunc_x, nn, rhor(1, 1), sigma(1, 1), lapl(1, 1), tau_libxc(1, 1),&
-    & ex(1), vx(1, 1), vxsigma(1, 1), vxlapl(1, 1), vxtau(1, 1))
+    call xc_f03_mgga_exc_vxc(xcfunc_x, nn, rhor(1, 1), sigma(1, 1), lapl(1, 1), rtau(1, 1), ex(1),&
+        & vx(1, 1), vxsigma(1, 1), vxlapl(1, 1), vxtau(1, 1))
     ! Correlation energy and potential
-    call xc_f03_mgga_exc_vxc(xcfunc_c, nn, rhor(1, 1), sigma(1, 1), lapl(1, 1), tau_libxc(1, 1),&
-    & ec(1), vc(1, 1), vcsigma(1, 1), vclapl(1, 1), vctau(1, 1))
+    call xc_f03_mgga_exc_vxc(xcfunc_c, nn, rhor(1, 1), sigma(1, 1), lapl(1, 1), rtau(1, 1), ec(1),&
+        & vc(1, 1), vcsigma(1, 1), vclapl(1, 1), vctau(1, 1))
 
     call zeroOutCpotOfEmptyDensitySpinChannels(rho, vc)
 
     exc(:) = ex + ec
     vxc(:,:) = transpose(vx + vc)
-    vtau(:, :) = transpose(vxtau + vctau)
+    vtau(:,:) = transpose(vxtau + vctau)
 
     call libxcVxcToInternalVxc(abcissa, dz, dzdr, drho, vxsigma, vcsigma, vxc)
 
@@ -860,10 +873,11 @@ contains
     call xc_f03_func_end(xcfunc_x)
     call xc_f03_func_end(xcfunc_c)
 
- end subroutine getExcVxc_MGGA_r2SCAN
+  end subroutine getExcVxc_MGGA_r2SCAN
 
- !> Calculates exc, vxc, and vtau for the MGGA-r4SCAN xc-functional.
- subroutine getExcVxc_MGGA_r4SCAN(abcissa, dz, dzdr, rho, drho, sigma, tau, exc, vxc, vtau)
+
+  !> Calculates exc, vxc, and vtau for the MGGA-r4SCAN xc-functional.
+  subroutine getExcVxc_MGGA_r4SCAN(abcissa, dz, dzdr, rho, drho, sigma, tau, exc, vxc, vtau)
 
     !> numerical integration abcissas
     real(dp), intent(in) :: abcissa(:)
@@ -883,7 +897,7 @@ contains
     !> contracted gradients of the density
     real(dp), intent(in), allocatable :: sigma(:,:)
 
-    !> Kinetic energy density
+    !> kinetic energy density
     real(dp), intent(in):: tau(:,:)
 
     !> exc energy density on grid
@@ -893,13 +907,13 @@ contains
     real(dp), intent(out) :: vxc(:,:)
 
     !> orbital-dependent tau potential on grid
-    real(dp), intent(out) :: vtau(:, :)
+    real(dp), intent(out) :: vtau(:,:)
 
     !! density in libxc compatible format, i.e. rho/(4pi)
     real(dp), allocatable :: rhor(:,:)
 
-    !! Kinetic energy density (in libxc compatible format)
-    real(dp), allocatable :: tau_libxc(:,:)
+    !! kinetic energy density in libxc compatible format, i.e. tau/(4pi)
+    real(dp), allocatable :: rtau(:,:)
 
     !! libxc related objects
     type(xc_f03_func_t) :: xcfunc_x, xcfunc_c
@@ -928,10 +942,12 @@ contains
     !! laplacian for libxc (dummy)
     real(dp), allocatable :: lapl(:,:)
 
-    !! first partial derivative of the energy per unit volume in terms of laplacian (exchange) (dummy)
+    !! first partial derivative of the energy per unit volume in terms of laplacian (exchange)
+    !! (dummy)
     real(dp), allocatable :: vxlapl(:,:)
 
-    !! first partial derivative of the energy per unit volume in terms of laplacian (correlation) (dummy)
+    !! first partial derivative of the energy per unit volume in terms of laplacian (correlation)
+    !! (dummy)
     real(dp), allocatable :: vclapl(:,:)
 
     nn = size(rho, dim=1)
@@ -939,8 +955,8 @@ contains
     allocate(rhor(2, nn))
     rhor(:,:) = transpose(rho) * rec4pi
 
-    allocate(tau_libxc(2, nn))
-    tau_libxc(:,:) = transpose(tau) * rec4pi
+    allocate(rtau(2, nn))
+    rtau(:,:) = transpose(tau) * rec4pi
 
     allocate(ex(nn))
     ex(:) = 0.0_dp
@@ -962,7 +978,7 @@ contains
     vctau(:,:) = 0.0_dp
 
     allocate(lapl(2, nn))
-    lapl(:, :) = 0.0_dp
+    lapl(:,:) = 0.0_dp
     allocate(vxlapl(2, nn))
     vxlapl(:,:) = 0.0_dp
     allocate(vclapl(2, nn))
@@ -972,17 +988,17 @@ contains
     call xc_f03_func_init(xcfunc_c, XC_MGGA_C_R2SCAN, XC_POLARIZED)
 
     ! Exchange energy and potential
-    call xc_f03_mgga_exc_vxc(xcfunc_x, nn, rhor(1, 1), sigma(1, 1), lapl(1, 1), tau_libxc(1, 1),&
-    & ex(1), vx(1, 1), vxsigma(1, 1), vxlapl(1, 1), vxtau(1, 1))
+    call xc_f03_mgga_exc_vxc(xcfunc_x, nn, rhor(1, 1), sigma(1, 1), lapl(1, 1), rtau(1, 1), ex(1),&
+        & vx(1, 1), vxsigma(1, 1), vxlapl(1, 1), vxtau(1, 1))
     ! Correlation energy and potential
-    call xc_f03_mgga_exc_vxc(xcfunc_c, nn, rhor(1, 1), sigma(1, 1), lapl(1, 1), tau_libxc(1, 1),&
-    & ec(1), vc(1, 1), vcsigma(1, 1), vclapl(1, 1), vctau(1, 1))
+    call xc_f03_mgga_exc_vxc(xcfunc_c, nn, rhor(1, 1), sigma(1, 1), lapl(1, 1), rtau(1, 1), ec(1),&
+        & vc(1, 1), vcsigma(1, 1), vclapl(1, 1), vctau(1, 1))
 
     call zeroOutCpotOfEmptyDensitySpinChannels(rho, vc)
 
     exc(:) = ex + ec
     vxc(:,:) = transpose(vx + vc)
-    vtau(:, :) = transpose(vxtau + vctau)
+    vtau(:,:) = transpose(vxtau + vctau)
 
     call libxcVxcToInternalVxc(abcissa, dz, dzdr, drho, vxsigma, vcsigma, vxc)
 
@@ -990,10 +1006,11 @@ contains
     call xc_f03_func_end(xcfunc_x)
     call xc_f03_func_end(xcfunc_c)
 
- end subroutine getExcVxc_MGGA_r4SCAN
+  end subroutine getExcVxc_MGGA_r4SCAN
 
- !> Calculates exc, vxc, and vtau for the MGGA-TASK xc-functional.
- subroutine getExcVxc_MGGA_TASK(abcissa, dz, dzdr, rho, drho, sigma, tau, exc, vxc, vtau)
+
+  !> Calculates exc, vxc, and vtau for the MGGA-TASK xc-functional.
+  subroutine getExcVxc_MGGA_TASK(abcissa, dz, dzdr, rho, drho, sigma, tau, exc, vxc, vtau)
 
     !> numerical integration abcissas
     real(dp), intent(in) :: abcissa(:)
@@ -1013,7 +1030,7 @@ contains
     !> contracted gradients of the density
     real(dp), intent(in), allocatable :: sigma(:,:)
 
-    !> Kinetic energy density
+    !> kinetic energy density
     real(dp), intent(in) :: tau(:,:)
 
     !> exc energy density on grid
@@ -1023,13 +1040,13 @@ contains
     real(dp), intent(out) :: vxc(:,:)
 
     !> orbital-dependent tau potential on grid
-    real(dp), intent(out) :: vtau(:, :)
+    real(dp), intent(out) :: vtau(:,:)
 
     !! density in libxc compatible format, i.e. rho/(4pi)
     real(dp), allocatable :: rhor(:,:)
 
-    !! Kinetic energy density
-    real(dp), allocatable :: tau_libxc(:,:)
+    !! kinetic energy density
+    real(dp), allocatable :: rtau(:,:)
 
     !! libxc related objects
     type(xc_f03_func_t) :: xcfunc_x, xcfunc_c
@@ -1052,7 +1069,8 @@ contains
     !! laplacian for libxc (dummy)
     real(dp), allocatable :: lapl(:,:)
 
-    !! first partial derivative of the energy per unit volume in terms of laplacian (exchange) (dummy)
+    !! first partial derivative of the energy per unit volume in terms of laplacian (exchange)
+    !! (dummy)
     real(dp), allocatable :: vxlapl(:,:)
 
     nn = size(rho, dim=1)
@@ -1060,8 +1078,8 @@ contains
     allocate(rhor(2, nn))
     rhor(:,:) = transpose(rho) * rec4pi
 
-    allocate(tau_libxc(2, nn))
-    tau_libxc(:,:) = transpose(tau) * rec4pi
+    allocate(rtau(2, nn))
+    rtau(:,:) = transpose(tau) * rec4pi
 
     allocate(ex(nn))
     ex(:) = 0.0_dp
@@ -1079,7 +1097,7 @@ contains
     vxtau(:,:) = 0.0_dp
 
     allocate(lapl(2, nn))
-    lapl(:, :) = 0.0_dp
+    lapl(:,:) = 0.0_dp
     allocate(vxlapl(2, nn))
     vxlapl(:,:) = 0.0_dp
 
@@ -1087,15 +1105,15 @@ contains
     call xc_f03_func_init(xcfunc_c, XC_LDA_C_PW, XC_POLARIZED)
 
     ! Exchange energy and potential
-    call xc_f03_mgga_exc_vxc(xcfunc_x, nn, rhor(1, 1), sigma(1, 1), lapl(1, 1), tau_libxc(1, 1),&
-    & ex(1), vx(1, 1), vxsigma(1, 1), vxlapl(1, 1), vxtau(1, 1))
+    call xc_f03_mgga_exc_vxc(xcfunc_x, nn, rhor(1, 1), sigma(1, 1), lapl(1, 1), rtau(1, 1), ex(1),&
+        & vx(1, 1), vxsigma(1, 1), vxlapl(1, 1), vxtau(1, 1))
     ! Correlation energy and potential
     call xc_f03_lda_exc_vxc(xcfunc_c, nn, rhor(1, 1), ec(1), vc(1, 1))
     call zeroOutCpotOfEmptyDensitySpinChannels(rho, vc)
 
     exc(:) = ex + ec
     vxc(:,:) = transpose(vx + vc)
-    vtau(:, :) = transpose(vxtau)
+    vtau(:,:) = transpose(vxtau)
 
     call libxcVxcToInternalVxc(abcissa, dz, dzdr, drho, vxsigma, vxc)
 
@@ -1105,12 +1123,12 @@ contains
 
   end subroutine getExcVxc_MGGA_TASK
 
-  !> Calculates exc, vxc, and vtau for the MGGA-TASK+CC xc-functional.
-  subroutine getExcVxc_MGGA_TASK_CC(abcissa, dz, dzdr, rho, drho, sigma, tau, exc, vxc, vtau)
 
-    ! TASK exchange with CC correlation
-    ! correlation: 10.1063/1.4865942
-    ! total functional: 10.1103/PhysRevResearch.4.023061
+  !> Calculates exc, vxc, and vtau for the MGGA-TASK+CC xc-functional.
+  !! TASK exchange with CC correlation
+  !! correlation: 10.1063/1.4865942
+  !! total functional: 10.1103/PhysRevResearch.4.023061
+  subroutine getExcVxc_MGGA_TASK_CC(abcissa, dz, dzdr, rho, drho, sigma, tau, exc, vxc, vtau)
 
     !> numerical integration abcissas
     real(dp), intent(in) :: abcissa(:)
@@ -1130,7 +1148,7 @@ contains
     !> contracted gradients of the density
     real(dp), intent(in), allocatable :: sigma(:,:)
 
-    !> Kinetic energy density
+    !> kinetic energy density
     real(dp), intent(in):: tau(:,:)
 
     !> exc energy density on grid
@@ -1140,13 +1158,13 @@ contains
     real(dp), intent(out) :: vxc(:,:)
 
     !> orbital-dependent tau potential on grid
-    real(dp), intent(out) :: vtau(:, :)
+    real(dp), intent(out) :: vtau(:,:)
 
     !! density in libxc compatible format, i.e. rho/(4pi)
     real(dp), allocatable :: rhor(:,:)
 
-    !! Kinetic energy density (in libxc compatible format)
-    real(dp), allocatable :: tau_libxc(:,:)
+    !! kinetic energy density in libxc compatible format, i.e. tau/(4pi)
+    real(dp), allocatable :: rtau(:,:)
 
     !! libxc related objects
     type(xc_f03_func_t) :: xcfunc_x, xcfunc_c
@@ -1175,10 +1193,12 @@ contains
     !! laplacian for libxc (dummy)
     real(dp), allocatable :: lapl(:,:)
 
-    !! first partial derivative of the energy per unit volume in terms of laplacian (exchange) (dummy)
+    !! first partial derivative of the energy per unit volume in terms of laplacian (exchange)
+    !! (dummy)
     real(dp), allocatable :: vxlapl(:,:)
 
-    !! first partial derivative of the energy per unit volume in terms of laplacian (correlation) (dummy)
+    !! first partial derivative of the energy per unit volume in terms of laplacian (correlation)
+    !! (dummy)
     real(dp), allocatable :: vclapl(:,:)
 
     nn = size(rho, dim=1)
@@ -1186,8 +1206,8 @@ contains
     allocate(rhor(2, nn))
     rhor(:,:) = transpose(rho) * rec4pi
 
-    allocate(tau_libxc(2, nn))
-    tau_libxc(:,:) = transpose(tau) * rec4pi
+    allocate(rtau(2, nn))
+    rtau(:,:) = transpose(tau) * rec4pi
 
     allocate(ex(nn))
     ex(:) = 0.0_dp
@@ -1209,7 +1229,7 @@ contains
     vctau(:,:) = 0.0_dp
 
     allocate(lapl(2, nn))
-    lapl(:, :) = 0.0_dp
+    lapl(:,:) = 0.0_dp
     allocate(vxlapl(2, nn))
     vxlapl(:,:) = 0.0_dp
     allocate(vclapl(2, nn))
@@ -1219,17 +1239,17 @@ contains
     call xc_f03_func_init(xcfunc_c, XC_MGGA_C_CC, XC_POLARIZED)
 
     ! Exchange energy and potential
-    call xc_f03_mgga_exc_vxc(xcfunc_x, nn, rhor(1, 1), sigma(1, 1), lapl(1, 1), tau_libxc(1, 1),&
-    & ex(1), vx(1, 1), vxsigma(1, 1), vxlapl(1, 1), vxtau(1, 1))
+    call xc_f03_mgga_exc_vxc(xcfunc_x, nn, rhor(1, 1), sigma(1, 1), lapl(1, 1), rtau(1, 1), ex(1),&
+        & vx(1, 1), vxsigma(1, 1), vxlapl(1, 1), vxtau(1, 1))
     ! Correlation energy and potential
-    call xc_f03_mgga_exc_vxc(xcfunc_c, nn, rhor(1, 1), sigma(1, 1), lapl(1, 1), tau_libxc(1, 1),&
-    & ec(1), vc(1, 1), vcsigma(1, 1), vclapl(1, 1), vctau(1, 1))
+    call xc_f03_mgga_exc_vxc(xcfunc_c, nn, rhor(1, 1), sigma(1, 1), lapl(1, 1), rtau(1, 1), ec(1),&
+        & vc(1, 1), vcsigma(1, 1), vclapl(1, 1), vctau(1, 1))
 
     call zeroOutCpotOfEmptyDensitySpinChannels(rho, vc)
 
     exc(:) = ex + ec
     vxc(:,:) = transpose(vx + vc)
-    vtau(:, :) = transpose(vxtau + vctau)
+    vtau(:,:) = transpose(vxtau + vctau)
 
     call libxcVxcToInternalVxc(abcissa, dz, dzdr, drho, vxsigma, vcsigma, vxc)
 
@@ -1237,7 +1257,8 @@ contains
     call xc_f03_func_end(xcfunc_x)
     call xc_f03_func_end(xcfunc_c)
 
- end subroutine getExcVxc_MGGA_TASK_CC
+  end subroutine getExcVxc_MGGA_TASK_CC
+
 
   !> Calculates exc and vxc for the LCY-PBE96 xc-functional.
   subroutine getExcVxc_LCY_PBE96(abcissa, dz, dzdr, rho, drho, sigma, omega, exc, vxc)

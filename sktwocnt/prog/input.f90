@@ -45,7 +45,7 @@ contains
     integer :: iErr
 
     !! xc-functional type
-    ! (1: LDA-PW91, 2: GGA-PBE96, 3: GGA-BLYP, 4: LCY-PBE96, 5: LCY-BNL, 6: PBE0, 7: B3LYP,
+    !! (1: LDA-PW91, 2: GGA-PBE96, 3: GGA-BLYP, 4: LCY-PBE96, 5: LCY-BNL, 6: PBE0, 7: B3LYP,
     !! 8: CAMY-B3LYP, 9: CAMY-PBEh, 10: TPSS, 11: SCAN, 12: r2SCAN, 13: r4SCAN, 14: TASK)
     integer :: iXC
 
@@ -55,10 +55,10 @@ contains
     !! true, if radial grid-orbital 1st/2nd derivative shall be read
     logical :: tReadRadDerivs
 
+    inp%tMGGA = .false.
     inp%tLC = .false.
     inp%tCam = .false.
     inp%tGlobalHybrid = .false.
-    inp%tMGGA = .false.
 
     fp = 14
     open(fp, file=fname, form="formatted", action="read")
@@ -108,10 +108,9 @@ contains
     case(xcFunctional%CAMY_PBEh)
       ! CAMY-PBEh (general CAM form)
       inp%tCam = .true.
-    case(xcFunctional%MGGA_TPSS, xcFunctional%MGGA_SCAN,&
-      & xcFunctional%MGGA_r2SCAN, xcFunctional%MGGA_r4SCAN,&
-      & xcFunctional%MGGA_TASK, xcFunctional%MGGA_TASK_CC)
-        inp%tMGGA = .true.
+    case(xcFunctional%MGGA_TPSS, xcFunctional%MGGA_SCAN, xcFunctional%MGGA_r2SCAN,&
+        & xcFunctional%MGGA_r4SCAN, xcFunctional%MGGA_TASK, xcFunctional%MGGA_TASK_CC)
+      inp%tMGGA = .true.
     case default
       call error_("Unknown exchange-correlation functional!", fname, line, iline)
     end select
@@ -213,7 +212,7 @@ contains
     !! true, there are non-local exchange contributions to calculate
     logical, intent(in) :: tNonLocal
 
-    !! true if tau needs to be read from density file
+    !! true, if kinetic energy density (tau) needs to be read from density file
     logical, intent(in) :: tMGGA
 
     !> atomic properties instance
@@ -313,9 +312,9 @@ contains
       if (tMGGA) then
         call readdata_(buffer, [1, 3, 4, 5, 6], data)
         call TGridorb2_init(atom%tau, data(:, 1), data(:, 5))
-     else
+      else
         call readdata_(buffer, [1, 3, 4, 5], data)
-     end if
+      end if
       call TGridorb2_init(atom%rho, data(:, 1), data(:, 2))
       call TGridorb2_init(atom%drho, data(:, 1), data(:, 3))
       call TGridorb2_init(atom%ddrho, data(:, 1), data(:, 4))

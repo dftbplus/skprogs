@@ -22,11 +22,11 @@ module twocnt
   use, intrinsic :: iso_c_binding, only : c_size_t
 
   use xc_f03_lib_m, only : xc_f03_func_t, xc_f03_func_init, xc_f03_func_end, xc_f03_lda_vxc,&
-  & xc_f03_gga_vxc, xc_f03_mgga_vxc, XC_LDA_X, XC_LDA_X_YUKAWA, XC_LDA_C_PW, XC_GGA_X_PBE,&
-  & XC_GGA_C_PBE, XC_GGA_X_B88, XC_GGA_C_LYP, XC_GGA_X_SFAT_PBE, XC_MGGA_X_TPSS, XC_MGGA_C_TPSS,&
-  & XC_MGGA_X_SCAN, XC_MGGA_C_SCAN,  XC_MGGA_X_R2SCAN, XC_MGGA_C_R2SCAN, XC_MGGA_X_R4SCAN,&
-  & XC_MGGA_X_TASK, XC_HYB_GGA_XC_B3LYP, XC_HYB_GGA_XC_CAMY_B3LYP, XC_MGGA_C_CC, &
-  & XC_UNPOLARIZED, xc_f03_func_set_ext_params
+      & xc_f03_gga_vxc, xc_f03_mgga_vxc, XC_LDA_X, XC_LDA_X_YUKAWA, XC_LDA_C_PW, XC_GGA_X_PBE,&
+      & XC_GGA_C_PBE, XC_GGA_X_B88, XC_GGA_C_LYP, XC_GGA_X_SFAT_PBE, XC_MGGA_X_TPSS,&
+      & XC_MGGA_C_TPSS, XC_MGGA_X_SCAN, XC_MGGA_C_SCAN,  XC_MGGA_X_R2SCAN, XC_MGGA_C_R2SCAN,&
+      & XC_MGGA_X_R4SCAN, XC_MGGA_X_TASK, XC_HYB_GGA_XC_B3LYP, XC_HYB_GGA_XC_CAMY_B3LYP,&
+      & XC_MGGA_C_CC,  XC_UNPOLARIZED, xc_f03_func_set_ext_params
 
   implicit none
   private
@@ -62,7 +62,7 @@ module twocnt
     !> atomic potential on grid
     type(TGridorb2) :: pot
 
-    !> atomic density and 1st/2nd derivative on grid
+    !> atomic density, 1st/2nd derivative and kinetic energy density on grid
     type(TGridorb2) :: rho, drho, ddrho, tau
 
   end type TAtomdata
@@ -505,7 +505,7 @@ contains
     !! radial grid-orbital portion and 1st/2nd derivative for all basis functions of atom 2
     real(dp), allocatable :: radval2(:,:), radval2p(:,:), radval2pp(:,:)
 
-    !! total potential and electron density of two atoms
+    !! total potential, electron density and kinetic energy density of two atoms
     real(dp), allocatable :: potval(:), densval(:), tauval(:), taupotval(:)
 
     !! atomic 1st density derivatives of atom 1
@@ -526,7 +526,7 @@ contains
     !! number of integration points
     integer :: nGrid
 
-    !> number of density grid points, compatible with libxc signature
+    !! number of density grid points, compatible with libxc signature
     integer(c_size_t) :: nGridLibxc
 
     !!  orbital indices/angular momenta on the two atoms and interaction type
@@ -540,8 +540,8 @@ contains
 
     !! libxc related objects
     real(dp), allocatable :: vxc(:), vx(:), vx_sr(:), vc(:)
-    real(dp), allocatable :: rhor(:), sigma(:), tau(:), vxcsigma(:), vxsigma(:), vxsigma_sr(:), vcsigma(:), vxtau(:), vctau(:)
-    real(dp), allocatable :: divvxc(:), divvx(:), divvc(:)
+    real(dp), allocatable :: rhor(:), sigma(:), tau(:), vxcsigma(:), vxsigma(:), vxsigma_sr(:)
+    real(dp), allocatable :: vcsigma(:), vxtau(:), vctau(:), divvxc(:), divvx(:), divvc(:)
 
     r1 => grid1(:, 1)
     theta1 => grid1(:, 2)
@@ -591,19 +591,18 @@ contains
         densval2p = atom2%drho%getValue(r2)
         ! care about correct 4pi normalization of density and compute sigma
         sigma = getLibxcSigma(densval1p, densval2p, dots)
-        if (xcFunctional%isMGGA(iXC)) then
-          allocate(tauval(nGrid))
-          tauval(:) = atom1%tau%getValue(r1) + atom2%tau%getValue(r2)
-          tau = getLibxcTau(tauval)
-
-          allocate(vxtau(nGrid))
-          vxtau(:) = 0.0_dp
-          if (iXC /= xcFunctional%MGGA_TASK) then
-             allocate(vctau(nGrid))
-             vctau(:) = 0.0_dp
-          end if
-       end if
       end if
+
+      if (xcFunctional%isMGGA(iXC)) then
+        allocate(tauval(nGrid))
+        tauval(:) = atom1%tau%getValue(r1) + atom2%tau%getValue(r2)
+        tau = getLibxcTau(tauval)
+        allocate(vxtau(nGrid), source=0.0_dp)
+        if (iXC /= xcFunctional%MGGA_TASK) then
+          allocate(vctau(nGrid), source=0.0_dp)
+        end if
+      end if
+
       if (tGlobalHybrid .or. tCam) then
         allocate(vxc(nGrid))
         vxc(:) = 0.0_dp
@@ -632,19 +631,20 @@ contains
         call getDivergence(nRad, nAng, densval1p, densval2p, r1, r2, theta1, theta2, vxsigma, divvx)
         call getDivergence(nRad, nAng, densval1p, densval2p, r1, r2, theta1, theta2, vcsigma, divvc)
         potval = vx + vc + divvx + divvc
-      ! 10: MGGA-TPSS, 11: MGGA-SCAN, 12: MGGA-r2SCAN, 13: MGGA-r4SCAN,
-      ! 14: MGGA-TASK, 15: MGGA-TASK+CC 
+      ! 10: MGGA-TPSS, 11: MGGA-SCAN, 12: MGGA-r2SCAN, 13: MGGA-r4SCAN 14: MGGA-TASK,
+      ! 15: MGGA-TASK+CC
       case(10:15)
         ! MGGA exchange
-        call xc_f03_mgga_vxc(xcfunc_x, nGridLibxc, rhor(1), sigma(1), lapl(1), tau(1),&
-        & vx(1), vxsigma(1), vlapl(1), vxtau(1))
+        call xc_f03_mgga_vxc(xcfunc_x, nGridLibxc, rhor(1), sigma(1), lapl(1), tau(1), vx(1),&
+            & vxsigma(1), vlapl(1), vxtau(1))
         call getDivergence(nRad, nAng, densval1p, densval2p, r1, r2, theta1, theta2, vxsigma, divvx)
         ! 11: MGGA-TPSS, 12: MGGA-SCAN, 13: MGGA-r2SCAN, 14: MGGA-TASK
         if (iXC /= xcFunctional%MGGA_TASK) then
           ! MGGA correlation
-          call xc_f03_mgga_vxc(xcfunc_c, nGridLibxc, rhor(1), sigma(1), lapl(1), tau(1),&
-          & vc(1), vcsigma(1), vlapl(1), vctau(1))
-          call getDivergence(nRad, nAng, densval1p, densval2p, r1, r2, theta1, theta2, vcsigma, divvc)
+          call xc_f03_mgga_vxc(xcfunc_c, nGridLibxc, rhor(1), sigma(1), lapl(1), tau(1), vc(1),&
+              & vcsigma(1), vlapl(1), vctau(1))
+          call getDivergence(nRad, nAng, densval1p, densval2p, r1, r2, theta1, theta2, vcsigma,&
+              & divvc)
           potval = vx + vc + divvx + divvc
           taupotval = vxtau + vctau
         else
@@ -714,7 +714,7 @@ contains
       ! calculate SK-quantities
       ! Hamiltonian
       integ1 = getHamiltonian(radval1(:, i1), radval2(:, i2), radval2p(:, i2), radval2pp(:, i2),&
-          & r2, l2, spherval1, spherval2, potval, taupotval, weights)
+          & r2, l2, spherval1, spherval2, potval, weights, pot_tau=taupotval)
       ! overlap integral: \sum_{r,\Omega} R_1(r) Y_1(\Omega) R_2(r) Y_2(\Omega) weight
       integ2 = getOverlap(radval1(:, i1), radval2(:, i2), spherval1, spherval2, weights)
       ! total density: \int (|\phi_1|^2 + |\phi_2|^2)
@@ -795,17 +795,18 @@ contains
 
   end function getLibxcSigma
 
-  !> Calculates libXC renormalized density superposition of dimer.
-  pure function getLibxcTau(tau) result(tau_libxc)
 
-    !> superposition of atomic densities of atom 1 and atom 2
+  !> Calculates libXC renormalized kinetic energy density superposition of dimer.
+  pure function getLibxcTau(tau) result(rtau)
+
+    !> superposition of atomic kinetic energy densities of atom 1 and atom 2
     real(dp), intent(in) :: tau(:)
 
-    !> renormalized density
-    real(dp), allocatable :: tau_libxc(:)
+    !> renormalized kinetic energy density
+    real(dp), allocatable :: rtau(:)
 
-    ! renorm rho (incoming quantities are 4pi normed)
-    tau_libxc = tau * rec4pi
+    ! renorm tau (incoming quantities are 4pi normed)
+    rtau = tau * rec4pi
 
   end function getLibxcTau
 
@@ -969,8 +970,8 @@ contains
 
 
   !> Calculates Hamiltonian for a fixed orbital and interaction configuration.
-  pure function getHamiltonian(rad1, rad2, rad2p, rad2pp, r2, l2, spher1,&
-  & spher2, pot, pot_tau, weights) result(res)
+  pure function getHamiltonian(rad1, rad2, rad2p, rad2pp, r2, l2, spher1, spher2, pot, weights,&
+      & pot_tau) result(res)
 
     !> radial grid-orbital portion of atom 1 and atom 2
     real(dp), intent(in) :: rad1(:), rad2(:)
@@ -990,16 +991,16 @@ contains
     !> effective potential on grid
     real(dp), intent(in) :: pot(:)
 
-    !> effective potential on grid
-    real(dp), intent(in), allocatable :: pot_tau(:)
-
     !> integration weights
     real(dp), intent(in) :: weights(:)
+
+    !> kinetic energy density on grid
+    real(dp), intent(in), optional :: pot_tau(:)
 
     !! resulting Hamiltonian matrix element
     real(dp) :: res
 
-    if (allocated(pot_tau)) then
+    if (present(pot_tau)) then
       res = sum((rad1 * spher1)&
           & * ((- 0.5_dp * rad2pp&
           & - rad2p / r2&

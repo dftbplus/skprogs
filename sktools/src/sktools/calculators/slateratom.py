@@ -16,25 +16,13 @@ import sktools.radial_grid as oc
 
 LOGGER = logging.getLogger('slateratom')
 
-SUPPORTED_FUNCTIONALS = {
-    "lda": 2,
-    "pbe": 3,
-    "blyp": 4,
-    "lcy-pbe": 5,
-    "lcy-bnl": 6,
-    "pbe0": 7,
-    "b3lyp": 8,
-    "camy-b3lyp": 9,
-    "camy-pbeh": 10,
-    "tpss": 11,
-    "scan": 12,
-    "r2scan": 13,
-    "r4scan": 14,
-    "task": 15,
-    "task+cc": 16
-}
+SUPPORTED_FUNCTIONALS = {'lda' : 2, 'pbe' : 3, 'blyp' : 4, 'lcy-pbe' : 5,
+                         'lcy-bnl' : 6, 'pbe0' : 7, 'b3lyp' : 8,
+                         'camy-b3lyp' : 9, 'camy-pbeh' : 10, "tpss": 11,
+                         'scan': 12, 'r2scan': 13, 'r4scan': 14, 'task': 15,
+                         'task+cc': 16}
 
-SUPPORTED_MIXERS = {1: 'simple', 2: "broyden"}
+SUPPORTED_MIXERS = {1: 'simple', 2: 'broyden'}
 
 INPUT_FILE = "slateratom.in"
 STDOUT_FILE = "output"
@@ -79,7 +67,8 @@ class SlaterAtomSettings(sc.ClassDict):
         Maximal power for every angular momentum.
     """
 
-    def __init__(self, exponents, maxpowers, scftol, maxscfiter, mixer_id, mixing_parameter):
+    def __init__(self, exponents, maxpowers, scftol, maxscfiter, mixer_id,
+                 mixing_parameter):
         super().__init__()
         self.exponents = exponents
         self.maxpowers = maxpowers
@@ -102,7 +91,8 @@ class SlaterAtomSettings(sc.ClassDict):
             root, "mixer", converter=conv.int0, defvalue=2)
         mixing_parameter = query.getvalue(
             root, "mixingparameter", converter=conv.float0, defvalue=0.1)
-        return cls(exponents, maxpowers, scftol, maxscfiter, mixer_id, mixing_parameter)
+        return cls(exponents, maxpowers, scftol, maxscfiter, mixer_id,
+                   mixing_parameter)
 
     def __eq__(self, other):
         if not isinstance(other, SlaterAtomSettings):
@@ -193,8 +183,9 @@ class SlateratomInput:
             msg = f"Slateratom: mixer {self._settings.mixer} not found"
             raise sc.SkgenException(msg)
 
-        if not (0. <= self._settings.mixing_parameter <= 1.):
-            msg = "Slateratom: mixing parameter must lie within the [0, 1] interval"
+        if not 0.0 < self._settings.mixing_parameter <= 1.0:
+            msg = "Slateratom: mixing parameter must lie within the (0, 1] " \
+                + "interval"
             raise sc.SkgenException(msg)
 
         if self.isXCFunctionalSupported(functional):
@@ -357,7 +348,8 @@ class SlateratomInput:
         out.append("{:s} \t\t{:s} write eigenvectors".format(
             self._LOGICALSTRS[False], self._COMMENT))
         out.append("{} {:g} \t\t{:s} mixer, mixing factor".format(
-            self._settings.mixer, self._settings.mixing_parameter, self._COMMENT))
+            self._settings.mixer, self._settings.mixing_parameter,
+            self._COMMENT))
 
         # Occupations
         for ll, occperl in enumerate(self._atomconfig.occupations):
@@ -561,8 +553,8 @@ class SlateratomResult:
         with open(os.path.join(self._workdir, "dens.dat"), 'r') as handle:
             lines_ = [x.split() for x in handle.readlines()]
             datarray = np.asarray(lines_[6:], dtype=float)
-            grid = oc.RadialGrid(datarray[:,0], datarray[:,1])
-            density = datarray[:,2:5]
+            grid = oc.RadialGrid(datarray[:, 0], datarray[:, 1])
+            density = datarray[:, 2:5]
             if datarray.shape[1] == 8:
                 density = np.column_stack([density, datarray[:, 7]])
 

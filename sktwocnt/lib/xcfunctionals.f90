@@ -109,25 +109,28 @@ contains
 
   end function TXcFunctionalsEnum_isGGA
 
+
   pure function TXcFunctionalsEnum_isMGGA(this, xcnr) result(isMGGA)
 
-  !> Class instance
-  class(TXcFunctionalsEnum), intent(in) :: this
+    !> Class instance
+    class(TXcFunctionalsEnum), intent(in) :: this
 
-  !> identifier of exchange-correlation type
-  integer, intent(in) :: xcnr
+    !> identifier of exchange-correlation type
+    integer, intent(in) :: xcnr
 
-  !> True, if xc-functional index corresponds to a GGA functional
-  logical :: isMGGA
+    !> True, if xc-functional index corresponds to a GGA functional
+    logical :: isMGGA
 
-  isMGGA = .false.
+    isMGGA = .false.
 
-  if (xcnr == this%MGGA_TPSS .or. xcnr == this%MGGA_SCAN&
-  & .or. xcnr == this%MGGA_r2SCAN .or. xcnr == this%MGGA_r4SCAN&
-  & .or. xcnr == this%MGGA_TASK .or. xcnr == this%MGGA_TASK_CC)&
-  & isMGGA = .true.
+    if (xcnr == this%MGGA_TPSS .or. xcnr == this%MGGA_SCAN .or. xcnr == this%MGGA_r2SCAN&
+        & .or. xcnr == this%MGGA_r4SCAN .or. xcnr == this%MGGA_TASK&
+        & .or. xcnr == this%MGGA_TASK_CC) then
+      isMGGA = .true.
+    end if
 
   end function TXcFunctionalsEnum_isMGGA
+
 
   pure function TXcFunctionalsEnum_isLongRangeCorrected(this, xcnr) result(isLongRangeCorrected)
 
