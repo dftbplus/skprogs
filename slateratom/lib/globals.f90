@@ -150,7 +150,7 @@ module globals
   real(dp), allocatable :: ddrho(:,:)
 
   !> kinetic energy density on grid
-  real(dp), allocatable :: tau(:, :)
+  real(dp), allocatable :: tau(:,:)
 
   !> orbital-dependent tau potential on grid
   real(dp), allocatable :: vtau(:,:)
@@ -254,6 +254,7 @@ contains
     drho(:,:) = 0.0_dp
     ddrho(:,:) = 0.0_dp
     tau(:,:) = 0.0_dp
+    vtau(:,:) = 0.0_dp
 
     eigval(:,:,:) = 0.0_dp
     eigval_scaled(:,:,:) = 0.0_dp

@@ -33,8 +33,8 @@ contains
 
 
   !> Checks SCF convergence by comparing new and old potential.
-  pure subroutine check_convergence_pot(pot_old, pot_new, max_l, problemsize, scftol, iScf, change_max,&
-                                        & tConverged)
+  pure subroutine check_convergence_pot(pot_old, pot_new, max_l, problemsize, scftol, iScf,&
+      & change_max, tConverged)
 
     !> old and new potential to compare
     real(dp), intent(in) :: pot_old(:,0:,:,:), pot_new(:,0:,:,:)
@@ -84,9 +84,12 @@ contains
 
   end subroutine check_convergence_pot
 
-  !> Checks SCF convergence by computing the occupied-virtual orbital gradient norm
-  pure subroutine check_convergence_orbgrad(max_l, num_alpha, poly_order, fock, coef, occ, &
-                                            & scftol, iScf, gradnorm, tConverged)
+
+  !> Checks SCF convergence by computing the occupied-virtual orbital gradient norm.
+  !! see Rev. Mod. Phys. 32, 186 (1960) eqn. 5.
+  !! see Molecules 25(5), 1218 (2020) eqn. 46.
+  pure subroutine check_convergence_orbgrad(max_l, num_alpha, poly_order, fock, coef, occ, scftol,&
+      & iScf, gradnorm, tConverged)
 
     !> maximum angular momentum
     integer, intent(in) :: max_l
@@ -118,15 +121,12 @@ contains
     !> true, if SCF converged
     logical, intent(out) :: tConverged
 
-    !> auxilliary variables
+    !! auxilliary variables
     integer :: iSpin, ll, diagsize, ii, aa
     real(dp) :: occ_ii, occ_aa
 
-    !> Partial Fock matrix in MO basis
-    real(dp), allocatable :: fock_mo(:, :)
-
-    ! doi.org/10.3390/molecules25051218
-    ! eq. (46)
+    !! Partial Fock matrix in MO basis
+    real(dp), allocatable :: fock_mo(:,:)
 
     gradnorm = 0.0_dp
 
@@ -137,30 +137,29 @@ contains
     do iSpin = 1, 2
       do ll = 0, max_l
         diagsize = num_alpha(ll) * poly_order(ll)
-        allocate(fock_mo(diagsize, diagsize))
-        fock_mo = 0.0_dp
+        allocate(fock_mo(diagsize, diagsize), source=0.0_dp)
 
         ! Compute Fock matrix in MO basis
-        fock_mo = matmul(fock(iSpin, ll, :, :), coef(iSpin, ll, :, :))
-        fock_mo = matmul(transpose(coef(iSpin, ll, :, :)), fock_mo)
+        fock_mo(:,:) = matmul(fock(iSpin, ll, :,:), coef(iSpin, ll, :,:))
+        fock_mo(:,:) = matmul(transpose(coef(iSpin, ll, :,:)), fock_mo)
 
         ! Compute orbital gradient norm
         do ii = 1, diagsize
 
           aa = 1
           do while (aa <= ii)
-             aa = aa + 1
+            aa = aa + 1
           end do
 
-           do while (aa < diagsize)
-              ! Only occupied-virtual block contributes
-              occ_ii = abs(occ(iSpin, ll, ii))
-              occ_aa = abs(occ(iSpin, ll, aa))
-              if (occ_ii < 1e-16 .neqv. occ_aa < 1e-16) then
-                 gradnorm = gradnorm + (-2.0_dp * fock_mo(ii, aa))**2
-              end if
-              aa = aa + 1
-           end do
+          do while (aa < diagsize)
+            ! Only occupied-virtual block contributes
+            occ_ii = abs(occ(iSpin, ll, ii))
+            occ_aa = abs(occ(iSpin, ll, aa))
+            if (occ_ii < 1e-16 .neqv. occ_aa < 1e-16) then
+              gradnorm = gradnorm + (-2.0_dp * fock_mo(ii, aa))**2
+            end if
+            aa = aa + 1
+          end do
         end do
 
         deallocate(fock_mo)
@@ -169,18 +168,15 @@ contains
 
     gradnorm = sqrt(gradnorm)
 
-     if (gradnorm < scftol) then
-        tConverged = .true.
-     else
-        tConverged = .false.
-     end if
+    tConverged = gradnorm < scftol
 
   end subroutine check_convergence_orbgrad
 
-  !> Checks convergence by computing energy change from the last SCF iteration
+
+  !> Checks convergence by computing energy change from the last SCF iteration.
   pure subroutine check_convergence_energy(energy_old, energy_new, scftol, iScf, change, tConverged)
 
-    !> old and new potential to compare
+    !> old and new energy to compare
     real(dp), intent(in) :: energy_new, energy_old
 
     !> scf tolerance, i.e. convergence criteria
@@ -189,7 +185,7 @@ contains
     !> current SCF step
     integer, intent(in) :: iScf
 
-    !> obtained maximum change in potential
+    !> obtained maximum change in energy
     real(dp), intent(out) :: change
 
     !> true, if SCF converged
@@ -198,16 +194,12 @@ contains
     change = 0.0_dp
 
     if (iScf < 3) then
-       tConverged = .false.
+      tConverged = .false.
     end if
 
     change = abs(energy_new - energy_old)
 
-    if (change < scftol) then
-      tConverged = .true.
-    else
-      tConverged = .false.
-    end if
+    tConverged = change < scftol
 
   end subroutine check_convergence_energy
 
