@@ -93,7 +93,10 @@ module globals
   real(dp), allocatable :: pot_new(:,:,:,:), pot_old(:,:,:,:)
 
   !> eigenvalues
-  real(dp), allocatable :: eigval(:,:,:)
+  real(dp), allocatable :: eigval(:,:,:), eigval_old(:,:,:)
+
+  !> eigenvalue difference vector norm
+  real(dp) :: eigval_diff
 
   !> zora scaled eigenvalues
   real(dp), allocatable :: eigval_scaled(:,:,:)
@@ -174,7 +177,7 @@ module globals
   logical :: tZora
 
   !> true, if SCF cycle reached convergency on a quantity
-  logical :: tOrbGradConverged, tEnergyConverged
+  logical :: tOrbGradConverged, tEnergyConverged, tEigenspectrumConverged
 
   !> identifier of mixer
   integer :: mixnr
@@ -232,6 +235,7 @@ contains
     allocate(pot_new(2, 0:max_l, problemsize, problemsize))
 
     allocate(eigval(2, 0:max_l, problemsize))
+    allocate(eigval_old(2, 0:max_l, problemsize))
     allocate(eigval_scaled(2, 0:max_l, problemsize))
 
     allocate(jj(0:max_l, problemsize, problemsize, 0:max_l, problemsize, problemsize))

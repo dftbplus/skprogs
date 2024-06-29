@@ -6,7 +6,8 @@ module utilities
   implicit none
   private
 
-  public :: check_electron_number, check_convergence_energy, check_convergence_orbgrad
+  public :: check_electron_number, check_convergence_energy, check_convergence_orbgrad,&
+      & check_convergence_eigenspectrum
   public :: vector_length, fak, zeroOutCpotOfEmptyDensitySpinChannels
 
 
@@ -86,8 +87,7 @@ contains
 
 
   !> Checks SCF convergence by computing the occupied-virtual orbital gradient norm.
-  !! see Rev. Mod. Phys. 32, 186 (1960) eqn. 5.
-  !! see Molecules 25(5), 1218 (2020) eqn. 46.
+  !! see, for example, Molecules 25(5), 1218 (2020) eqn. 46.
   pure subroutine check_convergence_orbgrad(max_l, num_alpha, poly_order, fock, coef, occ, scftol,&
       & iScf, gradnorm, tConverged)
 
@@ -202,6 +202,39 @@ contains
     tConverged = change < scftol
 
   end subroutine check_convergence_energy
+
+
+  !> Checks convergence by evaluating change in the eigenspectrum (norm of a difference vector)
+  pure subroutine check_convergence_eigenspectrum(eigval_new, eigval_old, scftol,&
+      & iScf, change, tConverged)
+
+    !> old and new eigenspectra to compare
+    real(dp), intent(in) :: eigval_new(:,:,:), eigval_old(:,:,:)
+
+    !> scf tolerance, i.e. convergence criteria
+    real(dp), intent(in) :: scftol
+
+    !> current SCF step
+    integer, intent(in) :: iScf
+
+    !> obtained change
+    real(dp), intent(out) :: change
+
+    !> true, if SCF converged
+    logical, intent(out) :: tConverged
+
+    change = 0.0_dp
+
+    if (iScf < 3) then
+      tConverged = .false.
+    end if
+
+    ! TODO: is the expression correct?
+    change = norm2(eigval_new - eigval_old)
+
+    tConverged = change < scftol
+
+  end subroutine check_convergence_eigenspectrum
 
 
   !> Checks conservation of electron number during SCF. If this fluctuates you are in deep trouble.

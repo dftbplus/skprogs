@@ -15,7 +15,8 @@ program HFAtom
   use sap, only : sap_start_pot
   use totalenergy, only : getTotalEnergy, getTotalEnergyZora
   use dft, only : check_accuracy, density_grid
-  use utilities, only : check_electron_number, check_convergence_energy, check_convergence_orbgrad
+  use utilities, only : check_electron_number, check_convergence_energy,&
+      & check_convergence_orbgrad, check_convergence_eigenspectrum
   use zora_routines, only : scaled_zora
   use cmdargs, only : parse_command_arguments
   use common_poisson, only : TBeckeGridParams
@@ -119,6 +120,7 @@ program HFAtom
   ! convergence flags
   tOrbGradConverged = .false.
   tEnergyConverged = .false.
+  tEigenspectrumConverged = .false.
 
   ! Generate guess for DFT;
   ! Thomas-Fermi guess potential is currently disabled
@@ -142,12 +144,13 @@ program HFAtom
   ! self-consistency cycles
   write(*,*) 'Energies in Hartree'
   write(*,*)
-  write(*,*) ' Iter |   Total energy  |   HF-X energy  |   XC energy   |   Orbital gradient norm   | Delta (Total energy) '
-  write(*,*) '-----------------------------------------------------------------------------------------------------------'
+  write(*,*) ' Iter |   Total energy  |   HF-X energy  |   XC energy   |   Orbital gradient norm   | Delta (Total energy) | Delta (Eigenspectrum)'
+  write(*,*) '--------------------------------------------------------------------------------------------------------------------------------------'
   lpScf: do iScf = 1, maxiter
 
     pot_old(:,:,:,:) = pot_new
     total_ene_old = total_ene
+    eigval_old(:,:,:) = eigval
 
     ! diagonalize
     call diagonalize(max_l, num_alpha, poly_order, ff, ss, cof, eigval)
@@ -179,13 +182,15 @@ program HFAtom
         & orb_grad_norm, tOrbGradConverged)
     call check_convergence_energy(total_ene_old, total_ene, scftol, iScf, total_ene_diff,&
         & tEnergyConverged)
+    call check_convergence_eigenspectrum(eigval, eigval_old, scftol, iScf, eigval_diff,&
+        & tEigenspectrumConverged)
 
     ! Print SCF loop information
-    write(*, '(I4,2X,3(1X,F16.9),7X,E16.9,8X,E16.9)') iScf, total_ene, exchange_energy, x_en_2,&
-        & orb_grad_norm, total_ene_diff
+    write(*, '(I4,2X,3(1X,F16.9),7X,E16.9,8X,E16.9,8X,E16.9)') iScf, total_ene, exchange_energy, x_en_2,&
+        & orb_grad_norm, total_ene_diff, eigval_diff
 
     ! if self-consistency is reached, exit loop
-    if (tOrbGradConverged .and. tEnergyConverged) exit lpScf
+    if (tOrbGradConverged .and. tEnergyConverged .and. tEigenspectrumConverged) exit lpScf
 
     ! check conservation of number of electrons during SCF
     call check_electron_number(cof, ss, occ, max_l, num_alpha, poly_order, problemsize)
@@ -195,7 +200,7 @@ program HFAtom
   end do lpScf
 
   ! handle non-converged calculations
-  if (.not. (tEnergyConverged .and. tOrbGradConverged)) then
+  if (.not. (tEnergyConverged .and. tOrbGradConverged .and. tEigenspectrumConverged)) then
     call error('SCF is NOT converged, maximal SCF iterations exceeded.')
   end if
 
