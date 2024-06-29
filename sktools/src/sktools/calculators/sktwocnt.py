@@ -11,7 +11,9 @@ from sktools import radial_grid
 
 SUPPORTED_FUNCTIONALS = {'lda' : 1, 'pbe' : 2, 'blyp' : 3, 'lcy-pbe' : 4,
                          'lcy-bnl' : 5, 'pbe0' : 6, 'b3lyp' : 7,
-                         'camy-b3lyp' : 8, 'camy-pbeh' : 9}
+                         'camy-b3lyp' : 8, 'camy-pbeh' : 9, 'tpss': 10,
+                         'scan': 11, 'r2scan': 12, 'r4scan': 13, 'task': 14,
+                         'task+cc': 15}
 
 INPUT_FILE = "sktwocnt.in"
 STDOUT_FILE = "output"
