@@ -204,12 +204,24 @@ contains
   end subroutine check_convergence_energy
 
 
-  !> Checks convergence by evaluating change in the eigenspectrum (norm of a difference vector)
-  pure subroutine check_convergence_eigenspectrum(eigval_new, eigval_old, scftol,&
-      & iScf, change, tConverged)
+  !> Checks convergence by evaluating change in the occupied part of the eigenspectrum
+  pure subroutine check_convergence_eigenspectrum(max_l, num_alpha, poly_order, eigval_new,&
+      & eigval_old, occ, scftol, iScf, change, tConverged)
+
+    !> maximum angular momentum
+    integer, intent(in) :: max_l
+
+    !> number of exponents in each shell
+    integer, intent(in) :: num_alpha(0:)
+  
+    !> highest polynomial order + l in each shell
+    integer, intent(in) :: poly_order(0:)
 
     !> old and new eigenspectra to compare
-    real(dp), intent(in) :: eigval_new(:,:,:), eigval_old(:,:,:)
+    real(dp), intent(in) :: eigval_new(:,0:,:), eigval_old(:,0:,:)
+
+    !> occupations
+    real(dp), intent(in) :: occ(:,0:,:)
 
     !> scf tolerance, i.e. convergence criteria
     real(dp), intent(in) :: scftol
@@ -223,14 +235,30 @@ contains
     !> true, if SCF converged
     logical, intent(out) :: tConverged
 
+    ! Loop indices
+    integer :: iSpin, ll, diagsize, ii
+
+    ! Occupation
+    real(dp) :: occ_ii
+
     change = 0.0_dp
 
     if (iScf < 3) then
       tConverged = .false.
     end if
 
-    ! TODO: is the expression correct?
-    change = norm2(eigval_new - eigval_old)
+    ! Frobenius norm, but only occupied states contribute 
+    do iSpin = 1, 2
+      do ll = 0, max_l
+        diagsize = num_alpha(ll) * poly_order(ll)
+        do ii = 1, diagsize
+          occ_ii = abs(occ(iSpin, ll, ii))
+          if (occ_ii > 1e-16) then
+            change = change + (eigval_new(iSpin, ll, ii) - eigval_old(iSpin, ll, ii))**2 
+          end if
+        end do
+      end do
+    end do
 
     tConverged = change < scftol
 

@@ -144,8 +144,10 @@ program HFAtom
   ! self-consistency cycles
   write(*,*) 'Energies in Hartree'
   write(*,*)
-  write(*,*) ' Iter |   Total energy  |   HF-X energy  |   XC energy   |   Orbital gradient norm   | Delta (Total energy) | Delta (Eigenspectrum)'
-  write(*,*) '--------------------------------------------------------------------------------------------------------------------------------------'
+  write(*,*) ' Iter |   Total energy  |   HF-X energy  |   XC energy   |   Orbital gradient norm   &
+      & | Delta (Total energy) | Delta (spectrum)'
+  write(*,*) '-------------------------------------------------------------------------------------&
+      & ------------------------------------------'
   lpScf: do iScf = 1, maxiter
 
     pot_old(:,:,:,:) = pot_new
@@ -182,8 +184,8 @@ program HFAtom
         & orb_grad_norm, tOrbGradConverged)
     call check_convergence_energy(total_ene_old, total_ene, scftol, iScf, total_ene_diff,&
         & tEnergyConverged)
-    call check_convergence_eigenspectrum(eigval, eigval_old, scftol, iScf, eigval_diff,&
-        & tEigenspectrumConverged)
+    call check_convergence_eigenspectrum(max_l, num_alpha, poly_order, eigval, eigval_old, occ,&
+        & scftol, iScf, eigval_diff, tEigenspectrumConverged)
 
     ! Print SCF loop information
     write(*, '(I4,2X,3(1X,F16.9),7X,E16.9,8X,E16.9,8X,E16.9)') iScf, total_ene, exchange_energy, x_en_2,&

@@ -84,7 +84,7 @@ module xcfunctionals
     integer :: MGGA_TASK = 15
 
     !> MGGA-TASK+CC
-    integer :: MGGA_TASK_CC = 16
+    integer :: MGGA_TASK_CC = 16  
 
   contains
 
