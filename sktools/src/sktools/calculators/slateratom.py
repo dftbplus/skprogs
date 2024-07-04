@@ -10,8 +10,9 @@ import numpy as np
 import sktools.hsd.converter as conv
 import sktools.common as sc
 from sktools.taggedfile import TaggedFile
-import sktools.compressions
+import sktools.compressions as skcomp
 import sktools.radial_grid as oc
+import sktools.xcfunctionals as xc
 
 
 LOGGER = logging.getLogger('slateratom')
@@ -134,7 +135,7 @@ class SlateratomInput:
     functional : str
         DFT functional type ('lda', 'pbe', 'blyp', 'lcpbe', 'lcbnl')
     compressions : list
-        List of PowerCompression objects. Either empty (no compression applied)
+        List of Compression objects. Either empty (no compression applied)
         or has a compression object for every angular momentum of the atom.
     settings : SlaterAtom
         Further detailed settings of the program.
@@ -193,16 +194,26 @@ class SlateratomInput:
         if compressions is None:
             compressions = []
         for comp in compressions:
-            if not isinstance(comp, sktools.compressions.PowerCompression):
-                msg = "Invalid compressiont type {} for slateratom".format(
+            if not isinstance(comp, (skcomp.PowerCompression,
+                                     skcomp.WoodsSaxonCompression)):
+                msg = "Invalid compression type {} for slateratom".format(
                     comp.__class__.__name__)
                 raise sc.SkgenException(msg)
         maxang = atomconfig.maxang
         ncompr = len(compressions)
-        if ncompr and ncompr != maxang + 1:
+        if ncompr > 0 and ncompr != maxang + 1:
             msg = "Invalid number of compressions" \
                 "(expected {:d}, got {:d})".format(maxang + 1, ncompr)
             raise sc.SkgenException(msg)
+
+        # block different compression types of different shells for now
+        if ncompr > 0:
+            compids = [comp.compid for comp in compressions]
+            if not len(set(compids)) == 1:
+                msg = "At the moment, shells may only be compressed by the " \
+                    + "same type of potential."
+                raise sc.SkgenException(msg)
+
         self._compressions = compressions
         myrelativistics = sc.RELATIVISTICS_NONE, sc.RELATIVISTICS_ZORA
         if atomconfig.relativistics not in myrelativistics:
@@ -213,7 +224,7 @@ class SlateratomInput:
     def isXCFunctionalSupported(self, functional):
         '''Checks if the given xc-functional is supported by the calculator,
            in particular: checks if AVAILABLE_FUNCTIONALS intersect with
-           sktools.xcfunctionals.XCFUNCTIONALS
+           xc.XCFUNCTIONALS
 
         Args:
             functional: xc-functional, defined in xcfunctionals.py
@@ -224,8 +235,8 @@ class SlateratomInput:
 
         tmp = []
         for xx in SUPPORTED_FUNCTIONALS:
-            if xx in sktools.xcfunctionals.XCFUNCTIONALS:
-                tmp.append(sktools.xcfunctionals.XCFUNCTIONALS[xx])
+            if xx in xc.XCFUNCTIONALS:
+                tmp.append(xc.XCFUNCTIONALS[xx])
 
         return bool(functional.__class__ in tmp)
 
@@ -297,14 +308,42 @@ class SlateratomInput:
 
         # Compressions
         if len(self._compressions) == 0:
-            out += ["{:g} {:d} \t\t{:s} Compr. radius and power ({:s})".format(
-                1e30, 0, self._COMMENT, sc.ANGMOM_TO_SHELL[ll])
+            # no compression for all shells
+            out += ["{:d} \t\t\t{:s} Compression ID".format(
+                skcomp.SUPPORTED_COMPRESSIONS['nocompression'],
+                self._COMMENT) + " ({:s})".format(sc.ANGMOM_TO_SHELL[ll])
                     for ll in range(maxang + 1)]
         else:
-            out += ["{:g} {:g} \t\t{:s} Compr. radius and power ({:s})".format(
-                compr.radius, compr.power, self._COMMENT,
-                sc.ANGMOM_TO_SHELL[ll])
-                    for ll, compr in enumerate(self._compressions)]
+            # define the type of compression for each shell
+            for ll, compr in enumerate(self._compressions):
+                if compr.compid == \
+                   skcomp.SUPPORTED_COMPRESSIONS['powercompression']:
+                    out += ["{:d} \t\t{:s} Compression ID".format(
+                        skcomp.SUPPORTED_COMPRESSIONS['powercompression'],
+                        self._COMMENT) \
+                            + " ({:s})".format(sc.ANGMOM_TO_SHELL[ll])]
+                elif compr.compid == \
+                     skcomp.SUPPORTED_COMPRESSIONS['woodssaxoncompression']:
+                    out += ["{:d} \t\t{:s} Compression ID".format(
+                        skcomp.SUPPORTED_COMPRESSIONS['woodssaxoncompression'],
+                        self._COMMENT) \
+                            + " ({:s})".format(sc.ANGMOM_TO_SHELL[ll])]
+                else:
+                    msg = 'Invalid compression type.'
+                    raise sc.SkgenException(msg)
+            # provide the compression parametrization for each shell
+            for ll, compr in enumerate(self._compressions):
+                if compr.compid == \
+                   skcomp.SUPPORTED_COMPRESSIONS['powercompression']:
+                    out += ["{:g} {:g} \t\t{:s} Compr. radius and power ({:s})"
+                            .format(compr.radius, compr.power, self._COMMENT,
+                                    sc.ANGMOM_TO_SHELL[ll])]
+                elif compr.compid == \
+                     skcomp.SUPPORTED_COMPRESSIONS['woodssaxoncompression']:
+                    out += ["{:g} {:g} {:g} \t\t{:s}".format(
+                        compr.onset, compr.cutoff, compr.vmax, self._COMMENT) \
+                            + " Compr. onset, cutoff and vmax ({:s})"
+                            .format(sc.ANGMOM_TO_SHELL[ll])]
 
         out += ["{:d} \t\t\t{:s} nr. of occupied shells ({:s})".format(
             len(occ), self._COMMENT, sc.ANGMOM_TO_SHELL[ll])
@@ -313,9 +352,9 @@ class SlateratomInput:
         # STO powers and exponents
         exponents = self._settings.exponents
         maxpowers = self._settings.maxpowers
-        out += ["{:d} {:d} \t\t\t{:s} nr. of exponents, max. power ({:s})".format(
-            len(exponents[ll]), maxpowers[ll], self._COMMENT,
-            sc.ANGMOM_TO_SHELL[ll])
+        out += ["{:d} {:d} \t\t\t{:s} nr. of exponents, max. power ({:s})"
+                .format(len(exponents[ll]), maxpowers[ll], self._COMMENT,
+                        sc.ANGMOM_TO_SHELL[ll])
                 for ll in range(maxang + 1)]
         out.append("{:s} \t\t{:s} automatic exponent generation".format(
             self._LOGICALSTRS[False], self._COMMENT))
@@ -326,7 +365,7 @@ class SlateratomInput:
 
         out.append("{:s} \t\t{:s} write eigenvectors".format(
             self._LOGICALSTRS[False], self._COMMENT))
-        out.append("{} {:g} \t\t{:s} broyden mixer, mixing factor".format(
+        out.append("{} {:g} \t\t\t{:s} broyden mixer, mixing factor".format(
             2, 0.1, self._COMMENT))
 
         # Occupations

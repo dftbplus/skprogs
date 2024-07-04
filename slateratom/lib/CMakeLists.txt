@@ -32,6 +32,7 @@ set(sources-f90
 set(sources-fpp
   blasroutines.F90
   broydenmixer.F90
+  confinement.F90
   lapackroutines.F90
   simplemixer.F90)
 
