@@ -39,6 +39,8 @@ class PowerCompression(sc.ClassDict):
                 node=child)
 
         myself = cls()
+        myself.compid = SUPPORTED_COMPRESSIONS[
+            myself.__class__.__name__.lower()]
         myself.power = power
         myself.radius = radius
 
@@ -62,9 +64,80 @@ class PowerCompression(sc.ClassDict):
         return power_ok and radius_ok
 
 
+class WoodsSaxonCompression(sc.ClassDict):
+    '''Compression by the Woods Saxon potential.
+
+    Attributes
+    ----------
+    onset : float
+        Onset radius of the compression
+    cutoff : float
+        Cutoff radius of the compression
+    vmax : float
+        Potential well depth/height
+    '''
+
+    @classmethod
+    def fromhsd(cls, root, query):
+        '''Creates instance from a HSD-node and with given query object.'''
+
+        onset, child = query.getvalue(root, 'onset', conv.float0,
+                                      returnchild=True)
+        if onset < 0.0:
+            msg = 'Invalid onset radius {:f}'.format(onset)
+            raise hsd.HSDInvalidTagValueException(msg=msg, node=child)
+
+        cutoff, child = query.getvalue(root, 'cutoff', conv.float0,
+                                       returnchild=True)
+        if cutoff <= onset:
+            msg = 'Invalid cutoff radius {:f}'.format(cutoff)
+            raise hsd.HSDInvalidTagValueException(msg=msg, node=child)
+
+        vmax, child = query.getvalue(
+            root, 'vmax', conv.float0, defvalue=100.0, returnchild=True)
+        if vmax <= 0.0:
+            msg = 'Invalid potential well height {:f}'.format(vmax)
+            raise hsd.HSDInvalidTagValueException(msg=msg, node=child)
+
+        myself = cls()
+        myself.compid = SUPPORTED_COMPRESSIONS[
+            myself.__class__.__name__.lower()]
+        myself.onset = onset
+        myself.cutoff = cutoff
+        myself.vmax = vmax
+
+        return myself
+
+
+    def tohsd(self, root, query, parentname=None):
+        ''''''
+
+        if parentname is None:
+            mynode = root
+        else:
+            mynode = query.setchild(root, 'WoodsSaxonCompression')
+
+        query.setchildvalue(mynode, 'onset', conv.float0, self.onset)
+        query.setchildvalue(mynode, 'cutoff', conv.float0, self.cutoff)
+        query.setchildvalue(mynode, 'vmax', conv.float0, self.vmax)
+
+
+    def __eq__(self, other):
+        onset_ok = abs(self.onset - other.onset) < 1e-8
+        cutoff_ok = abs(self.cutoff - other.cutoff) < 1e-8
+        vmax_ok = abs(self.vmax - other.vmax) < 1e-8
+        return onset_ok and cutoff_ok and vmax_ok
+
+
 # Registered compressions with corresponding hsd name as key
 COMPRESSIONS = {
     'powercompression': PowerCompression,
+    'woodssaxoncompression': WoodsSaxonCompression,
+}
+SUPPORTED_COMPRESSIONS = {
+    'nocompression': 0,
+    'powercompression': 1,
+    'woodssaxoncompression': 2,
 }
 
 
