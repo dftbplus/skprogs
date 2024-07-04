@@ -4,6 +4,7 @@ module input
   use common_accuracy, only : dp
   use common_poisson, only : TBeckeGridParams
 
+  use confinement, only : TConf, confType
   use xcfunctionals, only : xcFunctional
 
   implicit none
@@ -16,9 +17,9 @@ contains
 
   !> Reads in all properties, except for occupation numbers.
   subroutine read_input_1(nuc, max_l, occ_shells, maxiter, scftol, poly_order, min_alpha,&
-      & max_alpha, num_alpha, tAutoAlphas, alpha, conf_r0, conf_power, num_occ, num_power,&
-      & num_alphas, xcnr, tPrintEigvecs, tZora, mixnr, mixing_factor, xalpha_const, omega,&
-      & camAlpha, camBeta, grid_params)
+      & max_alpha, num_alpha, tAutoAlphas, alpha, conf, num_occ, num_power, num_alphas, xcnr,&
+      & tPrintEigvecs, tZora, mixnr, mixing_factor, xalpha_const, omega, camAlpha, camBeta,&
+      & grid_params)
 
     !> nuclear charge, i.e. atomic number
     integer, intent(out) :: nuc
@@ -53,11 +54,8 @@ contains
     !> basis exponents
     real(dp), intent(out) :: alpha(0:4, 10)
 
-    !> confinement radii
-    real(dp), intent(out) :: conf_r0(0:4)
-
-    !> power of confinement
-    real(dp), intent(out) :: conf_power(0:4)
+    !> confinement potential
+    type(TConf), intent(out) :: conf
 
     !> maximal occupied shell
     integer, intent(out) :: num_occ
@@ -97,6 +95,9 @@ contains
 
     !> holds parameters, defining a Becke integration grid
     type(TBeckeGridParams), intent(out) :: grid_params
+
+    !! confinement type of last query
+    integer :: last_conf_type
 
     !! auxiliary variables
     integer :: ii, jj
@@ -153,11 +154,37 @@ contains
       stop
     end if
 
-    write(*, '(A)') 'Enter Confinement: r_0 and integer power, power=0.0 -> off'
+    last_conf_type = 0
     do ii = 0, max_l
-      write(*, '(A,I3)') 'l=', ii
-      read(*,*) conf_r0(ii), conf_power(ii)
+      write(*, '(A,I3)') 'Enter confinement ID (0: none, 1: power, 2: WS) for l=', ii
+      read(*,*) conf%type
+      if (ii > 0) then
+        if (conf%type /= last_conf_type) then
+          error stop 'At the moment different shells are supposed to be compressed with the same&
+              & type of potential'
+        end if
+      end if
+      last_conf_type = conf%type
     end do
+
+    select case (conf%type)
+    case(confType%none)
+      continue
+    case(confType%power)
+      write(*, '(A)') 'Enter parameters r_0 and power'
+      do ii = 0, max_l
+        write(*, '(A,I3)') 'l=', ii
+        read(*,*) conf%r0(ii), conf%power(ii)
+      end do
+    case(confType%ws)
+      write(*, '(A)') 'Enter parameters Ronset, Rcut and Vmax'
+      do ii = 0, max_l
+        write(*, '(A,I3)') 'l=', ii
+        read(*,*) conf%onset(ii), conf%cutoff(ii), conf%vmax(ii)
+      end do
+    case default
+      error stop 'Invalid confinement potential.'
+    end select
 
     write(*, '(A)') 'Enter number of occupied shells for each angular momentum.'
     do ii = 0, max_l
@@ -188,7 +215,8 @@ contains
       end do
     else
       do ii = 0, max_l
-        write(*, '(A,I3,A,I3,A)') 'Enter ', num_alpha(ii), 'exponents for l=', ii, ', one per line.'
+        write(*, '(A,I3,A,I3,A)') 'Enter ', num_alpha(ii),&
+            & ' exponents for l=', ii, ', one per line.'
         do jj = 1, num_alpha(ii)
           read(*,*) alpha(ii, jj)
         end do
@@ -265,8 +293,7 @@ contains
 
   !> Echos gathered input to stdout.
   subroutine echo_input(nuc, max_l, occ_shells, maxiter, scftol, poly_order, num_alpha, alpha,&
-      & conf_r0, conf_power, occ, num_occ, num_power, num_alphas, xcnr, tZora, num_mesh_points,&
-      & xalpha_const)
+      & conf, occ, num_occ, num_power, num_alphas, xcnr, tZora, num_mesh_points, xalpha_const)
 
     !> nuclear charge, i.e. atomic number
     integer, intent(in) :: nuc
@@ -292,11 +319,8 @@ contains
     !> basis exponents
     real(dp), intent(in) :: alpha(0:,:)
 
-    !> confinement radii
-    real(dp), intent(in) :: conf_r0(0:)
-
-    !> power of confinement
-    real(dp), intent(in) :: conf_power(0:)
+    !> confinement potential
+    type(TConf), intent(in) :: conf
 
     !> occupation numbers
     real(dp), intent(in) :: occ(:,0:,:)
@@ -391,12 +415,16 @@ contains
 
     write(*, '(A)') ' '
     do ii = 0, max_l
-      if (conf_power(ii) > 1.0e-06_dp) then
-        write(*, '(A,I3,A,E15.7,A,E15.7)') 'l= ', ii, ', r0= ', conf_r0(ii), ' power= ',&
-            & conf_power(ii)
-      else
-        write(*, '(A,I3,A)') 'l= ', ii, ' no confinement '
-      end if
+      select case (conf%type)
+      case(confType%none)
+        write(*, '(A,I3,A)') 'l= ', ii, ' no confinement'
+      case(confType%power)
+        write(*, '(A,I3,A,E15.7,A,E15.7)') 'l= ', ii, ', r0= ', conf%r0(ii),&
+            & ' power= ', conf%power(ii)
+      case(confType%ws)
+        write(*, '(A,I3,A,E15.7,A,E15.7,A,E15.7)') 'l= ', ii, ', Ronset= ', conf%onset(ii),&
+            & ' Rcutoff= ', conf%cutoff(ii), ' Vmax= ', conf%vmax(ii)
+      end select
     end do
 
     write(*, '(A)') ' '

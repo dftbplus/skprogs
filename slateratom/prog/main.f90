@@ -4,7 +4,8 @@ program HFAtom
   use common_message, only : error
   use integration, only : gauss_chebyshev_becke_mesh
   use input, only : read_input_1, read_input_2, echo_input
-  use core_overlap, only : overlap, nuclear, kinetic, confinement
+  use core_overlap, only : overlap, nuclear, kinetic
+  use confinement, only : confType
   use coulomb_hfex, only : coulomb, hfex, hfex_lr
   use densitymatrix, only : densmatrix
   use hamiltonian, only : build_hamiltonian
@@ -54,9 +55,8 @@ program HFAtom
 
   call parse_command_arguments()
   call read_input_1(nuc, max_l, occ_shells, maxiter, scftol, poly_order, min_alpha, max_alpha,&
-      & num_alpha, tAutoAlphas, alpha, conf_r0, conf_power, num_occ, num_power, num_alphas, xcnr,&
-      & tPrintEigvecs, tZora, mixnr, mixing_factor, xalpha_const, omega, camAlpha, camBeta,&
-      & grid_params)
+      & num_alpha, tAutoAlphas, alpha, conf, num_occ, num_power, num_alphas, xcnr, tPrintEigvecs,&
+      & tZora, mixnr, mixing_factor, xalpha_const, omega, camAlpha, camBeta, grid_params)
 
   problemsize = num_power * num_alphas
 
@@ -73,8 +73,8 @@ program HFAtom
   if (nuc > 36) num_mesh_points = 1250
   if (nuc > 54) num_mesh_points = 1500
 
-  call echo_input(nuc, max_l, occ_shells, maxiter, scftol, poly_order, num_alpha, alpha, conf_r0,&
-      & conf_power, occ, num_occ, num_power, num_alphas, xcnr, tZora, num_mesh_points, xalpha_const)
+  call echo_input(nuc, max_l, occ_shells, maxiter, scftol, poly_order, num_alpha, alpha, conf, occ,&
+      & num_occ, num_power, num_alphas, xcnr, tZora, num_mesh_points, xalpha_const)
 
   ! allocate global stuff and zero out
   call allocate_globals()
@@ -90,7 +90,16 @@ program HFAtom
   call overlap(ss, max_l, num_alpha, alpha, poly_order)
   call nuclear(uu, max_l, num_alpha, alpha, poly_order)
   call kinetic(tt, max_l, num_alpha, alpha, poly_order)
-  call confinement(vconf, max_l, num_alpha, alpha, poly_order, conf_r0, conf_power)
+
+  select case (conf%type)
+  case(confType%none)
+    vconf(:,:,:) = 0.0_dp
+  case(confType%power)
+    call conf%getConfPower(max_l, num_alpha, alpha, poly_order, vconf)
+  case(confType%ws)
+    error stop 'Woods-Saxon compression not yet supported.'
+    ! call conf%getConfWS()
+  end select
 
   ! test for linear dependency
   call diagonalize_overlap(max_l, num_alpha, poly_order, ss)

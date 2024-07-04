@@ -9,6 +9,7 @@ list(APPEND fypp_flags -I${projectdir}/common/include -DRELEASE="'${RELEASE}'")
 set(sources-f90
   avgpot.f90
   blas.f90
+  confinement.f90
   core_overlap.f90
   coulomb_hfex.f90
   coulomb_potential.f90

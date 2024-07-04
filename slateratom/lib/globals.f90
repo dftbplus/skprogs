@@ -5,14 +5,13 @@ module globals
   use mixer, only : TMixer, TMixer_init, TMixer_reset, mixerTypes
   use broydenmixer, only : TBroydenMixer, TBroydenMixer_init
   use simplemixer, only : TSimpleMixer, TSimpleMixer_init
+  use confinement, only : TConf
 
   implicit none
 
-  !> confinement radii
-  real(dp) :: conf_r0(0:4)
 
-  !> power of confinement
-  real(dp) :: conf_power(0:4)
+  !> confinement potential
+  type(TConf) :: conf
 
   !> basis exponents
   real(dp) :: alpha(0:4, 10)
