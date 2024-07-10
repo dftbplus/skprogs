@@ -59,8 +59,7 @@ contains
     inp%tCam = .false.
     inp%tGlobalHybrid = .false.
 
-    fp = 14
-    open(fp, file=fname, form="formatted", action="read")
+    open(newunit=fp, file=fname, form="formatted", action="read")
     ! general part
     iLine = 0
 
@@ -348,12 +347,11 @@ contains
     !! auxiliary variable
     integer :: ii
 
-    fp = 12
     iLine = 1
 
     allocate(tmp(maxval(cols)))
 
-    open(fp, file=fname, action="read", form="formatted")
+    open(newunit=fp, file=fname, action="read", form="formatted")
 
     call nextline_(fp, iLine, line)
     read(line, *, iostat=iErr) nGrid
