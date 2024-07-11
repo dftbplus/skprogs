@@ -520,8 +520,8 @@ contains
     type(TTaggedwriter) :: twriter
 
     call TTaggedwriter_init(twriter)
-    fp = 95
-    open(fp, file="energies.tag", status="replace", action="write")
+
+    open(newunit=fp, file="energies.tag", status="replace", action="write")
     call writetag(twriter, fp, "zora", zora)
     call writetag(twriter, fp, "kinetic_energy", ekin)
     call writetag(twriter, fp, "nuclear_energy", enuc)
@@ -552,7 +552,7 @@ contains
     real(dp), allocatable :: coeffs(:,:)
 
     call TTaggedwriter_init(twriter)
-    fp = 95
+
     do ll = 0, max_l
       allocate(coeffs(poly_order(ll), num_alpha(ll)))
       do ii = 1, num_alpha(ll) * poly_order(ll)
@@ -560,7 +560,7 @@ contains
           cycle
         end if
         write(fname, "(A,I2.2,A,A)") "coeffs_", ii + ll, orbnames(ll), ".tag"
-        open(fp, file=fname, status="replace", action="write")
+        open(newunit=fp, file=fname, status="replace", action="write")
         call writetag(twriter, fp, "exponents", alpha(ll, :num_alpha(ll)))
         call convcoeffs(cof(1, ll, :, ii), alpha(ll, :num_alpha(ll)), ll, coeffs)
         call writetag(twriter, fp, "coefficients", coeffs)
