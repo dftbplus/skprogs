@@ -81,7 +81,7 @@ module globals
   real(dp), allocatable :: cof(:,:,:,:)
 
   !> relative changes during scf
-  real(dp) :: change_max
+  real(dp) :: orb_grad_norm
 
   !> density matrix supervector
   real(dp), allocatable :: pp(:,:,:,:)
@@ -93,13 +93,16 @@ module globals
   real(dp), allocatable :: pot_new(:,:,:,:), pot_old(:,:,:,:)
 
   !> eigenvalues
-  real(dp), allocatable :: eigval(:,:,:)
+  real(dp), allocatable :: eigval(:,:,:), eigval_old(:,:,:)
+
+  !> eigenvalue difference vector norm
+  real(dp) :: eigval_diff
 
   !> zora scaled eigenvalues
   real(dp), allocatable :: eigval_scaled(:,:,:)
 
   !> total energy
-  real(dp) :: total_ene
+  real(dp) :: total_ene, total_ene_old, total_ene_diff
 
   !> kinetic energy
   real(dp) :: kinetic_energy
@@ -149,6 +152,12 @@ module globals
   !> 2nd deriv. of density on grid
   real(dp), allocatable :: ddrho(:,:)
 
+  !> kinetic energy density on grid
+  real(dp), allocatable :: tau(:,:)
+
+  !> orbital-dependent tau potential on grid
+  real(dp), allocatable :: vtau(:,:)
+
   !> xc potential on grid
   real(dp), allocatable :: vxc(:,:)
 
@@ -167,8 +176,8 @@ module globals
   !> true, if zero-order regular approximation for relativistic effects is desired
   logical :: tZora
 
-  !> true, if SCF cycle reached convergency
-  logical :: tConverged
+  !> true, if SCF cycle reached convergency on a quantity
+  logical :: tOrbGradConverged, tEnergyConverged, tEigenspectrumConverged
 
   !> identifier of mixer
   integer :: mixnr
@@ -210,6 +219,8 @@ contains
     allocate(rho(num_mesh_points, 2))
     allocate(drho(num_mesh_points, 2))
     allocate(ddrho(num_mesh_points, 2))
+    allocate(tau(num_mesh_points, 2))
+    allocate(vtau(num_mesh_points, 2))
     allocate(exc(num_mesh_points))
     allocate(vxc(num_mesh_points, 2))
 
@@ -224,6 +235,7 @@ contains
     allocate(pot_new(2, 0:max_l, problemsize, problemsize))
 
     allocate(eigval(2, 0:max_l, problemsize))
+    allocate(eigval_old(2, 0:max_l, problemsize))
     allocate(eigval_scaled(2, 0:max_l, problemsize))
 
     allocate(jj(0:max_l, problemsize, problemsize, 0:max_l, problemsize, problemsize))
@@ -245,6 +257,8 @@ contains
     rho(:,:) = 0.0_dp
     drho(:,:) = 0.0_dp
     ddrho(:,:) = 0.0_dp
+    tau(:,:) = 0.0_dp
+    vtau(:,:) = 0.0_dp
 
     eigval(:,:,:) = 0.0_dp
     eigval_scaled(:,:,:) = 0.0_dp

@@ -37,10 +37,29 @@ module xcfunctionals
     !> CAMY-PBEh
     integer :: CAMY_PBEh = 9
 
+    !> TPSS
+    integer :: MGGA_TPSS = 10
+
+    !> SCAN
+    integer :: MGGA_SCAN = 11
+
+    !> r2SCAN
+    integer :: MGGA_r2SCAN = 12
+
+    !> r4SCAN
+    integer :: MGGA_r4SCAN = 13
+
+    !> TASK
+    integer :: MGGA_TASK = 14
+
+    !> TASK+CC
+    integer :: MGGA_TASK_CC = 15
+
   contains
 
     procedure :: isLDA => TXcFunctionalsEnum_isLDA
     procedure :: isGGA => TXcFunctionalsEnum_isGGA
+    procedure :: isMGGA => TXcFunctionalsEnum_isMGGA
     procedure :: isGlobalHybrid => TXcFunctionalsEnum_isGlobalHybrid
     procedure :: isLongRangeCorrected => TXcFunctionalsEnum_isLongRangeCorrected
     procedure :: isCAMY => TXcFunctionalsEnum_isCAMY
@@ -89,6 +108,28 @@ contains
     if (xcnr == this%GGA_PBE96 .or. xcnr == this%GGA_BLYP) isGGA = .true.
 
   end function TXcFunctionalsEnum_isGGA
+
+
+  pure function TXcFunctionalsEnum_isMGGA(this, xcnr) result(isMGGA)
+
+    !> Class instance
+    class(TXcFunctionalsEnum), intent(in) :: this
+
+    !> identifier of exchange-correlation type
+    integer, intent(in) :: xcnr
+
+    !> True, if xc-functional index corresponds to a GGA functional
+    logical :: isMGGA
+
+    isMGGA = .false.
+
+    if (xcnr == this%MGGA_TPSS .or. xcnr == this%MGGA_SCAN .or. xcnr == this%MGGA_r2SCAN&
+        & .or. xcnr == this%MGGA_r4SCAN .or. xcnr == this%MGGA_TASK&
+        & .or. xcnr == this%MGGA_TASK_CC) then
+      isMGGA = .true.
+    end if
+
+  end function TXcFunctionalsEnum_isMGGA
 
 
   pure function TXcFunctionalsEnum_isLongRangeCorrected(this, xcnr) result(isLongRangeCorrected)
