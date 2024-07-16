@@ -69,42 +69,40 @@ class WoodsSaxonCompression(sc.ClassDict):
 
     Attributes
     ----------
-    onset : float
-        Onset radius of the compression
-    cutoff : float
-        Cutoff radius of the compression
-    vmax : float
-        Potential well depth/height
+    ww : float
+        Height (W) of the compression
+    aa : float
+        Slope (a) of the compression
+    r0 : float
+        Half-height radius of the compression
     '''
 
     @classmethod
     def fromhsd(cls, root, query):
         '''Creates instance from a HSD-node and with given query object.'''
 
-        onset, child = query.getvalue(root, 'onset', conv.float0,
-                                      returnchild=True)
-        if onset < 0.0:
-            msg = 'Invalid onset radius {:f}'.format(onset)
+        ww, child = query.getvalue(
+            root, 'w', conv.float0, defvalue=100.0, returnchild=True)
+        if ww < 0.0:
+            msg = 'Invalid potential height (W) {:f}'.format(ww)
             raise hsd.HSDInvalidTagValueException(msg=msg, node=child)
 
-        cutoff, child = query.getvalue(root, 'cutoff', conv.float0,
-                                       returnchild=True)
-        if cutoff <= onset:
-            msg = 'Invalid cutoff radius {:f}'.format(cutoff)
+        aa, child = query.getvalue(root, 'a', conv.float0, returnchild=True)
+        if aa <= 0.0:
+            msg = 'Invalid potential slope (a) {:f}'.format(aa)
             raise hsd.HSDInvalidTagValueException(msg=msg, node=child)
 
-        vmax, child = query.getvalue(
-            root, 'vmax', conv.float0, defvalue=100.0, returnchild=True)
-        if vmax <= 0.0:
-            msg = 'Invalid potential well height {:f}'.format(vmax)
+        r0, child = query.getvalue(root, 'r0', conv.float0, returnchild=True)
+        if r0 < 0.0:
+            msg = 'Invalid potential half-height radius {:f}'.format(r0)
             raise hsd.HSDInvalidTagValueException(msg=msg, node=child)
 
         myself = cls()
         myself.compid = SUPPORTED_COMPRESSIONS[
             myself.__class__.__name__.lower()]
-        myself.onset = onset
-        myself.cutoff = cutoff
-        myself.vmax = vmax
+        myself.ww = ww
+        myself.aa = aa
+        myself.r0 = r0
 
         return myself
 
@@ -117,16 +115,16 @@ class WoodsSaxonCompression(sc.ClassDict):
         else:
             mynode = query.setchild(root, 'WoodsSaxonCompression')
 
-        query.setchildvalue(mynode, 'onset', conv.float0, self.onset)
-        query.setchildvalue(mynode, 'cutoff', conv.float0, self.cutoff)
-        query.setchildvalue(mynode, 'vmax', conv.float0, self.vmax)
+        query.setchildvalue(mynode, 'w', conv.float0, self.ww)
+        query.setchildvalue(mynode, 'a', conv.float0, self.aa)
+        query.setchildvalue(mynode, 'r0', conv.float0, self.r0)
 
 
     def __eq__(self, other):
-        onset_ok = abs(self.onset - other.onset) < 1e-8
-        cutoff_ok = abs(self.cutoff - other.cutoff) < 1e-8
-        vmax_ok = abs(self.vmax - other.vmax) < 1e-8
-        return onset_ok and cutoff_ok and vmax_ok
+        ww_ok = abs(self.ww - other.ww) < 1e-8
+        aa_ok = abs(self.aa - other.aa) < 1e-8
+        r0_ok = abs(self.r0 - other.r0) < 1e-8
+        return ww_ok and aa_ok and r0_ok
 
 
 # Registered compressions with corresponding hsd name as key

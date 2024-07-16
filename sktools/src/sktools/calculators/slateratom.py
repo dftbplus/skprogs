@@ -341,8 +341,8 @@ class SlateratomInput:
                 elif compr.compid == \
                      skcomp.SUPPORTED_COMPRESSIONS['woodssaxoncompression']:
                     out += ["{:g} {:g} {:g} \t\t{:s}".format(
-                        compr.onset, compr.cutoff, compr.vmax, self._COMMENT) \
-                            + " Compr. onset, cutoff and vmax ({:s})"
+                        compr.ww, compr.aa, compr.r0, self._COMMENT) \
+                            + " Compr. height, slope, half-height radius ({:s})"
                             .format(sc.ANGMOM_TO_SHELL[ll])]
 
         out += ["{:d} \t\t\t{:s} nr. of occupied shells ({:s})".format(

@@ -1,3 +1,5 @@
+#:include 'common.fypp'
+
 !> Module that reads input values from stdin.
 module input
 
@@ -174,16 +176,21 @@ contains
     case(confType%none)
       continue
     case(confType%power)
+      allocate(confInp%power)
       write(*, '(A)') 'Enter parameters r_0 and power'
       do ii = 0, max_l
         write(*, '(A,I3)') 'l=', ii
         read(*,*) confInp%power%r0(ii), confInp%power%power(ii)
       end do
     case(confType%ws)
-      write(*, '(A)') 'Enter parameters Ronset, Rcut and Vmax'
+      allocate(confInp%ws)
+      write(*, '(A)') 'Enter parameters compr. height, slope and half-height radius'
       do ii = 0, max_l
         write(*, '(A,I3)') 'l=', ii
-        read(*,*) confInp%ws%rOnset(ii), confInp%ws%rCut(ii), confInp%ws%vMax(ii)
+        read(*,*) confInp%ws%ww(ii), confInp%ws%aa(ii), confInp%ws%r0(ii)
+        @:ASSERT(confInp%ws%ww(ii) >= 0.0)
+        @:ASSERT(confInp%ws%aa(ii) > 0.0)
+        @:ASSERT(confInp%ws%r0(ii) >= 0.0)
       end do
     case default
       error stop 'Invalid confinement potential.'
@@ -429,8 +436,8 @@ contains
         write(*, '(A,I3,A,E15.7,A,E15.7)') 'l= ', ii, ', r0= ', confInp%power%r0(ii),&
             & ' power= ', confInp%power%power(ii)
       case(confType%ws)
-        write(*, '(A,I3,A,E15.7,A,E15.7,A,E15.7)') 'l= ', ii, ', Ronset= ', confInp%ws%rOnset(ii),&
-            & ' Rcutoff= ', confInp%ws%rCut(ii), ' Vmax= ', confInp%ws%vMax(ii)
+        write(*, '(A,I3,A,E15.7,A,E15.7,A,E15.7)') 'l= ', ii, ', W= ', confInp%ws%ww(ii),&
+            & ' a= ', confInp%ws%aa(ii), ' r0= ', confInp%ws%r0(ii)
       end select
     end do
 
