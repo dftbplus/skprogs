@@ -18,7 +18,6 @@ set(sources-f90
   diagonalizations.f90
   globals.f90
   hamiltonian.f90
-  input.f90
   integration.f90
   lapack.f90
   mixer.f90
@@ -33,6 +32,7 @@ set(sources-fpp
   blasroutines.F90
   broydenmixer.F90
   confinement.F90
+  input.F90
   lapackroutines.F90
   simplemixer.F90)
 
