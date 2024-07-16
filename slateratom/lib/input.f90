@@ -4,7 +4,7 @@ module input
   use common_accuracy, only : dp
   use common_poisson, only : TBeckeGridParams
 
-  use confinement, only : TConf, confType
+  use confinement, only : TConfInp, confType
   use xcfunctionals, only : xcFunctional
 
   implicit none
@@ -17,9 +17,9 @@ contains
 
   !> Reads in all properties, except for occupation numbers.
   subroutine read_input_1(nuc, max_l, occ_shells, maxiter, scftol, poly_order, min_alpha,&
-      & max_alpha, num_alpha, tAutoAlphas, alpha, conf, num_occ, num_power, num_alphas, xcnr,&
-      & tPrintEigvecs, tZora, mixnr, mixing_factor, xalpha_const, omega, camAlpha, camBeta,&
-      & grid_params)
+      & max_alpha, num_alpha, tAutoAlphas, alpha, conf_type, confInp, num_occ, num_power,&
+      & num_alphas, xcnr, tPrintEigvecs, tZora, mixnr, mixing_factor, xalpha_const, omega,&
+      & camAlpha, camBeta, grid_params)
 
     !> nuclear charge, i.e. atomic number
     integer, intent(out) :: nuc
@@ -54,8 +54,11 @@ contains
     !> basis exponents
     real(dp), intent(out) :: alpha(0:4, 10)
 
-    !> confinement potential
-    type(TConf), intent(out) :: conf
+    !> type of confinement potential
+    integer, intent(out) :: conf_type
+
+    !> confinement potential input
+    type(TConfInp), intent(out) :: confInp
 
     !> maximal occupied shell
     integer, intent(out) :: num_occ
@@ -157,30 +160,30 @@ contains
     last_conf_type = 0
     do ii = 0, max_l
       write(*, '(A,I3)') 'Enter confinement ID (0: none, 1: power, 2: WS) for l=', ii
-      read(*,*) conf%type
+      read(*,*) conf_type
       if (ii > 0) then
-        if (conf%type /= last_conf_type) then
+        if (conf_type /= last_conf_type) then
           error stop 'At the moment different shells are supposed to be compressed with the same&
               & type of potential'
         end if
       end if
-      last_conf_type = conf%type
+      last_conf_type = conf_type
     end do
 
-    select case (conf%type)
+    select case (conf_type)
     case(confType%none)
       continue
     case(confType%power)
       write(*, '(A)') 'Enter parameters r_0 and power'
       do ii = 0, max_l
         write(*, '(A,I3)') 'l=', ii
-        read(*,*) conf%r0(ii), conf%power(ii)
+        read(*,*) confInp%power%r0(ii), confInp%power%power(ii)
       end do
     case(confType%ws)
       write(*, '(A)') 'Enter parameters Ronset, Rcut and Vmax'
       do ii = 0, max_l
         write(*, '(A,I3)') 'l=', ii
-        read(*,*) conf%onset(ii), conf%cutoff(ii), conf%vmax(ii)
+        read(*,*) confInp%ws%rOnset(ii), confInp%ws%rCut(ii), confInp%ws%vMax(ii)
       end do
     case default
       error stop 'Invalid confinement potential.'
@@ -293,7 +296,8 @@ contains
 
   !> Echos gathered input to stdout.
   subroutine echo_input(nuc, max_l, occ_shells, maxiter, scftol, poly_order, num_alpha, alpha,&
-      & conf, occ, num_occ, num_power, num_alphas, xcnr, tZora, num_mesh_points, xalpha_const)
+      & conf_type, confInp, occ, num_occ, num_power, num_alphas, xcnr, tZora, num_mesh_points,&
+      & xalpha_const)
 
     !> nuclear charge, i.e. atomic number
     integer, intent(in) :: nuc
@@ -319,8 +323,11 @@ contains
     !> basis exponents
     real(dp), intent(in) :: alpha(0:,:)
 
-    !> confinement potential
-    type(TConf), intent(in) :: conf
+    !> type of confinement potential
+    integer, intent(in) :: conf_type
+
+    !> confinement potential input
+    type(TConfInp), intent(in) :: confInp
 
     !> occupation numbers
     real(dp), intent(in) :: occ(:,0:,:)
@@ -415,15 +422,15 @@ contains
 
     write(*, '(A)') ' '
     do ii = 0, max_l
-      select case (conf%type)
+      select case (conf_type)
       case(confType%none)
         write(*, '(A,I3,A)') 'l= ', ii, ' no confinement'
       case(confType%power)
-        write(*, '(A,I3,A,E15.7,A,E15.7)') 'l= ', ii, ', r0= ', conf%r0(ii),&
-            & ' power= ', conf%power(ii)
+        write(*, '(A,I3,A,E15.7,A,E15.7)') 'l= ', ii, ', r0= ', confInp%power%r0(ii),&
+            & ' power= ', confInp%power%power(ii)
       case(confType%ws)
-        write(*, '(A,I3,A,E15.7,A,E15.7,A,E15.7)') 'l= ', ii, ', Ronset= ', conf%onset(ii),&
-            & ' Rcutoff= ', conf%cutoff(ii), ' Vmax= ', conf%vmax(ii)
+        write(*, '(A,I3,A,E15.7,A,E15.7,A,E15.7)') 'l= ', ii, ', Ronset= ', confInp%ws%rOnset(ii),&
+            & ' Rcutoff= ', confInp%ws%rCut(ii), ' Vmax= ', confInp%ws%vMax(ii)
       end select
     end do
 

@@ -5,13 +5,16 @@ module globals
   use mixer, only : TMixer, TMixer_init, TMixer_reset, mixerTypes
   use broydenmixer, only : TBroydenMixer, TBroydenMixer_init
   use simplemixer, only : TSimpleMixer, TSimpleMixer_init
-  use confinement, only : TConf
+  use confinement, only : TConfInp
 
   implicit none
 
 
-  !> confinement potential
-  type(TConf) :: conf
+  !> type of confinement potential
+  integer :: conf_type = 0
+
+  !> confinement potential input
+  type(TConfInp) :: confInp
 
   !> basis exponents
   real(dp) :: alpha(0:4, 10)
@@ -64,8 +67,11 @@ module globals
   !> kinetic supervector
   real(dp), allocatable :: tt(:,:,:)
 
+  !> confinement potential on grid
+  real(dp), allocatable :: vconf(:,:)
+
   !> confinement supervector
-  real(dp), allocatable :: vconf(:,:,:)
+  real(dp), allocatable :: vconf_matrix(:,:,:)
 
   !> coulomb supermatrix
   real(dp), allocatable :: jj(:,:,:,:,:,:)
@@ -217,7 +223,8 @@ contains
 
     allocate(uu(0:max_l, problemsize, problemsize))
     allocate(tt(0:max_l, problemsize, problemsize))
-    allocate(vconf(0:max_l, problemsize, problemsize))
+    allocate(vconf(num_mesh_points, 0:max_l))
+    allocate(vconf_matrix(0:max_l, problemsize, problemsize))
     allocate(ff(2, 0:max_l, problemsize, problemsize))
     allocate(pot_old(2, 0:max_l, problemsize, problemsize))
     allocate(pot_new(2, 0:max_l, problemsize, problemsize))
