@@ -107,14 +107,14 @@ module confinement
   !> Input for the Woods-Saxon confinement.
   type :: TWsConfInp
 
-    !> onset radii (Woods-Saxon compression)
-    real(dp) :: rOnset(0:4)
+    !> potential heights (W)
+    real(dp) :: ww(0:4)
 
-    !> cutoff of confinement (Woods-Saxon compression)
-    real(dp) :: rCut(0:4)
+    !> potential slopes (a)
+    real(dp) :: aa(0:4)
 
-    !> potential well height of confinement (Woods-Saxon compression)
-    real(dp) :: vMax(0:4)
+    !> half-height radii (r0)
+    real(dp) :: r0(0:4)
 
   end type TWsConfInp
 
@@ -135,10 +135,10 @@ module confinement
   type, extends(TConf) :: TPowerConf
     private
 
-    !> confinement radii (power compression)
+    !> confinement radii
     real(dp) :: r0(0:4)
 
-    !> power of confinement (power compression)
+    !> power of confinement
     real(dp) :: power(0:4)
 
   contains
@@ -153,14 +153,14 @@ module confinement
   type, extends(TConf) :: TWsConf
     private
 
-    !> onset radii (Woods-Saxon compression)
-    real(dp) :: rOnset(0:4)
+    !> potential heights (W)
+    real(dp) :: ww(0:4)
 
-    !> cutoff of confinement (Woods-Saxon compression)
-    real(dp) :: rCut(0:4)
+    !> potential slopes (a)
+    real(dp) :: aa(0:4)
 
-    !> potential well height of confinement (Woods-Saxon compression)
-    real(dp) :: vMax(0:4)
+    !> half-height radii (r0)
+    real(dp) :: r0(0:4)
 
   contains
 
@@ -214,9 +214,9 @@ contains
     !> input data
     type(TWsConfInp), intent(inout) :: input
 
-    this%rOnset(0:) = input%rOnset
-    this%rCut(0:) = input%rCut
-    this%vMax(0:) = input%vMax
+    this%ww(0:) = input%ww
+    this%aa(0:) = input%aa
+    this%r0(0:) = input%r0
 
   end subroutine TWsConf_init
 
@@ -239,16 +239,14 @@ contains
     !> Woods-Saxon potential on grid
     real(dp), intent(out) :: vconf(:, 0:)
 
-    !! auxiliary variables
-    integer :: ii, ll
+    !! angular momentum
+    integer :: ll
 
     @:ASSERT(size(vconf, dim=1) == num_mesh_points)
     @:ASSERT(size(vconf, dim=2) == max_l + 1)
 
     do ll = 0, max_l
-      do ii = 1, num_mesh_points
-        vconf(ii, ll) = getPowerPotential(abcissa(ii), this%r0(ll), this%power(ll))
-      end do
+      vconf(:, ll) = getPowerPotential(abcissa, this%r0(ll), this%power(ll))
     end do
 
   end subroutine TPowerConf_getPotOnGrid
@@ -272,16 +270,14 @@ contains
     !> Woods-Saxon potential on grid
     real(dp), intent(out) :: vconf(:, 0:)
 
-    !! auxiliary variables
-    integer :: ii, ll
+    !! angular momentum
+    integer :: ll
 
     @:ASSERT(size(vconf, dim=1) == num_mesh_points)
     @:ASSERT(size(vconf, dim=2) == max_l + 1)
 
     do ll = 0, max_l
-      do ii = 1, num_mesh_points
-        vconf(ii, ll) = getWSPotential(abcissa(ii), this%rOnset(ll), this%rCut(ll), this%vMax(ll))
-      end do
+      vconf(:, ll) = getWSPotential(abcissa, this%ww(ll), this%aa(ll), this%r0(ll))
     end do
 
   end subroutine TWsConf_getPotOnGrid
@@ -499,7 +495,7 @@ contains
 
 
   !> Returns the Power potential for a given radial distance.
-  pure function getPowerPotential(rr, r0, power) result(pot)
+  elemental impure function getPowerPotential(rr, r0, power) result(pot)
 
     !> radial distance
     real(dp), intent(in) :: rr
@@ -513,37 +509,35 @@ contains
     !> Power potential at evaluation point
     real(dp) :: pot
 
+    @:ASSERT(rr >= 0.0_dp)
+
     pot = (rr / r0)**power
 
   end function getPowerPotential
 
 
   !> Returns the Woods-Saxon potential for a given radial distance.
-  pure function getWSPotential(rr, rOnset, rCut, vMax) result(pot)
+  !! see J. Chem. Theory Comput. 12, 1, 53-64 (2016) eqn. 4.
+  elemental impure function getWSPotential(rr, ww, aa, r0) result(pot)
 
     !> radial distance
     real(dp), intent(in) :: rr
 
-    !> onset radius
-    real(dp), intent(in) :: rOnset
+    !> potential height (W)
+    real(dp), intent(in) :: ww
 
-    !> cutoff radius
-    real(dp), intent(in) :: rCut
+    !> potential slope (a)
+    real(dp), intent(in) :: aa
 
-    !> potential well height
-    real(dp), intent(in) :: vMax
+    !> half-height radius (r0)
+    real(dp), intent(in) :: r0
 
     !> Woods-Saxon potential at evaluation point
     real(dp) :: pot
 
-    ! case: rr <= rOnset
-    pot = 0.0_dp
+    @:ASSERT(rr >= 0.0_dp)
 
-    if (rr > rOnset .and. rr < rCut) then
-      pot = vMax / (rCut - rOnset) * (rr - rOnset)
-    elseif (rr >= rCut) then
-      pot = vMax
-    end if
+    pot = ww / (1.0 + exp(-aa * (rr - r0)))
 
   end function getWSPotential
 
