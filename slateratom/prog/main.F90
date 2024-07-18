@@ -1,10 +1,13 @@
+#:include 'common.fypp'
+
 program HFAtom
 
   use common_accuracy, only : dp
   use common_message, only : error
   use integration, only : gauss_chebyshev_becke_mesh
   use input, only : read_input_1, read_input_2, echo_input
-  use core_overlap, only : overlap, nuclear, kinetic, confinement
+  use core_overlap, only : overlap, nuclear, kinetic
+  use confinement, only : TConf, confType, TPowerConf, TPowerConf_init, TWsConf, TWsConf_init
   use coulomb_hfex, only : coulomb, hfex, hfex_lr
   use densitymatrix, only : densmatrix
   use hamiltonian, only : build_hamiltonian
@@ -49,12 +52,15 @@ program HFAtom
   !! holds parameters, defining a Becke integration grid
   type(TBeckeGridParams) :: grid_params
 
+  !! general confinement potential
+  class(TConf), allocatable :: conf
+
   ! deactivate average potential calculation for now
   isAvgPotNeeded = .false.
 
   call parse_command_arguments()
   call read_input_1(nuc, max_l, occ_shells, maxiter, scftol, poly_order, min_alpha, max_alpha,&
-      & num_alpha, tAutoAlphas, alpha, conf_r0, conf_power, num_occ, num_power, num_alphas, xcnr,&
+      & num_alpha, tAutoAlphas, alpha, conf_type, confInp, num_occ, num_power, num_alphas, xcnr,&
       & tPrintEigvecs, tZora, mixnr, mixing_factor, xalpha_const, omega, camAlpha, camBeta,&
       & grid_params)
 
@@ -73,8 +79,8 @@ program HFAtom
   if (nuc > 36) num_mesh_points = 1250
   if (nuc > 54) num_mesh_points = 1500
 
-  call echo_input(nuc, max_l, occ_shells, maxiter, scftol, poly_order, num_alpha, alpha, conf_r0,&
-      & conf_power, occ, num_occ, num_power, num_alphas, xcnr, tZora, num_mesh_points, xalpha_const)
+  call echo_input(nuc, max_l, occ_shells, maxiter, scftol, poly_order, num_alpha, alpha, conf_type,&
+      & confInp, occ, num_occ, num_power, num_alphas, xcnr, tZora, num_mesh_points, xalpha_const)
 
   ! allocate global stuff and zero out
   call allocate_globals()
@@ -90,7 +96,21 @@ program HFAtom
   call overlap(ss, max_l, num_alpha, alpha, poly_order)
   call nuclear(uu, max_l, num_alpha, alpha, poly_order)
   call kinetic(tt, max_l, num_alpha, alpha, poly_order)
-  call confinement(vconf, max_l, num_alpha, alpha, poly_order, conf_r0, conf_power)
+
+  select case (conf_type)
+  case(confType%power)
+    @:CREATE_CLASS(conf, TPowerConf, TPowerConf_init, confInp%power)
+  case(confType%ws)
+    @:CREATE_CLASS(conf, TWsConf, TWsConf_init, confInp%ws)
+  end select
+
+  if (allocated(conf)) then
+    call conf%getPotOnGrid(max_l, num_mesh_points, abcissa, vconf)
+    call conf%getSupervec(max_l, num_mesh_points, abcissa, weight, num_alpha, alpha, poly_order,&
+        & vconf, vconf_matrix)
+  else
+    vconf_matrix(0:,:,:) = 0.0_dp
+  end if
 
   ! test for linear dependency
   call diagonalize_overlap(max_l, num_alpha, poly_order, ss)
@@ -125,7 +145,7 @@ program HFAtom
   pot_old(:,:,:,:) = 0.0_dp
 
   ! kinetic energy, nuclear-electron, and confinement matrix elements which are constant during SCF
-  call build_hamiltonian(pMixer, 0, tt, uu, nuc, vconf, jj, kk, kk_lr, pp, max_l, num_alpha,&
+  call build_hamiltonian(pMixer, 0, tt, uu, nuc, vconf_matrix, jj, kk, kk_lr, pp, max_l, num_alpha,&
       & poly_order, problemsize, xcnr, num_mesh_points, weight, abcissa, vxc, alpha, pot_old,&
       & pot_new, tZora, ff, camAlpha, camBeta)
 
@@ -149,19 +169,20 @@ program HFAtom
         & dz, xcnr, omega, camAlpha, camBeta, rho, drho, ddrho, vxc, exc, xalpha_const)
 
     ! build Fock matrix and get total energy during SCF
-    call build_hamiltonian(pMixer, iScf, tt, uu, nuc, vconf, jj, kk, kk_lr, pp, max_l, num_alpha,&
-        & poly_order, problemsize, xcnr, num_mesh_points, weight, abcissa, vxc, alpha, pot_old,&
-        & pot_new, tZora, ff, camAlpha, camBeta)
+    call build_hamiltonian(pMixer, iScf, tt, uu, nuc, vconf_matrix, jj, kk, kk_lr, pp, max_l,&
+        & num_alpha, poly_order, problemsize, xcnr, num_mesh_points, weight, abcissa, vxc, alpha,&
+        & pot_old, pot_new, tZora, ff, camAlpha, camBeta)
 
     if (tZora) then
-      call getTotalEnergyZora(tt, uu, nuc, vconf, jj, kk, kk_lr, pp, max_l, num_alpha, poly_order,&
-          & problemsize, xcnr, num_mesh_points, weight, abcissa, rho, exc, vxc, eigval_scaled, occ,&
-          & camAlpha, camBeta, kinetic_energy, nuclear_energy, coulomb_energy, exchange_energy,&
-          & x_en_2, conf_energy, total_ene)
+      call getTotalEnergyZora(tt, uu, nuc, vconf_matrix, jj, kk, kk_lr, pp, max_l, num_alpha,&
+          & poly_order, problemsize, xcnr, num_mesh_points, weight, abcissa, rho, exc, vxc,&
+          & eigval_scaled, occ, camAlpha, camBeta, kinetic_energy, nuclear_energy, coulomb_energy,&
+          & exchange_energy, x_en_2, conf_energy, total_ene)
     else
-      call getTotalEnergy(tt, uu, nuc, vconf, jj, kk, kk_lr, pp, max_l, num_alpha, poly_order,&
-          & xcnr, num_mesh_points, weight, abcissa, rho, exc, camAlpha, camBeta, kinetic_energy,&
-          & nuclear_energy, coulomb_energy, exchange_energy, x_en_2, conf_energy, total_ene)
+      call getTotalEnergy(tt, uu, nuc, vconf_matrix, jj, kk, kk_lr, pp, max_l, num_alpha,&
+          & poly_order, xcnr, num_mesh_points, weight, abcissa, rho, exc, camAlpha, camBeta,&
+          & kinetic_energy, nuclear_energy, coulomb_energy, exchange_energy, x_en_2, conf_energy,&
+          & total_ene)
     end if
 
     call check_convergence(pot_old, pot_new, max_l, problemsize, scftol, iScf, change_max,&
@@ -206,10 +227,10 @@ program HFAtom
   end if
 
   if (tZora) then
-    call getTotalEnergyZora(tt, uu, nuc, vconf, jj, kk, kk_lr, pp, max_l, num_alpha, poly_order,&
-        & problemsize, xcnr, num_mesh_points, weight, abcissa, rho, exc, vxc, eigval_scaled, occ,&
-        & camAlpha, camBeta, zora_ekin, nuclear_energy, coulomb_energy, exchange_energy, x_en_2,&
-        & conf_energy, total_ene)
+    call getTotalEnergyZora(tt, uu, nuc, vconf_matrix, jj, kk, kk_lr, pp, max_l, num_alpha,&
+        & poly_order, problemsize, xcnr, num_mesh_points, weight, abcissa, rho, exc, vxc,&
+        & eigval_scaled, occ, camAlpha, camBeta, zora_ekin, nuclear_energy, coulomb_energy,&
+        & exchange_energy, x_en_2, conf_energy, total_ene)
   end if
 
   write(*, '(A,E20.12)') 'Potential Matrix Elements converged to ', change_max

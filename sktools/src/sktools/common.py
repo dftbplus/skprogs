@@ -528,6 +528,8 @@ def is_shelf_file_matching(shelf_file, mydict):
         db = shelve.open(shelf_file, 'r')
     except dbm.error:
         return False
+    if not type(db) is type(mydict):
+        return False
     match = True
     for key in mydict:
         match = key in db and db[key] == mydict[key]

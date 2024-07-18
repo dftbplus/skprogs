@@ -85,6 +85,12 @@ AtomParameters {
     DftbAtom {
       ShellResolved = No
       DensityCompression = PowerCompression { Power = 2; Radius = 2.5 }
+      # Alternatively: Woods-Saxon compression potential
+      # (see J. Chem. Theory Comput. 12, 1, 53-64 (2016) eqn. 4.)
+      # With default W = 100.0:
+      # DensityCompression = WoodsSaxonCompression { a = 2.0; r0 = 6.0 }
+      # or with manual W:
+      # DensityCompression = WoodsSaxonCompression { W = 300.0; a = 2.0; r0 = 6.0 }
       WaveCompressions = SingleAtomCompressions {
 	S = PowerCompression { Power = 2; Radius = 3.0 }
       }

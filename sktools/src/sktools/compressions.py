@@ -39,6 +39,8 @@ class PowerCompression(sc.ClassDict):
                 node=child)
 
         myself = cls()
+        myself.compid = SUPPORTED_COMPRESSIONS[
+            myself.__class__.__name__.lower()]
         myself.power = power
         myself.radius = radius
 
@@ -62,9 +64,78 @@ class PowerCompression(sc.ClassDict):
         return power_ok and radius_ok
 
 
+class WoodsSaxonCompression(sc.ClassDict):
+    '''Compression by the Woods Saxon potential.
+
+    Attributes
+    ----------
+    ww : float
+        Height (W) of the compression
+    aa : float
+        Slope (a) of the compression
+    r0 : float
+        Half-height radius of the compression
+    '''
+
+    @classmethod
+    def fromhsd(cls, root, query):
+        '''Creates instance from a HSD-node and with given query object.'''
+
+        ww, child = query.getvalue(
+            root, 'w', conv.float0, defvalue=100.0, returnchild=True)
+        if ww < 0.0:
+            msg = 'Invalid potential height (W) {:f}'.format(ww)
+            raise hsd.HSDInvalidTagValueException(msg=msg, node=child)
+
+        aa, child = query.getvalue(root, 'a', conv.float0, returnchild=True)
+        if aa <= 0.0:
+            msg = 'Invalid potential slope (a) {:f}'.format(aa)
+            raise hsd.HSDInvalidTagValueException(msg=msg, node=child)
+
+        r0, child = query.getvalue(root, 'r0', conv.float0, returnchild=True)
+        if r0 < 0.0:
+            msg = 'Invalid potential half-height radius {:f}'.format(r0)
+            raise hsd.HSDInvalidTagValueException(msg=msg, node=child)
+
+        myself = cls()
+        myself.compid = SUPPORTED_COMPRESSIONS[
+            myself.__class__.__name__.lower()]
+        myself.ww = ww
+        myself.aa = aa
+        myself.r0 = r0
+
+        return myself
+
+
+    def tohsd(self, root, query, parentname=None):
+        ''''''
+
+        if parentname is None:
+            mynode = root
+        else:
+            mynode = query.setchild(root, 'WoodsSaxonCompression')
+
+        query.setchildvalue(mynode, 'w', conv.float0, self.ww)
+        query.setchildvalue(mynode, 'a', conv.float0, self.aa)
+        query.setchildvalue(mynode, 'r0', conv.float0, self.r0)
+
+
+    def __eq__(self, other):
+        ww_ok = abs(self.ww - other.ww) < 1e-8
+        aa_ok = abs(self.aa - other.aa) < 1e-8
+        r0_ok = abs(self.r0 - other.r0) < 1e-8
+        return ww_ok and aa_ok and r0_ok
+
+
 # Registered compressions with corresponding hsd name as key
 COMPRESSIONS = {
     'powercompression': PowerCompression,
+    'woodssaxoncompression': WoodsSaxonCompression,
+}
+SUPPORTED_COMPRESSIONS = {
+    'nocompression': 0,
+    'powercompression': 1,
+    'woodssaxoncompression': 2,
 }
 
 
