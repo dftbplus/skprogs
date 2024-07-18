@@ -20,8 +20,9 @@ module confinement
   type, abstract :: TConf
   contains
 
+    procedure, nopass :: getSupervec => TConf_getSupervec
+
     procedure(getPotOnGrid), deferred :: getPotOnGrid
-    procedure(getSupervec), deferred :: getSupervec
 
   end type TConf
 
@@ -123,10 +124,10 @@ module confinement
   type :: TConfInp
 
     !> Power confinement input structure
-    type(TPowerConfInp) :: power
+    type(TPowerConfInp), allocatable :: power
 
     !> Woods-Saxon confinement input structure
-    type(TWsConfInp) :: ws
+    type(TWsConfInp), allocatable :: ws
 
   end type TConfInp
 
@@ -144,7 +145,6 @@ module confinement
   contains
 
     procedure :: getPotOnGrid => TPowerConf_getPotOnGrid
-    procedure :: getSupervec => TPowerConf_getSupervec
 
   end type TPowerConf
 
@@ -165,7 +165,6 @@ module confinement
   contains
 
     procedure :: getPotOnGrid => TWsConf_getPotOnGrid
-    procedure :: getSupervec => TWsConf_getSupervec
 
   end type TWsConf
 
@@ -283,58 +282,11 @@ contains
   end subroutine TWsConf_getPotOnGrid
 
 
-  !> Tabulates the (shell-resolved) Power confinement potential on the grid.
-  subroutine TPowerConf_getSupervec(this, max_l, num_mesh_points, abcissa, weight, num_alpha,&
-      & alpha, poly_order, vconf, vconf_matrix)
-
-    !> instance
-    class(TPowerConf), intent(in) :: this
-
-    !> maximum angular momentum
-    integer, intent(in) :: max_l
-
-    !> number of numerical integration points
-    integer, intent(in) :: num_mesh_points
-
-    !> numerical integration abcissas
-    real(dp), intent(in) :: abcissa(:)
-
-    !> numerical integration weights
-    real(dp), intent(in) :: weight(:)
-
-    !> number of exponents in each shell
-    integer, intent(in) :: num_alpha(0:)
-
-    !> basis exponents
-    real(dp), intent(in) :: alpha(0:,:)
-
-    !> highest polynomial order + l in each shell
-    integer, intent(in) :: poly_order(0:)
-
-    !> Power potential on grid
-    real(dp), intent(in) :: vconf(:, 0:)
-
-    !> Power confinement supervector
-    real(dp), intent(out) :: vconf_matrix(0:,:,:)
-
-    @:ASSERT(size(vconf, dim=1) == num_mesh_points)
-    @:ASSERT(size(vconf, dim=2) == max_l + 1)
-
-    @:ASSERT(size(vconf_matrix, dim=1) == max_l + 1)
-
-    call build_dft_conf_matrix(max_l, num_alpha, poly_order, alpha, num_mesh_points, abcissa,&
-        & weight, vconf, vconf_matrix)
-
-  end subroutine TPowerConf_getSupervec
-
-
-  !> Tabulates the (shell-resolved) Woods-Saxon confinement potential on the grid.
-  subroutine TWsConf_getSupervec(this, max_l, num_mesh_points, abcissa, weight, num_alpha, alpha,&
+  !> Constructs the DFT confinement supervector to be added to the Fock matrix, by calculating the
+  !! single matrix elements and putting them together.
+  subroutine TConf_getSupervec(max_l, num_mesh_points, abcissa, weight, num_alpha, alpha,&
       & poly_order, vconf, vconf_matrix)
 
-    !> instance
-    class(TWsConf), intent(in) :: this
-
     !> maximum angular momentum
     integer, intent(in) :: max_l
 
@@ -355,64 +307,26 @@ contains
 
     !> highest polynomial order + l in each shell
     integer, intent(in) :: poly_order(0:)
-
-    !> Woods-Saxon potential on grid
-    real(dp), intent(in) :: vconf(:, 0:)
-
-    !> Woods-Saxon confinement supervector
-    real(dp), intent(out) :: vconf_matrix(0:,:,:)
-
-    @:ASSERT(size(vconf, dim=1) == num_mesh_points)
-    @:ASSERT(size(vconf, dim=2) == max_l + 1)
-
-    @:ASSERT(size(vconf_matrix, dim=1) == max_l + 1)
-
-    call build_dft_conf_matrix(max_l, num_alpha, poly_order, alpha, num_mesh_points, abcissa,&
-        & weight, vconf, vconf_matrix)
-
-  end subroutine TWsConf_getSupervec
-
-
-  !> Builds DFT confinement matrix to be added to the Fock matrix by calculating the single matrix
-  !! elements and putting them together.
-  subroutine build_dft_conf_matrix(max_l, num_alpha, poly_order, alpha, num_mesh_points, abcissa,&
-      & weight, vconf, conf_matrix)
-
-    !> maximum angular momentum
-    integer, intent(in) :: max_l
-
-    !> number of exponents in each shell
-    integer, intent(in) :: num_alpha(0:)
-
-    !> highest polynomial order + l in each shell
-    integer, intent(in) :: poly_order(0:)
-
-    !> basis exponents
-    real(dp), intent(in) :: alpha(0:,:)
-
-    !> number of numerical integration points
-    integer, intent(in) :: num_mesh_points
-
-    !> numerical integration abcissas
-    real(dp), intent(in) :: abcissa(:)
-
-    !> numerical integration weights
-    real(dp), intent(in) :: weight(:)
 
     !> confinement potential on grid
     real(dp), intent(in) :: vconf(:, 0:)
 
-    !> DFT confinement matrix
-    real(dp), intent(out) :: conf_matrix(0:,:,:)
+    !> confinement supervector
+    real(dp), intent(out) :: vconf_matrix(0:,:,:)
 
     !> single matrix element of the confinement potential
-    real(dp) :: conf_matrixelement
+    real(dp) :: vconf_matrixelement
 
     !> auxiliary variables
     integer :: ii, jj, kk, ll, mm, ss, tt, start
 
-    conf_matrix(:,:,:) = 0.0_dp
-    conf_matrixelement = 0.0_dp
+    @:ASSERT(size(vconf, dim=1) == num_mesh_points)
+    @:ASSERT(size(vconf, dim=2) == max_l + 1)
+
+    @:ASSERT(size(vconf_matrix, dim=1) == max_l + 1)
+
+    vconf_matrix(:,:,:) = 0.0_dp
+    vconf_matrixelement = 0.0_dp
 
     do ii = 0, max_l
       ss = 0
@@ -430,10 +344,10 @@ contains
               tt = tt + 1
 
               call dft_conf_matrixelement(num_mesh_points, weight, abcissa, vconf(:, ii),&
-                  & alpha(ii, jj), kk, alpha(ii, ll), mm, ii, conf_matrixelement)
+                  & alpha(ii, jj), kk, alpha(ii, ll), mm, ii, vconf_matrixelement)
 
-              conf_matrix(ii, ss, tt) = conf_matrixelement
-              conf_matrix(ii, tt, ss) = conf_matrixelement
+              vconf_matrix(ii, ss, tt) = vconf_matrixelement
+              vconf_matrix(ii, tt, ss) = vconf_matrixelement
 
             end do
           end do
@@ -441,10 +355,10 @@ contains
       end do
     end do
 
-  end subroutine build_dft_conf_matrix
+  end subroutine TConf_getSupervec
 
 
-  !> Calculates a single matrix element of the exchange correlation potential.
+  !> Calculates a single matrix element of the confinement potential.
   pure subroutine dft_conf_matrixelement(num_mesh_points, weight, abcissa, vconf, alpha1, poly1,&
       & alpha2, poly2, ll, conf_matrixelement)
 
@@ -475,7 +389,7 @@ contains
     !> angular momentum
     integer, intent(in) :: ll
 
-    !> single matrix element of the exchange correlation potential
+    !> single matrix element of the confinement potential
     real(dp), intent(out) :: conf_matrixelement
 
     !> stores product of two basis functions and r^2
