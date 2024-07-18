@@ -176,12 +176,14 @@ contains
     case(confType%none)
       continue
     case(confType%power)
+      allocate(confInp%power)
       write(*, '(A)') 'Enter parameters r_0 and power'
       do ii = 0, max_l
         write(*, '(A,I3)') 'l=', ii
         read(*,*) confInp%power%r0(ii), confInp%power%power(ii)
       end do
     case(confType%ws)
+      allocate(confInp%ws)
       write(*, '(A)') 'Enter parameters compr. height, slope and half-height radius'
       do ii = 0, max_l
         write(*, '(A,I3)') 'l=', ii
