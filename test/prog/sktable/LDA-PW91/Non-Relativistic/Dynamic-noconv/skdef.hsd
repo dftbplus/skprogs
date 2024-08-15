@@ -1,0 +1,72 @@
+SkdefVersion = 1
+
+Globals {
+  Superposition = density
+  XCFunctional = LDA {}
+}
+
+AtomParameters {
+
+  C {
+    AtomConfig {
+      AtomicNumber = 6
+      Mass = 12.01
+      Occupations {
+	1S = 1.0 1.0
+	2S = 1.0 1.0
+	2P = 2.0 0.0
+      }
+      ValenceShells = 2s 2p
+      Relativistics = None
+    }
+    DftbAtom {
+      ShellResolved = No
+      DensityCompression = PowerCompression { Power = 2; Radius = 7.0 }
+      WaveCompressions = SingleAtomCompressions {
+	S = PowerCompression { Power = 2; Radius = 2.7 }
+	P = PowerCompression { Power = 2; Radius = 2.7 }
+      }
+    }
+  }
+
+}
+
+
+OnecenterParameters {
+
+  $StandardDeltaFilling {
+    DeltaFilling = 0.01
+  }
+
+  C {
+    $StandardDeltaFilling
+    Calculator = SlaterAtom {
+      Exponents {
+	S = 0.5 1.14 2.62 6.0
+	P = 0.5 1.14 2.62 6.0
+      }
+      MaxPowers {
+	S = 3
+	P = 3
+      }
+    }
+  }
+
+}
+
+TwoCenterParameters {
+
+  $EqGrid = EquidistantGrid {
+      GridStart = 8.0
+      GridSeparation = 0.5
+      Tolerance = 5e-6
+      MaxDistance = 12.0
+  }
+
+  $SkTwocnt_300_150 = Sktwocnt {
+    IntegrationPoints = 300 150
+  }
+
+  C-C { Grid = $EqGrid; Calculator = $SkTwocnt_300_150 }
+
+}

@@ -27,7 +27,9 @@ Prerequisites
 
 * LAPACK/BLAS libraries (or compatible equivalents)
 
-* libXC library with f03 interface (version >=6.0.0)
+* libXC library with f03 interface (>=6.0.0)
+
+* MpiFx (>=1.5, MPI-enabled build only)
 
 
 Obtaining via Conda
@@ -65,7 +67,11 @@ Follow the usual CMake build workflow:
   the install location (i.e. path stored in ``YOUR_SKPROGS_INSTALL_FOLDER``,
   e.g. ``$HOME/opt/skprogs``) and the build directory (e.g. ``_build``)::
 
-    FC=gfortran cmake -DCMAKE_INSTALL_PREFIX=YOUR_SKPROGS_INSTALL_FOLDER -B _build .
+    FC=gfortran cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=YOUR_SKPROGS_INSTALL_FOLDER -B _build .
+
+  An MPI enabled build is obtained by additionally setting ``-DWITH_MPI=1``
+  (default: ``-DWITH_MPI=0``). At the moment only the two-center integration
+  code ``sktwocnt`` is MPI parallelized and benefits from multiple processors.
 
   If libXC is installed in a non-standard location, you may need to specify
   either the ``CMAKE_PREFIX_PATH`` environment variable (if libXC was built with
@@ -85,6 +91,18 @@ Follow the usual CMake build workflow:
     pushd _build
     ctest -j
     popd
+
+* If you want to test the MPI enabled binary with more than one MPI-process, you
+  should set the ``TEST_MPI_PROCS`` variable in ``config.cmake`` accordingly,
+  e.g.::
+
+    set(TEST_MPI_PROCS "2" CACHE STRING "Nr. of processes used for testing")
+
+  The ``TEST_MPI_PROCS`` cache variable can be updated or changed also after the
+  compilation by invoking CMake with the appropriate ``-D`` option, e.g.::
+
+    cmake -B _build -DTEST_MPI_PROCS=2 .
+    pushd _build; ctest; popd
 
 * If the tests were successful, install the package via ::
 
@@ -176,6 +194,11 @@ follows:
   repulsives added, issue ::
 
     skgen -o slateratom -t sktwocnt sktable -d C,H,O C,H,O
+
+  For an MPI enabled binary, make sure to prepend any required information to
+  the two-center binary, e.g.::
+
+    skgen -o slateratom -t "mpirun -np 2 sktwocnt" sktable -d C C |& tee output
 
   The SK-files will be created in the current folder. See the help (e.g. ``skgen
   -h``) for additional options.

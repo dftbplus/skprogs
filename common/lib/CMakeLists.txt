@@ -31,11 +31,25 @@ set(sources-f90
   utils.F90)
 
 set(sources-fpp
-  assert.F90)
+  assert.F90
+  environment.F90
+  globalenv.F90
+  mpifx.F90
+  schedule.F90)
+
+if(WITH_MPI)
+  list(APPEND sources-fpp
+    mpienv.F90)
+endif()
 
 skprogs_preprocess("${FYPP}" "${fypp_flags}" "F90" "f90" "${sources-fpp}" sources-f90-preproc)
 
 add_library(skprogs-common ${sources-f90} ${sources-f90-preproc})
+
+if(WITH_MPI)
+  target_link_libraries(skprogs-common MPI::MPI_Fortran)
+  target_link_libraries(skprogs-common MpiFx::MpiFx)
+endif()
 
 set(moddir ${CMAKE_CURRENT_BINARY_DIR}/modfiles)
 set_target_properties(skprogs-common PROPERTIES Fortran_MODULE_DIRECTORY ${moddir})

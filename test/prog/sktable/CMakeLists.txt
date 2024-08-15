@@ -15,7 +15,7 @@ set(fypp_flags ${FYPP_CONFIG_FLAGS})
 list(APPEND fypp_flags -I${projectdir}/common/include -DRELEASE="'${releasename}'")
 
 execute_process(
-  COMMAND ${FYPP} ${fypp_flags}
+  COMMAND ${FYPP} ${fypp_flags} -DMPI_PROCS=${TEST_MPI_PROCS}
   INPUT_FILE ${builddir}/_sktable_tests.fypp
   OUTPUT_FILE ${builddir}/_sktable_tests)
 
@@ -31,5 +31,5 @@ foreach(test IN LISTS tests)
   add_test(
     NAME sktable_${test}
     COMMAND ${PYTHON_INTERPRETER} ${srcdir}/bin/testwithworkdir ${test} ${builddir}
-    -r ${srcdir})
+    -r ${srcdir} -m ${TEST_RUNNER})
 endforeach()

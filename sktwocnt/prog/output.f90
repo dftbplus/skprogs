@@ -2,6 +2,7 @@
 module output
 
   use common_accuracy, only : dp
+  use common_globalenv, only : stdOut
 
   implicit none
   private
@@ -17,8 +18,19 @@ contains
     !> Hamiltonian and overlap matrix
     real(dp), intent(in) :: skham(:,:), skover(:,:)
 
-    call write_sktable_("at1-at2.ham.dat", skham)
-    call write_sktable_("at1-at2.over.dat", skover)
+    if (size(skham, dim=2) > 0) then
+      call write_sktable_("at1-at2.ham.dat", skham)
+      write(stdOut, "(A)") "SK-table (Hamiltonian) written."
+    else
+      write(stdOut, "(A)") "Nothing to write (Hamiltonian)."
+    end if
+
+    if (size(skover, dim=2) > 0) then
+      call write_sktable_("at1-at2.over.dat", skover)
+      write(stdOut, "(A)") "SK-table (overlap) written."
+    else
+      write(stdOut, "(A)") "Nothing to write (overlap)."
+    end if
 
   end subroutine write_sktables
 

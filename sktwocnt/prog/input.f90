@@ -2,6 +2,7 @@
 module input
 
   use common_accuracy, only : dp
+  use common_globalenv, only : stdOut, abortProgram
   use gridorbital, only : TGridorb2_init
   use twocnt, only : TTwocntInp, TAtomdata
   use xcfunctionals, only : xcFunctional
@@ -133,7 +134,7 @@ contains
       call nextline_(fp, iLine, line)
       read(line, *, iostat=iErr) inp%omega
       if (inp%omega < 1.0e-08_dp) then
-        write(*,'(a)') 'Chosen omega too small!'
+        write(stdOut,'(a)') 'Chosen omega too small!'
         stop
       end if
       call checkerror_(fname, line, iLine, iErr)
@@ -144,7 +145,7 @@ contains
       call nextline_(fp, iLine, line)
       read(line, *, iostat=iErr) inp%omega, inp%camAlpha, inp%camBeta
       if (inp%omega < 1.0e-08_dp) then
-        write(*,'(a)') 'Chosen omega too small!'
+        write(stdOut,'(a)') 'Chosen omega too small!'
         stop
       end if
       call checkerror_(fname, line, iLine, iErr)
@@ -257,10 +258,10 @@ contains
       ! (positive where abs(r * R(r)) has its maximum)
       imax = maxloc(abs(data(:, 1) * data(:, 2)), dim=1)
       if (data(imax, 2) < 0.0_dp) then
-        write(*, "(A,F5.2,A)") "Wave function negative at the maximum of radial probability&
+        write(stdOut, "(A,F5.2,A)") "Wave function negative at the maximum of radial probability&
             & (r =", data(imax, 1), " Bohr)"
-        write(*, "(A)") "Please change the sign of the wave function (and of its derivatives)!"
-        write(*, "(A,A,A)") "File: '", trim(buffer), "'"
+        write(stdOut, "(A)") "Please change the sign of the wave function (and of its derivatives)!"
+        write(stdOut, "(A,A,A)") "File: '", trim(buffer), "'"
         stop
       end if
     end do
@@ -307,7 +308,7 @@ contains
       call TGridorb2_init(atom%ddrho, data(:, 1), data(:, 4))
     else
       if (trim(line) /= "noread") then
-        write(*, "(A,I0,A)") "Line ", iLine, " ignored since density is not needed."
+        write(stdOut, "(A,I0,A)") "Line ", iLine, " ignored since density is not needed."
       end if
     end if
 
@@ -410,7 +411,7 @@ contains
     integer, intent(in) :: angmoms(:)
 
     if (maxval(angmoms) > 4) then
-      write(*,*) "Only angular momentum up to 'f' is allowed."
+      write(stdOut,*) "Only angular momentum up to 'f' is allowed."
       stop
     end if
 
@@ -454,12 +455,13 @@ contains
     !> index of erroneous line
     integer, intent(in) :: iLine
 
-    write(*, "(A,A)") "!!! Parsing error: ", txt
-    write(*, "(2X,A,A)") "File: ", trim(fname)
-    write(*, "(2X,A,I0)") "Line number: ", iLine
-    write(*, "(2X,A,A,A)") "Line: '", trim(line), "'"
+    write(stdOut, "(A,A)") "!!! Parsing error: ", txt
+    write(stdOut, "(2X,A,A)") "File: ", trim(fname)
+    write(stdOut, "(2X,A,I0)") "Line number: ", iLine
+    write(stdOut, "(2X,A,A,A)") "Line: '", trim(line), "'"
 
-    stop
+    flush(stdOut)
+    call abortProgram()
 
   end subroutine error_
 

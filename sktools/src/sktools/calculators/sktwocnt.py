@@ -278,7 +278,7 @@ class SktwocntCalculation:
     def run(self):
         fpin = open(os.path.join(self._workdir, INPUT_FILE), "r")
         fpout = open(os.path.join(self._workdir, STDOUT_FILE), "w")
-        proc = subproc.Popen([self._binary], cwd=self._workdir,
+        proc = subproc.Popen(self._binary.split(), cwd=self._workdir,
                              stdin=fpin, stdout=fpout, stderr=subproc.STDOUT)
         proc.wait()
         fpin.close()

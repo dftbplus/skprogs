@@ -30,6 +30,16 @@ endif()
 
 find_package(Libxc QUIET)
 
+if(WITH_MPI)
+  find_package(MPI REQUIRED)
+  if(NOT MPI_FORTRAN_FOUND)
+    message(FATAL_ERROR "Compiler ${CMAKE_Fortran_COMPILER} is not MPI capable but is specified "
+      "for a WITH_MPI=TRUE build")
+  endif()
+  list(FILTER MPI_Fortran_COMPILE_OPTIONS EXCLUDE REGEX  "-fallow-argument-mismatch")
+  message(STATUS "MPI_Fortran_COMPILE_OPTIONS: ${MPI_Fortran_COMPILE_OPTIONS}")
+endif()
+
 if (Libxc_FOUND AND Libxc_VERSION VERSION_LESS "6.0.0")
   message(FATAL_ERROR "SkProgs requires libXC version >=6.0.0 to work properly.")
 endif()
@@ -71,6 +81,19 @@ set(FYPP_BUILD_FLAGS "${FYPP_FLAGS}" "--file-var-root=${CMAKE_SOURCE_DIR}"
 
 set(PYTHON_INTERPRETER "python3" CACHE STRING
   "Python interpreter to use for installing and test python components")
+
+############## External components (optional) #################
+
+# Note 1 : GIT_TAG hashes below must be updated with the utils/test/check_submodule_commits script!
+# Note 2 : GIT_REPOSITORY URLs should be to https// addresses for the CI pipelines to see them
+
+if(WITH_MPI)
+  set(MPIFX_GIT_REPOSITORY "https://github.com/dftbplus/mpifx.git")
+  set(MPIFX_GIT_TAG "aca7a212f68778aacb33ed33925d45f83dab91ca")  # do not change manually!
+  skprogs_config_hybrid_dependency(MpiFx MpiFx::MpiFx "${HYBRID_CONFIG_METHODS}" "QUIET"
+    external/mpifx "${exclude}" "${MPIFX_GIT_REPOSITORY}" "${MPIFX_GIT_TAG}")
+  list(APPEND PKG_CONFIG_REQUIRES mpifx)
+endif()
 
 #################### Add source components ####################
 

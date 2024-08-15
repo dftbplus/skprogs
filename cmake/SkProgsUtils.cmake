@@ -50,6 +50,11 @@ endfunction()
 function (skprogs_add_fypp_defines fyppflags)
 
   set(_fyppflags "${${fyppflags}}")
+
+  if(WITH_MPI)
+    list(APPEND _fyppflags -DWITH_MPI)
+  endif()
+
   set(${fyppflags} ${_fyppflags} PARENT_SCOPE)
 
 endfunction()
@@ -192,6 +197,130 @@ macro(skprogs_setup_global_compiler_flags)
   unset(_buildtypes)
   unset(_buildtype)
   unset(_buildtype_upper)
+endmacro()
+
+
+# Handles a hybrid dependency.
+#
+# Depending on the list items in the config_methods variable, it will try to:
+#
+# - checkout the source as a submodule within the origin sub-folder ("Submodule")
+# - find the package as external dependency ("Find")
+# - fetch the source from a git repository ("Fetch") into the build folder
+#
+# The methods are tried in the order of their appearance until success the first eligible one.
+#
+# The methods "Submodule" and "Fetch" would call the passed sub-directory with add_subdirectory()
+# passing two variables with the source and binary directory.
+#
+# Args:
+#     package [in]: Name of the dependency to look for.
+#     config_methods [in]: Config methods to try
+#     target [in]: Name of the target, which must be exported after the configuration.
+#     findpkgopts [in]: Options to pass to find_package()
+#     subdir [in]: Subdirectory with CMakeFiles.txt for integrating package source.
+#     subdiropts [in]: Options to pass to the add_subdir() command.
+#     git_repository [in]: Git repository to fetch the package from.
+#     git_tag [in]: Git tag to use when fetching the source.
+#
+# Variables:
+#     <UPPER_PACKAGE_NAME>_SOURCE_DIR, <UPPER_PACKAGE_NAME>_BINARY_DIR:
+#         Source and binary directories for the build (to pass to add_subdirectory())
+#
+macro(skprogs_config_hybrid_dependency package target config_methods findpkgopts subdir subdiropts
+    git_repository git_tag)
+
+  set(_allowed_methods "submodule;find;fetch;pkgconf")
+  string(TOLOWER "${package}" _package_lower)
+  string(TOUPPER "${package}" _package_upper)
+
+  foreach(_config_method IN ITEMS ${config_methods})
+
+    string(TOLOWER "${_config_method}" _config_lower)
+    if(NOT ${_config_lower} IN_LIST _allowed_methods)
+      message(FATAL_ERROR "${package}: Unknown configuration method '${_config_method}'")
+    endif()
+
+    if("${_config_lower}" STREQUAL "find")
+
+      message(STATUS "${package}: Trying to find installed package")
+      find_package(${package} ${findpkgopts})
+      if(${package}_FOUND)
+        message(STATUS "${package}: Installed package found")
+        break()
+      else()
+        message(STATUS "${package}: Installed package could not be found")
+      endif()
+
+    elseif("${_config_lower}" STREQUAL "pkgconf")
+      message(STATUS "${package}: Trying to find installed package (pkg-config)")
+
+      find_package(PkgConfig QUIET)
+      if(PkgConfig_FOUND)
+        pkg_check_modules("${_package_upper}" QUIET "${package}")
+        if("${${_package_upper}_FOUND}")
+          message(STATUS "${package}: Installed package found (pkg-config)")
+          add_library("${target}" INTERFACE IMPORTED)
+          target_link_libraries(
+            "${target}"
+            INTERFACE
+            "${${_package_upper}_LINK_LIBRARIES}"
+          )
+          target_include_directories(
+            "${target}"
+            INTERFACE
+            "${${_package_upper}_INCLUDE_DIRS}"
+          )
+          break()
+        else()
+          message(STATUS "${package}: Installed package could not be found (pkg-config)")
+        endif()
+      endif()
+
+    elseif("${_config_lower}" STREQUAL "submodule")
+
+      if (NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${subdir}/origin/CMakeLists.txt
+          AND GIT_WORKING_COPY)
+        message(STATUS "${package}: Downloading via git submodule update")
+        execute_process(COMMAND ${GIT_EXECUTABLE} submodule update --init ${subdir}/origin
+          WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+      endif()
+
+      if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${subdir}/origin/CMakeLists.txt)
+        message(STATUS "${package}: Using source in ${subdir}/origin")
+        set(${_package_upper}_SOURCE_DIR "origin")
+        set(${_package_upper}_BINARY_DIR)
+        add_subdirectory(${subdir} ${subdiropts})
+        break()
+      endif()
+
+    elseif("${_config_lower}" STREQUAL "fetch")
+
+      message(STATUS "${package}: Fetching from repository ${git_repository}@${git_tag}")
+      FetchContent_Declare(${_package_lower} GIT_REPOSITORY ${git_repository} GIT_TAG ${git_tag})
+      FetchContent_GetProperties(${_package_lower})
+      if(NOT ${_package_lower}_POPULATED)
+        FetchContent_Populate(${_package_lower})
+      endif()
+      set(${_package_upper}_SOURCE_DIR "${${_package_lower}_SOURCE_DIR}")
+      set(${_package_upper}_BINARY_DIR "${${_package_lower}_BINARY_DIR}")
+      add_subdirectory(${subdir} ${subdiropts})
+      break()
+
+    endif()
+
+  endforeach()
+
+  if(NOT TARGET ${target})
+    message(FATAL_ERROR "Could not configure ${package} to export target '${target}'")
+  endif()
+
+  unset(_allowed_methods)
+  unset(_package_lower)
+  unset(_package_upper)
+  unset(_config_method)
+  unset(_config_lower)
+
 endmacro()
 
 
