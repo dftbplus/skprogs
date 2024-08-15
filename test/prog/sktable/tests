@@ -3,6 +3,8 @@
 
 #:include 'common.fypp'
 
+LDA-PW91/Non-Relativistic/Dynamic-conv
+LDA-PW91/Non-Relativistic/Dynamic-noconv
 LDA-PW91/Non-Relativistic/Power
 LDA-PW91/Non-Relativistic/WS
 GGA-PBE96/Non-Relativistic

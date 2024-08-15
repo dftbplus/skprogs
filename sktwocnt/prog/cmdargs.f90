@@ -1,6 +1,8 @@
 !> Module that handles command line argument parsing.
 module cmdargs
 
+  use common_globalenv, only : stdOut
+
   implicit none
   private
 
@@ -28,10 +30,10 @@ contains
       call get_command_argument(1, arg)
       select case (arg)
       case ('--version')
-        write(*, '(A,1X,A)') programName, programVersion
+        write(stdOut, '(A,1X,A)') programName, programVersion
         stop
       case default
-        write(*, '(A,A,A)') "Invalid command line argument '", arg, "'"
+        write(stdOut, '(A,A,A)') "Invalid command line argument '", arg, "'"
         error stop
       end select
     end if

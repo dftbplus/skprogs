@@ -15,6 +15,27 @@
 #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 
+#! Macro to return an error flag if return variable available or throw
+#! an error and shut down otherwise
+#:def ERROR_HANDLING(errVar, errNumber, msg)
+  block
+    use common_accuracy, only : lc
+    use common_message
+    !> Error handling string
+    character(lc) :: stringTmp
+
+    write(stringTmp,"(A)")${msg}$
+    if (present(${errVar}$)) then
+      ${errVar}$ = ${errNumber}$
+      call warning(stringTmp)
+      return
+    else
+      call error(stringTmp)
+    end if
+  end block
+#:enddef ERROR_HANDLING
+
+
 #! Propagation of error handling, for now it just returns when in error
 #:def HANDLE_ERROR(errVar)
   if (present(${errVar}$)) then

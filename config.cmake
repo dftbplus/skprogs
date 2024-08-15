@@ -7,10 +7,20 @@
 # automatically default to RelWithDebInfo if used in a single configuration build. Uncomment or
 # override it only if you want a non-default single configuration build.
 
+option(WITH_MPI "Whether SkProgs should support MPI-parallelism" FALSE)
+
 #
 # Test environment settings
 #
-set(TEST_RUNNER_TEMPLATE " " CACHE STRING "How to run the tests")
+set(TEST_MPI_PROCS "1" CACHE STRING "Nr. of MPI processes used for testing")
+
+# Command line used to launch the test code.
+# The escaped variables (\${VARIABLE}) will be substituted by the corresponding CMake variables.
+if(WITH_MPI)
+  set(TEST_RUNNER_TEMPLATE "mpiexec -n \${TEST_MPI_PROCS}" CACHE STRING "How to run the tests")
+else()
+  set(TEST_RUNNER_TEMPLATE " " CACHE STRING "How to run the tests")
+endif()
 
 #
 # Installation options
@@ -32,3 +42,6 @@ set(INSTALL_MODULEDIR "${INSTALL_INCLUDEDIR}/modfiles" CACHE PATH
 #set(TOOLCHAIN "gnu" CACHE STRING "Prefix of the toolchain file to be read from the sys/ folder")
 # Uncomment and set it if you want to override the automatic, compiler based toolchain file
 # selection.
+
+set(HYBRID_CONFIG_METHODS "Submodule;Find;Fetch" CACHE STRING
+  "Configuration methods to try in order to satisfy hybrid dependencies")

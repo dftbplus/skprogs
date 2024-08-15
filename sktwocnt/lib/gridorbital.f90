@@ -128,7 +128,7 @@ contains
 
     ! sanity check
     ! if (this%nGrid < ninter + 1) then
-    !   write(*,*) "Not enough points in the orbital grid!"
+    !   write(stdOut,*) "Not enough points in the orbital grid!"
     !   stop
     ! end if
 

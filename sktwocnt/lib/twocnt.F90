@@ -1,8 +1,12 @@
+#:include 'common.fypp'
+
 !> Module that contains the two-center integrator routines for tabulating Hamiltonian and overlap.
 module twocnt
 
   use common_accuracy, only : dp
   use common_constants, only : pi, rec4pi
+  use common_globalenv, only : stdOut
+  use common_environment, only : TEnvironment
   use common_anglib, only : initGaunt, freeGaunt, realGaunt
   use common_coordtrans, only : coordtrans_becke_12, coordtrans_radial_becke2
   use common_sphericalharmonics, only : TRealTessY, TRealTessY_init
@@ -11,10 +15,15 @@ module twocnt
   use common_partition, only : partition_becke_homo
   use common_splines, only : spline3ders
   use common_fifo, only : TFiFoReal2
+  use common_schedule, only : getStartAndEndIndex
   use common_interpolation, only : get2ndNaturalSplineDerivs, get_cubic_spline
   use common_poisson, only : solvePoisson, TBeckeGridParams, TBeckeIntegrator,&
       & TBeckeIntegrator_init, TBeckeIntegrator_setKernelParam, TBeckeIntegrator_precompFdMatrix,&
       & TBeckeIntegrator_buildLU, TBeckeIntegrator_getCoords, TBeckeIntegrator_solveHelmholz
+
+#:if WITH_MPI
+  use extlibs_mpifx, only : MPI_SUM, MPI_MAX, mpifx_allreduceip
+#:endif
 
   use gridorbital, only : TGridorb2
   use xcfunctionals, only : xcFunctional
@@ -152,7 +161,10 @@ module twocnt
 contains
 
   !> Calculates Hamiltonian and overlap matrix elements for different dimer distances.
-  subroutine get_twocenter_integrals(inp, imap, skham, skover)
+  subroutine get_twocenter_integrals(env, inp, imap, skham, skover)
+
+    !> Environment settings
+    type(TEnvironment), intent(in) :: env
 
     !> parsed twocnt input instance
     type(TTwocntInp), intent(in), target :: inp
@@ -228,6 +240,18 @@ contains
 
     !! number of radial and angular integration abscissas
     integer :: nRad, nAng
+
+    !! start and end index for MPI parallelization, if applicable
+    integer :: iParallelStart, iParallelEnd
+
+    !! number of distances that fit inside a batch of length 1 Bohr
+    integer :: nDistPer1Bohr
+
+    !! number of MPI ranks SkTwocnt was executed with and rank of this instance
+    integer :: nProcs, rank
+
+    !! true, if the number of MPI ranks exceeds the number of distances of a 1 Bohr batch
+    logical :: tCoresExceedBatch
 
     select case (inp%iXC)
     case(xcFunctional%LDA_PW91)
@@ -320,27 +344,48 @@ contains
 
     call TIntegMap_init(imap, atom1, atom2)
 
-    ! calculate lines for 1 Bohr in one batch.
+  #:if WITH_MPI
+    nProcs = env%mpi%globalComm%size
+    rank = env%mpi%globalComm%rank
+  #:else
+    nProcs = 1
+    rank = 0
+  #:endif
+
     dist = 0.0_dp
     tDynlen = (inp%maxdist > 0.0_dp)
+    ! calculate lines for 1 Bohr in one batch
+    nDistPer1Bohr = ceiling(1.0_dp / inp%dr)
+    tCoresExceedBatch = (nDistPer1Bohr < nProcs)
+
     if (tDynlen) then
-      nBatchline = ceiling(1.0_dp / inp%dr)
-      maxdist = inp%maxdist + real(nBatchline, dp) * inp%dr
+      if (tCoresExceedBatch) then
+        ! We do not want cores to idle around, therefore increase the batch size if the number of
+        ! MPI ranks exceeds the number of distances of the default batch length of 1 Bohr. An
+        ! increased batch size later requires the Hamiltonian and overlap data to be cropped to the
+        ! same size one would have obtained with the default batch length of 1 Bohr.
+        nBatchline = nProcs
+      else
+        nBatchline = nDistPer1Bohr
+      end if
+      maxdist = inp%maxdist + real(nDistPer1Bohr, dp) * inp%dr
     else
       maxdist = abs(inp%maxdist)
       nBatchline = ceiling((maxdist - inp%r0) / inp%dr)
     end if
     nBatch = 0
     denserrmax = 0.0_dp
-    allocate(denserr(nBatchline))
+    allocate(denserr(nBatchline), source=0.0_dp)
+    call getStartAndEndIndex(env, nBatchline, iParallelStart, iParallelEnd)
     lpBatch: do
-      allocate(skhambuffer(imap%ninteg, nBatchline))
-      allocate(skoverbuffer(imap%ninteg, nBatchline))
-      write(*, "(A,I0,A,F6.3,A,F6.3)") "Calculating ", nBatchline, " lines: r0 = ",&
+      allocate(skhambuffer(imap%ninteg, nBatchline), source=0.0_dp)
+      allocate(skoverbuffer(imap%ninteg, nBatchline), source=0.0_dp)
+      write(stdOut, "(A,I0,A,F6.3,A,F6.3)") "Calculating ", nBatchline, " lines: r0 = ",&
           & inp%r0 + inp%dr * real(nBatch * nBatchline, dp), " dr = ", inp%dr
-      lpDist: do ir = 1, nBatchline
+      denserr(:) = 0.0_dp
+      lpDist: do ir = iParallelStart, iParallelEnd
         dist = inp%r0 + inp%dr * real(nBatch * nBatchline + ir - 1, dp)
-        write(*, "(A,F6.2,A)") 'Calculating dimer distance: ', dist, ' Bohr'
+        write(*, "(A,F6.2,A,1I0)") 'Calculating dimer distance: ', dist, ' Bohr, on rank ', rank
         call gengrid2_2(quads, coordtrans_becke_12, partition_becke_homo, beckepars, dist, grid1,&
             & grid2, dots, weights)
         nRad = size(quads(1)%xx)
@@ -350,32 +395,50 @@ contains
             & inp%camBeta, inp%tGlobalHybrid, inp%tLC, inp%tCam, imap, xcfunc_xc, xcfunc_x,&
             & xcfunc_xsr, xcfunc_c, skhambuffer(:, ir), skoverbuffer(:, ir), denserr(ir))
       end do lpDist
+    #:if WITH_MPI
+      call mpifx_allreduceip(env%mpi%globalComm, dist, MPI_MAX)
+      call mpifx_allreduceip(env%mpi%globalComm, denserr, MPI_SUM)
+      call mpifx_allreduceip(env%mpi%globalComm, skhambuffer, MPI_SUM)
+      call mpifx_allreduceip(env%mpi%globalComm, skoverbuffer, MPI_SUM)
+    #:endif
       denserrmax = max(denserrmax, maxval(denserr))
       maxabs = max(maxval(abs(skhambuffer)), maxval(abs(skoverbuffer)))
       if (tDynlen) then
         tConverged = (maxabs < inp%epsilon)
         ! if new batch gave no contributions above tolerance: omit it and exit
-        if (tConverged .or. dist > maxdist) exit
-        nBatch = nBatch + 1
+        if (tConverged .or. dist > maxdist) then
+          if (tCoresExceedBatch) then
+            ! If the number of cores lead to an increased batch size, we have to store the last
+            ! batch to be later able to crop the data to agree with the default batch size.
+            call hamfifo%push_alloc(skhambuffer)
+            call overfifo%push_alloc(skoverbuffer)
+          end if
+          exit lpBatch
+        end if
         call hamfifo%push_alloc(skhambuffer)
         call overfifo%push_alloc(skoverbuffer)
+        nBatch = nBatch + 1
       else
         tConverged = .true.
         call hamfifo%push_alloc(skhambuffer)
         call overfifo%push_alloc(skoverbuffer)
-        exit
+        exit lpBatch
       end if
     end do lpBatch
-
-    if (.not. tConverged) then
-      write(*, "(A,F6.2,A,ES10.3)") "Warning, maximal distance ", inp%maxdist,&
-          & " reached! Max integral value:", maxabs
-    end if
-    write(*, "(A,ES10.3)") "Maximal integration error: ", denserrmax
 
     ! hand over Hamiltonian and overlap
     call hamfifo%popall_concat(skham)
     call overfifo%popall_concat(skover)
+
+    if (tDynlen .and. tCoresExceedBatch) then
+      call cropData(inp, tConverged, nDistPer1Bohr, maxdist, skham, skover)
+    end if
+
+    if (.not. tConverged) then
+      write(stdOut, "(A,F6.2,A,ES10.3)") "Warning, maximal distance ", inp%maxdist,&
+          & " reached! Max integral value:", maxabs
+    end if
+    write(stdOut, "(A,ES10.3)") "Maximal integration error: ", denserrmax
 
     ! finalize libxc objects
     if (inp%tGlobalHybrid .or. inp%tCam) then
@@ -697,6 +760,70 @@ contains
   end subroutine getskintegrals
 
 
+  !> Crops the Hamiltonian (H) and overlap (S) matrices to the number of distances one would have
+  !! obtained with the default 1 Bohr batch length.
+  subroutine cropData(inp, tConverged, nDistPer1Bohr, maxdist, skham, skover)
+
+    !> twocnt input instance
+    type(TTwocntInp), intent(in) :: inp
+
+    !> true, if the Hamiltonian and overlap matrix elements are converged
+    logical, intent(in) :: tConverged
+
+    !> maximum dimer distance to tabulate
+    real(dp), intent(in) :: maxdist
+
+    !> Hamiltonian and overlap matrices to crop
+    real(dp), intent(inout), allocatable :: skham(:,:), skover(:,:)
+
+    !! number of distances that fit inside a batch of length 1 Bohr
+    integer :: nDistPer1Bohr
+
+    !! number of full 1 Bohr batches that H and S have been tabulated for
+    integer :: nBatchInTot
+
+    !! iterates over 1 Bohr batches
+    integer :: iSmallBatch
+
+    !! start and end index of the current 1 Bohr batch
+    integer :: iSmallBatchStart, iSmallBatchEnd
+
+    !! maximum absolute of H and S matrix elements in current 1 Bohr batch
+    real(dp) :: maxabs
+
+    !! end index when cropping H and S
+    integer :: iEnd
+
+    !! number of 1 Bohr batches within the maximum distance
+    integer :: nBatch
+
+    nDistPer1Bohr = ceiling(1.0_dp / inp%dr)
+
+    if (tConverged) then
+      ! crop to full 1 Bohr batches (converged version)
+      nBatchInTot = floor(real(size(skham, dim=2), dp) / real(nDistPer1Bohr, dp))
+      do iSmallBatch = 1, nBatchInTot
+        iSmallBatchStart = (iSmallBatch - 1) * nDistPer1Bohr + 1
+        iSmallBatchEnd = iSmallBatch * nDistPer1Bohr
+        maxabs = max(maxval(abs(skham(:, iSmallBatchStart:iSmallBatchEnd))),&
+            & maxval(abs(skover(:, iSmallBatchStart:iSmallBatchEnd))))
+        if (maxabs < inp%epsilon) then
+          iEnd = max(iSmallBatch - 1, 1) * nDistPer1Bohr
+          skham = skham(:, 1:iEnd)
+          skover = skover(:, 1:iEnd)
+          exit
+        end if
+      end do
+    else
+      ! crop to full 1 Bohr batches (max. distance reached version)
+      nBatch = ceiling(((maxdist - inp%r0) / inp%dr + 1.0_dp) / real(nDistPer1Bohr, dp) - 1.0_dp)
+      skham = skham(:, 1:nBatch * nDistPer1Bohr)
+      skover = skover(:, 1:nBatch * nDistPer1Bohr)
+    end if
+
+  end subroutine cropData
+
+
   !> Calculates libXC renormalized density superposition of dimer.
   pure function getLibxcRho(rho) result(rhor)
 
@@ -797,7 +924,8 @@ contains
     tval = aa(1, :)
 
     if ((rval(2) < rval(1)) .or. (tval(2) > tval(1))) then
-      write(*,*) 'getDivergence: Expected ascending order in radii and descending order in theta!'
+      write(stdOut,*) 'getDivergence: Expected ascending order in radii and descending order in&
+          & theta!'
       stop
     end if
 
