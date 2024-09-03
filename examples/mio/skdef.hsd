@@ -477,4 +477,4 @@ TwoCenterParameters {
   Au-Au { Grid = $EqGrid; Calculator = $SkTwocnt_400_200 }
 }
 
-# skgen -o slateratom -t sktwocnt sktable H,O H,O |& tee -a output
+# skgen -o slateratom -t sktwocnt sktable H,O H,O |& tee output
