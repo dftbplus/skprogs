@@ -1,3 +1,35 @@
 [build-system]
-requires = ['setuptools', 'wheel', 'numpy', 'scipy']
-build-backend = 'setuptools.build_meta'
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "sktools"
+version = "0.3"
+authors = [{name = "DFTB+ developers"},]
+dependencies = ["numpy", "scipy"]
+requires-python = ">=3.10"
+description = "Tools to Generate Electronic SK-parameters"
+license = {text = "LGPLv3+"}
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)",
+  "Programming Language :: Python :: 3",
+  "Environment :: Console",
+  "Operating System :: OS Independent",
+  "Topic :: Scientific/Engineering",
+]
+
+[project.urls]
+Homepage = "http://www.dftbplus.org"
+Documentation = "https://dftbplus-recipes.readthedocs.io/en/latest/"
+Repository = "https://github.com/dftbplus/skprogs.git"
+Issues = "https://github.com/dftbplus/skprogs/issues"
+
+[project.scripts]
+collectspinw = "sktools.scripts.collectspinw:main"
+collectwavecoeffs = "sktools.scripts.collectwavecoeffs:main"
+skdiff = "sktools.scripts.skdiff:main"
+skexp = "sktools.scripts.skexp:main"
+skgen = "sktools.scripts.skgen:main"
+skmanip = "sktools.scripts.skmanip:main"
