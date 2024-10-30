@@ -22,11 +22,11 @@ module twocnt
   use, intrinsic :: iso_c_binding, only : c_size_t
 
   use xc_f03_lib_m, only : xc_f03_func_t, xc_f03_func_init, xc_f03_func_end, xc_f03_lda_vxc,&
-      & xc_f03_gga_vxc, xc_f03_mgga_vxc, XC_LDA_X, XC_LDA_X_YUKAWA, XC_LDA_C_PW, XC_GGA_X_PBE,&
-      & XC_GGA_C_PBE, XC_GGA_X_B88, XC_GGA_C_LYP, XC_GGA_X_SFAT_PBE, XC_MGGA_X_TPSS,&
-      & XC_MGGA_C_TPSS, XC_MGGA_X_SCAN, XC_MGGA_C_SCAN,  XC_MGGA_X_R2SCAN, XC_MGGA_C_R2SCAN,&
-      & XC_MGGA_X_R4SCAN, XC_MGGA_X_TASK, XC_HYB_GGA_XC_B3LYP, XC_HYB_GGA_XC_CAMY_B3LYP,&
-      & XC_MGGA_C_CC,  XC_UNPOLARIZED, xc_f03_func_set_ext_params
+      & xc_f03_gga_vxc, xc_f03_mgga_vxc, xc_f03_func_set_ext_params, xc_unpolarized
+  use xc_f03_funcs_m, only : XC_LDA_X, XC_LDA_X_YUKAWA, XC_LDA_C_PW, XC_GGA_X_PBE, XC_GGA_X_B88,&
+      & XC_GGA_X_SFAT_PBE, XC_HYB_GGA_XC_B3LYP, XC_HYB_GGA_XC_CAMY_B3LYP, XC_GGA_C_PBE,&
+      & XC_GGA_C_LYP, XC_MGGA_X_SCAN, XC_MGGA_X_R4SCAN, XC_MGGA_C_SCAN, XC_MGGA_X_TASK,&
+      & XC_MGGA_X_R2SCAN, XC_MGGA_C_R2SCAN, XC_MGGA_X_TPSS, XC_MGGA_C_TPSS, XC_MGGA_C_CC
 
   implicit none
   private
