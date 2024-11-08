@@ -83,14 +83,17 @@ module globals
   !> wavefunction coefficients
   real(dp), allocatable :: cof(:,:,:,:)
 
-  !> relative changes during scf
-  real(dp) :: orb_grad_norm
+  !> maximum (absolute) value in [F,PS] 
+  real(dp) :: commutator_max
 
   !> density matrix supervector
   real(dp), allocatable :: pp(:,:,:,:)
 
   !> fock matrix supervector
   real(dp), allocatable :: ff(:,:,:,:)
+
+  !> commutator [F, PS]
+  real(dp), allocatable :: commutator(:,:,:,:)
 
   !> potential matrix supervectors
   real(dp), allocatable :: pot_new(:,:,:,:), pot_old(:,:,:,:)
@@ -180,7 +183,7 @@ module globals
   logical :: tZora
 
   !> true, if SCF cycle reached convergency on a quantity
-  logical :: tOrbGradConverged, tEnergyConverged, tEigenspectrumConverged
+  logical :: tCommutatorConverged, tEnergyConverged, tEigenspectrumConverged
 
   !> identifier of mixer
   integer :: mixnr
@@ -235,6 +238,7 @@ contains
     allocate(tt(0:max_l, problemsize, problemsize))
     allocate(vconf(0:max_l, problemsize, problemsize))
     allocate(ff(2, 0:max_l, problemsize, problemsize))
+    allocate(commutator(2, 0:max_l, problemsize, problemsize))
     allocate(pot_old(2, 0:max_l, problemsize, problemsize))
     allocate(pot_new(2, 0:max_l, problemsize, problemsize))
 

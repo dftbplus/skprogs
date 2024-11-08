@@ -16,7 +16,8 @@ program HFAtom
   use totalenergy, only : getTotalEnergy, getTotalEnergyZora
   use dft, only : check_accuracy, density_grid
   use utilities, only : check_electron_number, check_convergence_energy,&
-      & check_convergence_orbgrad, check_convergence_eigenspectrum
+      & check_convergence_commutator, check_convergence_eigenspectrum,&
+      & compute_commutator
   use zora_routines, only : scaled_zora
   use cmdargs, only : parse_command_arguments
   use common_poisson, only : TBeckeGridParams
@@ -101,7 +102,7 @@ program HFAtom
   call confinement(vconf, max_l, num_alpha, alpha, poly_order, conf_r0, conf_power)
 
   ! test for linear dependency
-  call diagonalize_overlap(max_l, num_alpha, poly_order, ss)
+  call diagonalize_overlap(max_l, num_alpha, poly_order, ss, ss_invsqrt)
 
   ! build supermatrices
   write(*, '(A)') 'Startup: Building Supermatrices'
@@ -118,7 +119,7 @@ program HFAtom
   end if
 
   ! convergence flags
-  tOrbGradConverged = .false.
+  tCommutatorConverged = .false.
   tEnergyConverged = .false.
   tEigenspectrumConverged = .false.
 
@@ -144,7 +145,7 @@ program HFAtom
   ! self-consistency cycles
   write(*,*) 'Energies in Hartree'
   write(*,*)
-  write(*,*) ' Iter |   Total energy  |   HF-X energy  |   XC energy   |   Orbital gradient norm   &
+  write(*,*) ' Iter |   Total energy  |   HF-X energy  |   XC energy   |   max(abs([F,PS]))   &
       & | Delta (Total energy) | Delta (spectrum)'
   write(*,*) '-------------------------------------------------------------------------------------&
       & ------------------------------------------'
@@ -180,8 +181,9 @@ program HFAtom
           & nuclear_energy, coulomb_energy, exchange_energy, x_en_2, conf_energy, total_ene)
     end if
 
-    call check_convergence_orbgrad(max_l, num_alpha, poly_order, ff, cof, occ, scftol, iScf,&
-        & orb_grad_norm, tOrbGradConverged)
+    call compute_commutator(max_l, num_alpha, poly_order, ff, pp, ss, ss_invsqrt, commutator)
+    call check_convergence_commutator(commutator, scftol, iScf, commutator_max,&
+        & tCommutatorConverged)
     call check_convergence_energy(total_ene_old, total_ene, scftol, iScf, total_ene_diff,&
         & tEnergyConverged)
     call check_convergence_eigenspectrum(max_l, num_alpha, poly_order, eigval, eigval_old, occ,&
@@ -189,10 +191,10 @@ program HFAtom
 
     ! Print SCF loop information
     write(*, '(I4,2X,3(1X,F16.9),7X,E16.9,8X,E16.9,8X,E16.9)') iScf, total_ene, exchange_energy, x_en_2,&
-        & orb_grad_norm, total_ene_diff, eigval_diff
+        & commutator_max, total_ene_diff, eigval_diff
 
     ! if self-consistency is reached, exit loop
-    if (tOrbGradConverged .and. tEnergyConverged .and. tEigenspectrumConverged) exit lpScf
+    if (tCommutatorConverged .and. tEnergyConverged .and. tEigenspectrumConverged) exit lpScf
 
     ! check conservation of number of electrons during SCF
     call check_electron_number(cof, ss, occ, max_l, num_alpha, poly_order, problemsize)
@@ -202,7 +204,7 @@ program HFAtom
   end do lpScf
 
   ! handle non-converged calculations
-  if (.not. (tEnergyConverged .and. tOrbGradConverged .and. tEigenspectrumConverged)) then
+  if (.not. (tEnergyConverged .and. tCommutatorConverged .and. tEigenspectrumConverged)) then
     call error('SCF is NOT converged, maximal SCF iterations exceeded.')
   end if
 
@@ -234,7 +236,7 @@ program HFAtom
         & conf_energy, total_ene)
   end if
 
-  write(*, '(A,E20.12)') 'Occupied-virtual orbital gradient converged to ', orb_grad_norm
+  write(*, '(A,E20.12)') '[F,PS] converged to', commutator_max
   write(*, '(A)') ' '
 
   if (tZora) then
