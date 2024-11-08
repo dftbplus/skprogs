@@ -59,6 +59,9 @@ module globals
   !> overlap supervector
   real(dp), allocatable :: ss(:,:,:)
 
+  !> Inverse square root of the overlap supervector
+  real(dp), allocatable :: ss_invsqrt(:,:,:)
+
   !> nucleus-electron supervector
   real(dp), allocatable :: uu(:,:,:)
 
@@ -225,6 +228,7 @@ contains
     allocate(vxc(num_mesh_points, 2))
 
     allocate(ss(0:max_l, problemsize, problemsize))
+    allocate(ss_invsqrt(0:max_l, problemsize, problemsize))
     write(*, '(A,I0,A)') 'Size of one Supervectors is ', size(ss), ' double precision elements'
 
     allocate(uu(0:max_l, problemsize, problemsize))

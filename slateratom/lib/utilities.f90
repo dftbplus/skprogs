@@ -63,10 +63,6 @@ contains
 
     change_max = 0.0_dp
 
-    if (iScf < 3) then
-      tConverged = .false.
-    end if
-
     do ii = 1, 2
       do jj = 0, max_l
         do kk = 1, problemsize
@@ -83,11 +79,15 @@ contains
       tConverged = .false.
     end if
 
+    if (iScf < 3) then
+      tConverged = .false.
+    end if
+
   end subroutine check_convergence_pot
 
 
   !> Checks SCF convergence by computing the occupied-virtual orbital gradient norm.
-  !! see, for example, Molecules 25(5), 1218 (2020) eqn. 46.
+  !! see, for example, 10.3390/molecules25051218 eqn. 46.
   pure subroutine check_convergence_orbgrad(max_l, num_alpha, poly_order, fock, coef, occ, scftol,&
       & iScf, gradnorm, tConverged)
 
@@ -130,22 +130,19 @@ contains
 
     gradnorm = 0.0_dp
 
-    if (iScf < 3) then
-      tConverged = .false.
-    end if
-
     do iSpin = 1, 2
       do ll = 0, max_l
         diagsize = num_alpha(ll) * poly_order(ll)
         allocate(fock_mo(diagsize, diagsize), source=0.0_dp)
 
         ! Compute Fock matrix in MO basis
-        fock_mo(:,:) = matmul(fock(iSpin, ll, :,:), coef(iSpin, ll, :,:))
-        fock_mo(:,:) = matmul(transpose(coef(iSpin, ll, :,:)), fock_mo)
+        fock_mo = matmul(fock(iSpin, ll, :,:), coef(iSpin, ll, :,:))
+        fock_mo = matmul(transpose(coef(iSpin, ll, :,:)), fock_mo)
 
         ! Compute orbital gradient norm
         do ii = 1, diagsize
 
+          ! Only off-diagonals contribute
           aa = 1
           do while (aa <= ii)
             aa = aa + 1
@@ -155,7 +152,8 @@ contains
             ! Only occupied-virtual block contributes
             occ_ii = abs(occ(iSpin, ll, ii))
             occ_aa = abs(occ(iSpin, ll, aa))
-            if (occ_ii < 1e-16 .neqv. occ_aa < 1e-16) then
+
+            if ((occ_ii < 1e-16) .neqv. (occ_aa < 1e-16)) then
               gradnorm = gradnorm + (-2.0_dp * fock_mo(ii, aa))**2
             end if
             aa = aa + 1
@@ -170,7 +168,38 @@ contains
 
     tConverged = gradnorm < scftol
 
+    if (iScf < 3) then
+      tConverged = .false.
+    end if
+
   end subroutine check_convergence_orbgrad
+
+  !> Compute the SCF error as a commutator [F, DS] in MO basis  
+  pure subroutine commutator_error(max_l, num_alpha, poly_order, ff, pp, ss, ss_invsqrt)
+    !> maximum angular momentum
+    integer, intent(in) :: max_l
+
+    !> number of exponents in each shell
+    integer, intent(in) :: num_alpha(0:)
+
+    !> highest polynomial order + l in each shell
+    integer, intent(in) :: poly_order(0:)
+
+    !> Fock matrix
+    real(dp), intent(in) :: ff(:, 0:, :, :)
+
+    !> density matrix supervector
+    real(dp), intent(in) :: pp(:,0:,:,:)
+
+    !> overlap supervector
+    real(dp), intent(in) :: ss(0:,:,:)
+
+    !> overlap supervector
+    real(dp), intent(in) :: ss_invsqrt(0:,:,:)
+
+    !! auxilliary variables
+    integer :: iSpin, ll, diagsize, ii, aa
+  end subroutine 
 
 
   !> Checks convergence by computing energy change from the last SCF iteration.
@@ -193,13 +222,13 @@ contains
 
     change = 0.0_dp
 
-    if (iScf < 3) then
-      tConverged = .false.
-    end if
-
     change = abs(energy_new - energy_old)
 
     tConverged = change < scftol
+
+    if (iScf < 3) then
+      tConverged = .false.
+    end if
 
   end subroutine check_convergence_energy
 
@@ -243,10 +272,6 @@ contains
 
     change = 0.0_dp
 
-    if (iScf < 3) then
-      tConverged = .false.
-    end if
-
     ! Frobenius norm, but only occupied states contribute 
     do iSpin = 1, 2
       do ll = 0, max_l
@@ -261,6 +286,10 @@ contains
     end do
 
     tConverged = change < scftol
+
+    if (iScf < 3) then
+      tConverged = .false.
+    end if
 
   end subroutine check_convergence_eigenspectrum
 
