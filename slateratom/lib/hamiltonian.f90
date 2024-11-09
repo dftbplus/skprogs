@@ -19,7 +19,7 @@ contains
   !> Main driver routine for Fock matrix build-up. Also calls mixer with potential matrix.
   subroutine build_hamiltonian(pMixer, iScf, tt, uu, nuc, vconf, jj, kk, kk_lr, pp, max_l,&
       & num_alpha, poly_order, problemsize, xcnr, num_mesh_points, weight, abcissa, vxc, vtau,&
-      & alpha, pot_old, pot_new, tZora, ff, camAlpha, camBeta)
+      & alpha, pot_old, pot_new, tZora, ff, commutator, camAlpha, camBeta)
 
     !> mixer instances
     type(TMixer), intent(inout) :: pMixer
@@ -95,6 +95,9 @@ contains
 
     !> fock matrix supervector
     real(dp), intent(out) :: ff(:,0:,:,:)
+
+    !> commutator [F,PS]
+    real(dp), intent(out) :: commutator(:,0:,:,:)
 
     !> CAM alpha parameter
     real(dp), intent(in) :: camAlpha
@@ -191,9 +194,10 @@ contains
     ! mixer
     allocate(pot_diff, mold=pot_old)
     pot_diff(:,0:,:,:) = pot_old - pot_new
+    
     if (iScf /= 0) then
       ! Do not call mixer on the 0th (guess) iteration
-      call TMixer_mix(pMixer, pot_new, pot_diff)
+      call TMixer_mix(pMixer, pot_new, pot_diff, commutator)
     end if
 
     ! Not sure: before or after mixer (potential .ne. Matrix elements)?

@@ -5,6 +5,7 @@ module globals
   use mixer, only : TMixer, TMixer_init, TMixer_reset, mixerTypes
   use broydenmixer, only : TBroydenMixer, TBroydenMixer_init
   use simplemixer, only : TSimpleMixer, TSimpleMixer_init
+  use diis, only : TDIISMixer, TDIISMixer_init
 
   implicit none
 
@@ -197,6 +198,9 @@ module globals
   !> broyden mixer (if used)
   type(TBroydenMixer), allocatable :: pBroydenMixer
 
+  !> DIIS mixer (if used)
+  type(TDIISMixer), allocatable :: pDIISMixer
+
   !> mixing factor
   real(dp) :: mixing_factor
 
@@ -289,6 +293,9 @@ contains
       call TBroydenMixer_init(pBroydenMixer, maxiter, mixing_factor, 0.01_dp, 1.0_dp, 1.0e5_dp,&
           & 1.0e-2_dp)
       call TMixer_init(pMixer, pBroydenMixer)
+    case(mixerTypes%diis)
+      call TDIISMixer_init(pDIISMixer, 5, maxiter, mixing_factor, max_l, num_alpha, poly_order)
+      call TMixer_init(pMixer, pDIISMixer)
     case default
       error stop "Unknown mixer type."
     end select

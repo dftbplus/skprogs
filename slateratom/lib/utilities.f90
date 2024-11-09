@@ -85,11 +85,13 @@ contains
 
   end subroutine check_convergence_pot
 
-  ! Check convergence by finding the maximum absolute value of the orbital commutator [F,PS]
-  pure subroutine check_convergence_commutator(bracket, scftol, iScf, bracket_max, tConverged)
+
+  !> Check convergence by finding the maximum absolute value of the orbital commutator [F,PS]
+  pure subroutine check_convergence_commutator(commutator, scftol, iScf, commutator_max,&
+      & tConverged)
 
     !> commutator [F, PS]
-    real(dp), intent(in) :: bracket(:, 0:, :, :)
+    real(dp), intent(in) :: commutator(:, 0:, :, :)
 
     !> scf tolerance, i.e. convergence criteria
     real(dp), intent(in) :: scftol
@@ -98,14 +100,14 @@ contains
     integer, intent(in) :: iScf
 
     !> orbital gradient norm value
-    real(dp), intent(out) :: bracket_max
+    real(dp), intent(out) :: commutator_max
 
     !> true, if SCF converged
     logical, intent(out) :: tConverged
 
-    bracket_max = maxval(abs(bracket))
+    commutator_max = maxval(abs(commutator))
 
-    tConverged = bracket_max < scftol
+    tConverged = commutator_max < scftol
 
     if (iScf < 3) then
       tConverged = .false.
@@ -113,9 +115,10 @@ contains
 
   end subroutine check_convergence_commutator
 
-  !> Compute the SCF error as a commutator [F, PS] in MO basis  
+
+  !> Compute the commutator [F,PS] in MO basis  
   subroutine compute_commutator(max_l, num_alpha, poly_order, ff, pp, ss, ss_invsqrt,&
-      & bracket)
+      & commutator)
     !> maximum angular momentum
     integer, intent(in) :: max_l
 
@@ -137,28 +140,36 @@ contains
     !> overlap supervector
     real(dp), intent(in) :: ss_invsqrt(0:,:,:)
 
-    !> commutator [F, PS]
-    real(dp), intent(out) :: bracket(:, 0:, :, :)
+    !> commutator [F,PS]
+    real(dp), intent(out) :: commutator(:, 0:, :, :)
 
     !! auxilliary variables
-    integer :: iSpin, ll
+    integer :: iSpin, ll, diagsize
 
+    commutator = 0.0_dp
     do iSpin = 1, 2
       do ll = 0, max_l
-        ! Compute [F, PS]= FPS - SPF
-        bracket(iSpin, ll, :, :) = matmul(ff(iSpin, ll, :, :), matmul(pp(iSpin, ll, :, :), &
-            & ss(ll,:,:))) - matmul(matmul(ss(ll,:,:), pp(iSpin, ll, :, :)),&
-            & ff(iSpin, ll, :, :))
-        ! Transpose to MO basis: T(S^(-1/2)) @ [F, PS] @ S^(-1/2)
-        bracket(iSpin, ll, :, :) = matmul(transpose(ss_invsqrt(ll, :, :)), &
-          & matmul(bracket(iSpin, ll, :, :), ss_invsqrt(ll, :, :)))
+
+        ! Compute [F,PS]= FPS - SPF
+        diagsize = num_alpha(ll) * poly_order(ll)
+        commutator(iSpin, ll, :, :) = matmul(ff(iSpin, ll, 1:diagsize, 1:diagsize),&
+            & matmul(pp(iSpin, ll, 1:diagsize, 1:diagsize), ss(ll,1:diagsize,1:diagsize)))&
+            & - matmul(matmul(ss(ll,1:diagsize,1:diagsize),&
+            & pp(iSpin, ll, 1:diagsize, 1:diagsize)), ff(iSpin, ll, 1:diagsize, 1:diagsize))
+
+        ! Transform to MO basis: T(S^(-1/2)) @ [F,PS] @ S^(-1/2)
+        commutator(iSpin, ll, :, :) = matmul(transpose(ss_invsqrt(ll, 1:diagsize, 1:diagsize)), &
+          & matmul(commutator(iSpin, ll, 1:diagsize, 1:diagsize), ss_invsqrt(ll, 1:diagsize, 1:diagsize)))
+
       end do
     end do
 
   end subroutine 
 
+
   !> Checks convergence by computing energy change from the last SCF iteration.
-  pure subroutine check_convergence_energy(energy_old, energy_new, scftol, iScf, change, tConverged)
+  pure subroutine check_convergence_energy(energy_old, energy_new, scftol, iScf, change,&
+      & tConverged)
 
     !> old and new energy to compare
     real(dp), intent(in) :: energy_new, energy_old
@@ -177,9 +188,8 @@ contains
 
     change = 0.0_dp
 
-    change = abs(energy_new - energy_old)
-
-    tConverged = change < scftol
+    change = energy_new - energy_old
+    tConverged = abs(change) < scftol
 
     if (iScf < 3) then
       tConverged = .false.

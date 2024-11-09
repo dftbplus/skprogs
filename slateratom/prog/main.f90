@@ -140,7 +140,7 @@ program HFAtom
   ! kinetic energy, nuclear-electron, and confinement matrix elements which are constant during SCF
   call build_hamiltonian(pMixer, 0, tt, uu, nuc, vconf, jj, kk, kk_lr, pp, max_l, num_alpha,&
       & poly_order, problemsize, xcnr, num_mesh_points, weight, abcissa, vxc, vtau, alpha, pot_old,&
-      & pot_new, tZora, ff, camAlpha, camBeta)
+      & pot_new, tZora, ff, commutator, camAlpha, camBeta)
 
   ! self-consistency cycles
   write(*,*) 'Energies in Hartree'
@@ -168,7 +168,10 @@ program HFAtom
     ! build Fock matrix and get total energy during SCF
     call build_hamiltonian(pMixer, iScf, tt, uu, nuc, vconf, jj, kk, kk_lr, pp, max_l, num_alpha,&
         & poly_order, problemsize, xcnr, num_mesh_points, weight, abcissa, vxc, vtau, alpha,&
-        & pot_old, pot_new, tZora, ff, camAlpha, camBeta)
+        & pot_old, pot_new, tZora, ff, commutator, camAlpha, camBeta)
+
+    ! compute [F,PS]
+    call compute_commutator(max_l, num_alpha, poly_order, ff, pp, ss, ss_invsqrt, commutator)
 
     if (tZora) then
       call getTotalEnergyZora(tt, uu, nuc, vconf, jj, kk, kk_lr, pp, max_l, num_alpha, poly_order,&
@@ -181,7 +184,6 @@ program HFAtom
           & nuclear_energy, coulomb_energy, exchange_energy, x_en_2, conf_energy, total_ene)
     end if
 
-    call compute_commutator(max_l, num_alpha, poly_order, ff, pp, ss, ss_invsqrt, commutator)
     call check_convergence_commutator(commutator, scftol, iScf, commutator_max,&
         & tCommutatorConverged)
     call check_convergence_energy(total_ene_old, total_ene, scftol, iScf, total_ene_diff,&
