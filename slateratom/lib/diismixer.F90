@@ -39,7 +39,7 @@ module diismixer
     real(dp), allocatable :: prevQInput(:,:)
 
     !> Stored prev. charge differences
-    real(dp), allocatable :: prevQDiff(:,:)
+    real(dp), allocatable :: previousMetric(:,:)
 
     !> True if DIIS used from iteration 2 as well as mixing
     logical :: tFromStart
@@ -81,7 +81,7 @@ contains
     this%mPrevVector = nGeneration
 
     allocate(this%prevQInput(this%nElem, this%mPrevVector))
-    allocate(this%prevQDiff(this%nElem, this%mPrevVector))
+    allocate(this%previousMetric(this%nElem, this%mPrevVector))
 
     this%initMixParam = initMixParam
 
@@ -120,9 +120,9 @@ contains
     if (nElem /= this%nElem) then
       this%nElem = nElem
       deallocate(this%prevQInput)
-      deallocate(this%prevQDiff)
+      deallocate(this%previousMetric)
       allocate(this%prevQInput(this%nElem, this%mPrevVector))
-      allocate(this%prevQDiff(this%nElem, this%mPrevVector))
+      allocate(this%previousMetric(this%nElem, this%mPrevVector))
       if (this%tAddIntrpGradient) then
         deallocate(this%deltaR)
         allocate(this%deltaR(this%nElem))
@@ -136,7 +136,7 @@ contains
 
 
   !> Mixes charges according to the DIIS method.
-  subroutine TDiisMixer_mix(this, qInpResult, qDiff)
+  subroutine TDiisMixer_mix(this, qInpResult, qDiff, commtr)
 
     !> Pointer to the diis mixer
     type(TDiisMixer), intent(inout) :: this
@@ -146,6 +146,9 @@ contains
 
     !> Charge difference vector between output and input charges
     real(dp), intent(in) :: qDiff(:)
+
+    !> Commutator [F,PS] (flattened)
+    real(dp), intent(in) :: commtr(:)
 
     real(dp), allocatable :: aa(:,:), bb(:,:)
     integer :: ii, jj
@@ -157,22 +160,13 @@ contains
       this%iPrevVector = this%iPrevVector + 1
     end if
 
-    call storeVectors_(this%prevQInput, this%prevQDiff, this%indx, qInpResult, qDiff,&
+    ! Store previous Fock matrix and commutator
+    call storeVectors_(this%prevQInput, this%previousMetric, this%indx, qInpResult, commtr,&
         & this%mPrevVector)
+    ! call storeVectors_(this%prevQInput, this%prevQDiff, this%indx, qInpResult, qDiff,&
+        ! & this%mPrevVector)
 
     if (this%tFromStart .or. this%iPrevVector == this%mPrevVector) then
-
-      if (this%tAddIntrpGradient) then
-        ! old DIIS estimate for downhill direction points towards current downhill direction as well
-        ! as the actual vector, based on P. Briddon comments
-        if (abs(dot_product(this%deltaR, qDiff)) > 0.0_dp) then
-          ! mix in larger amounts of the gradient in future
-          this%alpha = 1.5_dp * this%alpha
-        else
-          ! points the other way, mix in less
-          this%alpha = 0.5 * this%alpha
-        end if
-      end if
 
       allocate(aa(this%iPrevVector + 1, this%iPrevVector + 1))
       allocate(bb(this%iPrevVector + 1, 1))
@@ -183,7 +177,7 @@ contains
       ! (due to the hermitian property of our density matrices, the dot-product below is real)
       do ii = 1, this%iPrevVector
         do jj = 1, this%iPrevVector
-          aa(ii, jj) = dot_product(this%prevQDiff(:, ii), this%prevQDiff(:, jj))
+          aa(ii, jj) = dot_product(this%previousMetric(:, ii), this%previousMetric(:, jj))
         end do
       end do
       aa(this%iPrevVector + 1, 1:this%iPrevVector) = -1.0_dp
@@ -196,17 +190,10 @@ contains
 
       qInpResult(:) = 0.0_dp
       do ii = 1, this%iPrevVector
-        qInpResult(:) = qInpResult + bb(ii, 1) * (this%prevQInput(:, ii) + this%prevQDiff(:, ii))
+        qInpResult(:) = qInpResult + bb(ii, 1) * (this%prevQInput(:, ii))
+        ! qInpResult(:) = qInpResult + bb(ii, 1) * (this%prevQInput(:, ii) +&
+            ! & this%previousMetric(:, ii))
       end do
-
-      if (this%tAddIntrpGradient) then
-        ! add a fraction down the DIIS estimated gradient onto the new solution
-        this%deltaR(:) = 0.0_dp
-        do ii = 1, this%iPrevVector
-          this%deltaR(:) = this%deltaR + bb(ii, 1) * this%prevQDiff(:, ii)
-        end do
-        qInpResult(:) = qInpResult - this%alpha * this%deltaR
-      end if
 
     end if
 

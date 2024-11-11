@@ -295,12 +295,7 @@ contains
       call TMixer_init(pMixer, pBroydenMixer)
     case(mixerTypes%diis)
       allocate(pDiisMixer)
-
-      ! with no GDIIS:
       call TDiisMixer_init(pDiisMixer, 10, mixing_factor, .false.)
-      ! with GDIIS:
-      ! call TDiisMixer_init(pDiisMixer, 5, mixing_factor, .false., alpha)
-
       call TMixer_init(pMixer, pDiisMixer)
     case default
       error stop "Unknown mixer type."

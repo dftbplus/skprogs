@@ -97,7 +97,7 @@ contains
     real(dp), intent(out) :: ff(:,0:,:,:)
 
     !> commutator [F,PS]
-    real(dp), intent(in) :: commutator(:,0:,:,:)
+    real(dp), intent(inout) :: commutator(:,0:,:,:)
 
     !> CAM alpha parameter
     real(dp), intent(in) :: camAlpha
@@ -194,11 +194,13 @@ contains
     ! mixer
     allocate(pot_diff, mold=pot_old)
     pot_diff(:,0:,:,:) = pot_old - pot_new
-    
+
+    ! TODO:
+    ! compute commutator [F,PS] here?
+
     if (iScf /= 0) then
       ! Do not call mixer on the 0th (guess) iteration
-      call TMixer_mix(pMixer, pot_new, pot_diff)
-      ! call TMixer_mix(pMixer, pot_new, commutator)
+      call TMixer_mix(pMixer, pot_new, pot_diff, commutator)
     end if
 
     ! Not sure: before or after mixer (potential .ne. Matrix elements)?

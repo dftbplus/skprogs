@@ -121,7 +121,7 @@ contains
 
 
   !> Mixes two vectors.
-  subroutine TMixer_mix1D(this, inp, diff)
+  subroutine TMixer_mix1D(this, inp, diff, commtr)
 
     !> Mixer instance
     type(TMixer), intent(inout) :: this
@@ -132,20 +132,23 @@ contains
     !> Difference between input and output vectors (measure of lack of convergence)
     real(dp), intent(in) :: diff(:)
 
+    !> Commutator [F,PS]
+    real(dp), intent(in) :: commtr(:)
+
     select case (this%mixerType)
     case(mixerTypes%simple)
       call TSimpleMixer_mix(this%pSimpleMixer, inp, diff)
     case(mixerTypes%broyden)
       call TBroydenMixer_mix(this%pBroydenMixer, inp, diff)
     case(mixerTypes%diis)
-      call TDiisMixer_mix(this%pDiisMixer, inp, diff)
+      call TDiisMixer_mix(this%pDiisMixer, inp, diff, commtr)
     end select
 
   end subroutine TMixer_mix1D
 
 
   !> Mixes two 4D matrices.
-  subroutine TMixer_mix4D(this, inp, diff)
+  subroutine TMixer_mix4D(this, inp, diff, commtr)
 
     !> Mixer instance
     type(TMixer), intent(inout) :: this
@@ -156,16 +159,23 @@ contains
     !> Difference between input and output vectors (measure of lack of convergence)
     real(dp), intent(in), contiguous, target :: diff(:,0:,:,:)
 
+    !> Commutator [F,PS]
+    real(dp), intent(in), contiguous, target :: commtr(:,0:,:,:)
+
     !! Difference between input and output vectors (1D pointer)
     real(dp), pointer :: pDiff(:)
 
     !! Input vector on entry, result vector on exit (1D pointer)
     real(dp), pointer :: pInp(:)
 
+    !! Commutator [F,PS]
+    real(dp), pointer :: pCommtr(:)
+
     pInp(1:size(inp)) => inp
     pDiff(1:size(diff)) => diff
+    pCommtr(1:size(diff)) => commtr
 
-    call TMixer_mix1D(this, pInp, pDiff)
+    call TMixer_mix1D(this, pInp, pDiff, pCommtr)
 
   end subroutine TMixer_mix4D
 
