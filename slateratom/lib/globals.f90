@@ -294,7 +294,8 @@ contains
           & 1.0e-2_dp)
       call TMixer_init(pMixer, pBroydenMixer)
     case(mixerTypes%diis)
-      call TDIISMixer_init(pDIISMixer, 5, maxiter, mixing_factor, max_l, num_alpha, poly_order)
+      allocate(pDIISMixer)
+      call TDIISMixer_init(pDIISMixer, 5, maxiter, mixing_factor, max_l, problemsize)
       call TMixer_init(pMixer, pDIISMixer)
     case default
       error stop "Unknown mixer type."

@@ -97,7 +97,7 @@ contains
     real(dp), intent(out) :: ff(:,0:,:,:)
 
     !> commutator [F,PS]
-    real(dp), intent(out) :: commutator(:,0:,:,:)
+    real(dp), intent(in) :: commutator(:,0:,:,:)
 
     !> CAM alpha parameter
     real(dp), intent(in) :: camAlpha
