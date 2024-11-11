@@ -297,7 +297,7 @@ contains
       allocate(pDiisMixer)
 
       ! with no GDIIS:
-      call TDiisMixer_init(pDiisMixer, 5, mixing_factor, .false.)
+      call TDiisMixer_init(pDiisMixer, 10, mixing_factor, .false.)
       ! with GDIIS:
       ! call TDiisMixer_init(pDiisMixer, 5, mixing_factor, .false., alpha)
 
