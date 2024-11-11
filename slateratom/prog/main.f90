@@ -102,7 +102,7 @@ program HFAtom
   call confinement(vconf, max_l, num_alpha, alpha, poly_order, conf_r0, conf_power)
 
   ! test for linear dependency
-  call diagonalize_overlap(max_l, num_alpha, poly_order, ss, ss_invsqrt)
+  call diagonalize_overlap(max_l, num_alpha, poly_order, ss)
 
   ! build supermatrices
   write(*, '(A)') 'Startup: Building Supermatrices'
@@ -171,7 +171,7 @@ program HFAtom
         & pot_old, pot_new, tZora, ff, commutator, camAlpha, camBeta)
 
     ! compute [F,PS]
-    call compute_commutator(max_l, num_alpha, poly_order, ff, pp, ss, ss_invsqrt, commutator)
+    call compute_commutator(max_l, num_alpha, poly_order, ff, pp, ss, commutator)
 
     if (tZora) then
       call getTotalEnergyZora(tt, uu, nuc, vconf, jj, kk, kk_lr, pp, max_l, num_alpha, poly_order,&

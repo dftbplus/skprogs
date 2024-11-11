@@ -14,7 +14,7 @@ contains
 
   !> Diagonalizes overlap matrix to check for linear dependency of basis set.
   !! Implicitely LAPACK's dsyev is called.
-  subroutine diagonalize_overlap(max_l, num_alpha, poly_order, ss, ss_invsqrt)
+  subroutine diagonalize_overlap(max_l, num_alpha, poly_order, ss)
 
     !> maximum angular momentum
     integer, intent(in) :: max_l
@@ -28,11 +28,8 @@ contains
     !> overlap supervector
     real(dp), intent(in) :: ss(0:, :,:)
 
-    !> inverse square root of overlap supervector
-    real(dp), intent(out) :: ss_invsqrt(0:,:,:)
-
     !! overlap matrices
-    real(dp), allocatable :: overlap(:,:), overlap_diag(:,:)
+    real(dp), allocatable :: overlap(:,:)
 
     !! eigenvalues of overlap matrices
     real(dp), allocatable :: eigenvalues(:)
@@ -48,8 +45,6 @@ contains
       eigenvalues(:) = 0.0_dp
 
       overlap = ss(ll, :,:)
-      allocate(overlap_diag, mold=overlap)
-      overlap_diag(:,:) = 0.0_dp
 
       call heev(overlap, eigenvalues, 'U', 'V')
 
@@ -62,12 +57,7 @@ contains
         stop
       end if
 
-      ! Compute and store S^(-1/2)
-      do ii = 1, diagsize
-        overlap_diag(ii, ii) = 1.0_dp/sqrt(eigenvalues(ii))
-      end do
-      ss_invsqrt(ll,:,:) = matmul(overlap, matmul(overlap_diag, transpose(overlap)))
-      deallocate(overlap, eigenvalues, overlap_diag)
+      deallocate(overlap, eigenvalues)
 
     end do
     write(*,*) ' '

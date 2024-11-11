@@ -60,9 +60,6 @@ module globals
   !> overlap supervector
   real(dp), allocatable :: ss(:,:,:)
 
-  !> Inverse square root of the overlap supervector
-  real(dp), allocatable :: ss_invsqrt(:,:,:)
-
   !> nucleus-electron supervector
   real(dp), allocatable :: uu(:,:,:)
 
@@ -189,6 +186,9 @@ module globals
   !> identifier of mixer
   integer :: mixnr
 
+  !> DIIS subspace size
+  integer, parameter :: n_vec_diis = 10
+
   !> mixer instance
   type(TMixer), allocatable :: pMixer
 
@@ -235,7 +235,6 @@ contains
     allocate(vxc(num_mesh_points, 2))
 
     allocate(ss(0:max_l, problemsize, problemsize))
-    allocate(ss_invsqrt(0:max_l, problemsize, problemsize))
     write(*, '(A,I0,A)') 'Size of one Supervectors is ', size(ss), ' double precision elements'
 
     allocate(uu(0:max_l, problemsize, problemsize))
@@ -295,7 +294,7 @@ contains
       call TMixer_init(pMixer, pBroydenMixer)
     case(mixerTypes%diis)
       allocate(pDiisMixer)
-      call TDiisMixer_init(pDiisMixer, 10, mixing_factor, .false.)
+      call TDiisMixer_init(pDiisMixer, n_vec_diis, mixing_factor, .false.)
       call TMixer_init(pMixer, pDiisMixer)
     case default
       error stop "Unknown mixer type."

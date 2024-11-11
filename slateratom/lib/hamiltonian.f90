@@ -5,8 +5,9 @@ module hamiltonian
   use dft, only : dft_exc_matrixelement
   use mixer, only : TMixer, TMixer_mix
   use zora_routines, only : zora_t_correction
+  use utilities, only : compute_commutator
   use xcfunctionals, only : xcFunctional
-
+  
   implicit none
   private
 
@@ -194,9 +195,6 @@ contains
     ! mixer
     allocate(pot_diff, mold=pot_old)
     pot_diff(:,0:,:,:) = pot_old - pot_new
-
-    ! TODO:
-    ! compute commutator [F,PS] here?
 
     if (iScf /= 0) then
       ! Do not call mixer on the 0th (guess) iteration

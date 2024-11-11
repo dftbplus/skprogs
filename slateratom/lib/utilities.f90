@@ -117,8 +117,7 @@ contains
 
 
   !> Compute the commutator [F,PS] in MO basis  
-  subroutine compute_commutator(max_l, num_alpha, poly_order, ff, pp, ss, ss_invsqrt,&
-      & commutator)
+  subroutine compute_commutator(max_l, num_alpha, poly_order, ff, pp, ss, commutator)
     !> maximum angular momentum
     integer, intent(in) :: max_l
 
@@ -137,32 +136,30 @@ contains
     !> overlap supervector
     real(dp), intent(in) :: ss(0:,:,:)
 
-    !> overlap supervector
-    real(dp), intent(in) :: ss_invsqrt(0:,:,:)
-
     !> commutator [F,PS]
     real(dp), intent(out) :: commutator(:, 0:, :, :)
 
     !! auxilliary variables
     integer :: iSpin, ll, diagsize
+    real(dp), allocatable :: fps(:,:), spf(:,:)
 
     commutator = 0.0_dp
+
+    diagsize = size(ff, dim=4)
+    allocate(fps(diagsize, diagsize))
+    allocate(spf(diagsize, diagsize))
+
     do iSpin = 1, 2
       do ll = 0, max_l
-
         ! Compute [F,PS]= FPS - SPF
-        diagsize = num_alpha(ll) * poly_order(ll)
-        commutator(iSpin, ll, :, :) = matmul(ff(iSpin, ll, 1:diagsize, 1:diagsize),&
-            & matmul(pp(iSpin, ll, 1:diagsize, 1:diagsize), ss(ll,1:diagsize,1:diagsize)))&
-            & - matmul(matmul(ss(ll,1:diagsize,1:diagsize),&
-            & pp(iSpin, ll, 1:diagsize, 1:diagsize)), ff(iSpin, ll, 1:diagsize, 1:diagsize))
-
-        ! Transform to MO basis: T(S^(-1/2)) @ [F,PS] @ S^(-1/2)
-        commutator(iSpin, ll, :, :) = matmul(transpose(ss_invsqrt(ll, 1:diagsize, 1:diagsize)), &
-          & matmul(commutator(iSpin, ll, 1:diagsize, 1:diagsize), ss_invsqrt(ll, 1:diagsize, 1:diagsize)))
-
+        fps = matmul(ff(iSpin, ll, :, :), matmul(pp(iSpin, ll, :, :), ss(ll, :, :)))
+        spf = matmul(matmul(ss(ll, :, :), pp(iSpin, ll, :, :)), ff(iSpin, ll, :, :))
+        commutator(iSpin, ll, :, :) = fps - spf
       end do
     end do
+
+    deallocate(fps)
+    deallocate(spf)
 
   end subroutine 
 

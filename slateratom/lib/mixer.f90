@@ -86,6 +86,7 @@ contains
 
   end subroutine TMixer_initBroyden
 
+  
   subroutine TMixer_initDiis(this, pDiis)
 
     !> Mixer instance
@@ -99,7 +100,8 @@ contains
 
   end subroutine TMixer_initDIIS
 
-  !> Resets the mixer.
+
+  !> Resets the mixer.pDiff(1:size(diff)) => diff
   subroutine TMixer_reset(this, nElem)
 
     !> Mixer instance
