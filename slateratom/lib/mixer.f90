@@ -4,7 +4,7 @@ module mixer
   use common_accuracy, only : dp
   use broydenmixer, only : TBroydenMixer, TBroydenMixer_mix, TBroydenMixer_reset
   use simplemixer, only : TSimpleMixer, TSimpleMixer_mix, TSimpleMixer_reset
-  use diis, only : TDIISMixer, TDIISMixer_init, TDIISMixer_mix, TDIISMixer_reset
+  use diismixer, only : TDiisMixer, TDiisMixer_init, TDiisMixer_mix, TDiisMixer_reset
   implicit none
 
   private
@@ -25,7 +25,7 @@ module mixer
     type(TBroydenMixer), allocatable :: pBroydenMixer
 
     !> DIIS mixer instance
-    type(TDIISMixer), allocatable :: pDIISMixer
+    type(TDiisMixer), allocatable :: pDiisMixer
 
   end type TMixer
 
@@ -34,7 +34,7 @@ module mixer
   interface TMixer_init
     module procedure TMixer_initSimple
     module procedure TMixer_initBroyden
-    module procedure TMixer_initDIIS
+    module procedure TMixer_initDiis
   end interface TMixer_init
 
 
@@ -42,7 +42,6 @@ module mixer
   interface TMixer_mix
     module procedure TMixer_mix1D
     module procedure TMixer_mix4D
-    ! module procedure TMixer_mix4D_DIIS
   end interface TMixer_mix
 
 
@@ -87,16 +86,16 @@ contains
 
   end subroutine TMixer_initBroyden
 
-  subroutine TMixer_initDIIS(this, pDIIS)
+  subroutine TMixer_initDiis(this, pDiis)
 
     !> Mixer instance
     type(TMixer), intent(out) :: this
 
     !> A valid DIIS mixer instance on exit
-    type(TDIISMixer), allocatable, intent(inout) :: pDIIS
+    type(TDiisMixer), allocatable, intent(inout) :: pDiis
 
     this%mixerType = mixerTypes%diis
-    call move_alloc(pDIIS, this%pDIISMixer)
+    call move_alloc(pDiis, this%pDiisMixer)
 
   end subroutine TMixer_initDIIS
 
@@ -115,7 +114,7 @@ contains
     case(mixerTypes%broyden)
       call TBroydenMixer_reset(this%pBroydenMixer, nElem)
     case(mixerTypes%diis)
-      call TDIISMixer_reset(this%pDIISMixer)
+      call TDiisMixer_reset(this%pDiisMixer, nElem)
     end select
 
   end subroutine TMixer_reset
@@ -139,14 +138,14 @@ contains
     case(mixerTypes%broyden)
       call TBroydenMixer_mix(this%pBroydenMixer, inp, diff)
     case(mixerTypes%diis)
-      error stop "DIIS mixer: attempted to mix 1D vectors"
+      call TDiisMixer_mix(this%pDiisMixer, inp, diff)
     end select
 
   end subroutine TMixer_mix1D
 
 
   !> Mixes two 4D matrices.
-  subroutine TMixer_mix4D(this, inp, diff, commutator)
+  subroutine TMixer_mix4D(this, inp, diff)
 
     !> Mixer instance
     type(TMixer), intent(inout) :: this
@@ -157,24 +156,16 @@ contains
     !> Difference between input and output vectors (measure of lack of convergence)
     real(dp), intent(in), contiguous, target :: diff(:,0:,:,:)
 
-    !> Commutator [F,PS]
-    real(dp), intent(in) :: commutator(:,0:,:,:)
-
     !! Difference between input and output vectors (1D pointer)
     real(dp), pointer :: pDiff(:)
 
     !! Input vector on entry, result vector on exit (1D pointer)
     real(dp), pointer :: pInp(:)
 
-    select case (this%mixerType)
-    case (mixerTypes%diis)
-      call TDIISMixer_mix(this%pDIISMixer, inp, diff, commutator)
-    case default
-      pInp(1:size(inp)) => inp
-      pDiff(1:size(diff)) => diff
+    pInp(1:size(inp)) => inp
+    pDiff(1:size(diff)) => diff
 
-      call TMixer_mix1D(this, pInp, pDiff)
-    end select
+    call TMixer_mix1D(this, pInp, pDiff)
 
   end subroutine TMixer_mix4D
 

@@ -16,7 +16,7 @@ set(sources-f90
   densitymatrix.f90
   dft.f90
   diagonalizations.f90
-  diis.F90
+  diismixer.F90
   globals.f90
   hamiltonian.f90
   input.f90
@@ -34,7 +34,7 @@ set(sources-f90
 set(sources-fpp
   blasroutines.F90
   broydenmixer.F90
-  diis.F90
+  diismixer.F90
   lapackroutines.F90
   simplemixer.F90)
 

@@ -197,7 +197,8 @@ contains
     
     if (iScf /= 0) then
       ! Do not call mixer on the 0th (guess) iteration
-      call TMixer_mix(pMixer, pot_new, pot_diff, commutator)
+      call TMixer_mix(pMixer, pot_new, pot_diff)
+      ! call TMixer_mix(pMixer, pot_new, commutator)
     end if
 
     ! Not sure: before or after mixer (potential .ne. Matrix elements)?
