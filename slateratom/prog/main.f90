@@ -17,7 +17,7 @@ program HFAtom
   use dft, only : check_accuracy, density_grid
   use utilities, only : check_electron_number, check_convergence_energy,&
       & check_convergence_commutator, check_convergence_eigenspectrum,&
-      & compute_commutator
+      & compute_commutator, check_convergence_pot
   use zora_routines, only : scaled_zora
   use cmdargs, only : parse_command_arguments
   use common_poisson, only : TBeckeGridParams
@@ -76,10 +76,14 @@ program HFAtom
   if (nuc > 36) num_mesh_points = 1250
   if (nuc > 54) num_mesh_points = 1500
 
-  ! meta-GGA functionals exhibit extraordinary sensititvity with respect to the grid, which
-  ! especially affects convergence with tight settings; see 10.1063/5.0121187
+  ! meta-GGA functionals sometimes exhibit extraordinary slow
+  ! convergence w.r.t the number of radial grid points
+  ! see 10.1063/5.0121187
+  ! WARNING: too high number of grid points somehow
+  ! manages to break the Broyden mixer!
   if (xcFunctional%isMGGA(xcnr)) then
-    num_mesh_points = num_mesh_points + 2000
+    ! num_mesh_points = num_mesh_points + 2000
+    num_mesh_points = num_mesh_points + 500
   end if
 
   call echo_input(nuc, max_l, occ_shells, maxiter, scftol, poly_order, num_alpha, alpha, conf_r0,&
@@ -186,6 +190,9 @@ program HFAtom
 
     call check_convergence_commutator(commutator, scftol, iScf, commutator_max,&
         & tCommutatorConverged)
+    ! For debugging:
+    ! call check_convergence_pot(pot_old, pot_new, max_l, problemsize, scftol, iScf,&
+        ! & commutator_max, tCommutatorConverged)
     call check_convergence_energy(total_ene_old, total_ene, scftol, iScf, total_ene_diff,&
         & tEnergyConverged)
     call check_convergence_eigenspectrum(max_l, num_alpha, poly_order, eigval, eigval_old, occ,&

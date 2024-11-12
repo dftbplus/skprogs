@@ -22,7 +22,7 @@ SUPPORTED_FUNCTIONALS = {'lda' : 2, 'pbe' : 3, 'blyp' : 4, 'lcy-pbe' : 5,
                          'scan': 12, 'r2scan': 13, 'r4scan': 14, 'task': 15,
                          'task+cc': 16}
 
-SUPPORTED_MIXERS = {1: 'simple', 2: 'broyden'}
+SUPPORTED_MIXERS = {1: 'simple', 2: 'broyden', 3: 'diis'}
 
 INPUT_FILE = "slateratom.in"
 STDOUT_FILE = "output"

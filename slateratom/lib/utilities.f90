@@ -7,7 +7,7 @@ module utilities
   private
 
   public :: check_electron_number, check_convergence_energy, check_convergence_commutator,&
-      & check_convergence_eigenspectrum, compute_commutator
+      & check_convergence_eigenspectrum, compute_commutator, check_convergence_pot
   public :: vector_length, fak, zeroOutCpotOfEmptyDensitySpinChannels
 
 
