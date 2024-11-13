@@ -17,7 +17,7 @@ program HFAtom
   use dft, only : check_accuracy, density_grid
   use utilities, only : check_electron_number, check_convergence_energy,&
       & check_convergence_commutator, check_convergence_eigenspectrum,&
-      & compute_commutator, check_convergence_pot
+      & compute_commutator, check_convergence_density
   use zora_routines, only : scaled_zora
   use cmdargs, only : parse_command_arguments
   use common_poisson, only : TBeckeGridParams
@@ -82,8 +82,7 @@ program HFAtom
   ! WARNING: too high number of grid points somehow
   ! manages to break the Broyden mixer!
   if (xcFunctional%isMGGA(xcnr)) then
-    ! num_mesh_points = num_mesh_points + 2000
-    num_mesh_points = num_mesh_points + 500
+    num_mesh_points = num_mesh_points + 1000
   end if
 
   call echo_input(nuc, max_l, occ_shells, maxiter, scftol, poly_order, num_alpha, alpha, conf_r0,&
@@ -146,18 +145,20 @@ program HFAtom
       & poly_order, problemsize, xcnr, num_mesh_points, weight, abcissa, vxc, vtau, alpha, pot_old,&
       & pot_new, tZora, ff, commutator, camAlpha, camBeta)
 
+  pp_old(:,:,:,:) = pp
+
   ! self-consistency cycles
   write(*,*) 'Energies in Hartree'
   write(*,*)
-  write(*,*) ' Iter |   Total energy  |   HF-X energy  |   XC energy   |   max(abs([F,PS]))   &
-      & | Delta (Total energy) | Delta (spectrum)'
+  write(*,*) ' Iter |   Total energy    |        P          |       [F,PS]      |         E         |       lambda'
   write(*,*) '-------------------------------------------------------------------------------------&
-      & ------------------------------------------'
+      &--------------------'
   lpScf: do iScf = 1, maxiter
 
     pot_old(:,:,:,:) = pot_new
     total_ene_old = total_ene
     eigval_old(:,:,:) = eigval
+    pp_old(:,:,:,:) = pp
 
     ! diagonalize
     call diagonalize(max_l, num_alpha, poly_order, ff, ss, cof, eigval)
@@ -190,16 +191,14 @@ program HFAtom
 
     call check_convergence_commutator(commutator, scftol, iScf, commutator_max,&
         & tCommutatorConverged)
-    ! For debugging:
-    ! call check_convergence_pot(pot_old, pot_new, max_l, problemsize, scftol, iScf,&
-        ! & commutator_max, tCommutatorConverged)
+    call check_convergence_density(pp_old, pp, scftol, iScf, pp_diff, tDensityConverged)
     call check_convergence_energy(total_ene_old, total_ene, scftol, iScf, total_ene_diff,&
         & tEnergyConverged)
     call check_convergence_eigenspectrum(max_l, num_alpha, poly_order, eigval, eigval_old, occ,&
         & scftol, iScf, eigval_diff, tEigenspectrumConverged)
 
     ! Print SCF loop information
-    write(*, '(I4,2X,3(1X,F16.9),7X,E16.9,8X,E16.9,8X,E16.9)') iScf, total_ene, exchange_energy, x_en_2,&
+    write(*, '(I4,5X,E16.9,4X,E16.9,4X,E16.9,4X,E16.9,4X,E16.9)') iScf, total_ene, pp_diff,&
         & commutator_max, total_ene_diff, eigval_diff
 
     ! if self-consistency is reached, exit loop
@@ -246,6 +245,7 @@ program HFAtom
   end if
 
   write(*, '(A,E20.12)') '[F,PS] converged to', commutator_max
+  write(*, '(A,E20.12)') 'Density matrix converged to', pp_diff
   write(*, '(A)') ' '
 
   if (tZora) then

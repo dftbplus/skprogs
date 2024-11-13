@@ -85,7 +85,10 @@ module globals
   real(dp) :: commutator_max
 
   !> density matrix supervector
-  real(dp), allocatable :: pp(:,:,:,:)
+  real(dp), allocatable :: pp(:,:,:,:), pp_old(:,:,:,:)
+
+  !> density matrix max difference
+  real(dp) :: pp_diff
 
   !> fock matrix supervector
   real(dp), allocatable :: ff(:,:,:,:)
@@ -180,8 +183,8 @@ module globals
   !> true, if zero-order regular approximation for relativistic effects is desired
   logical :: tZora
 
-  !> true, if SCF cycle reached convergency on a quantity
-  logical :: tCommutatorConverged, tEnergyConverged, tEigenspectrumConverged
+  !> true, if SCF cycle reached convergency on a given quantity
+  logical :: tCommutatorConverged, tEnergyConverged, tEigenspectrumConverged, tDensityConverged
 
   !> identifier of mixer
   integer :: mixnr
@@ -262,6 +265,7 @@ contains
     ! fourth index of cof is the eigenvalue index, see densmatrix build
     allocate(cof(2, 0:max_l, problemsize, problemsize))
     allocate(pp(2, 0:max_l, problemsize, problemsize))
+    allocate(pp_old(2, 0:max_l, problemsize, problemsize))
 
     weight(:) = 0.0_dp
     abcissa(:) = 0.0_dp

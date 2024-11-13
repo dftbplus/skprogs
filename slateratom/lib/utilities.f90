@@ -7,7 +7,8 @@ module utilities
   private
 
   public :: check_electron_number, check_convergence_energy, check_convergence_commutator,&
-      & check_convergence_eigenspectrum, compute_commutator, check_convergence_pot
+      & check_convergence_eigenspectrum, compute_commutator, check_convergence_pot,&
+      & check_convergence_density
   public :: vector_length, fak, zeroOutCpotOfEmptyDensitySpinChannels
 
 
@@ -164,7 +165,37 @@ contains
   end subroutine 
 
 
-  !> Checks convergence by computing energy change from the last SCF iteration.
+  !> Checks convergence by computing max. density change from the last SCF iteration.
+  pure subroutine check_convergence_density(pp_old, pp_new, scftol, iScf, res, tConverged)
+
+    !> old and new energy to compare
+    real(dp), intent(in) :: pp_old(:,:,:,:), pp_new(:,:,:,:)
+
+    !> scf tolerance, i.e. convergence criteria
+    real(dp), intent(in) :: scftol
+
+    !> current SCF step
+    integer, intent(in) :: iScf
+
+    !> obtained maximum change in energy
+    real(dp), intent(out) :: res
+
+    !> true, if SCF converged
+    logical, intent(out) :: tConverged
+
+    res = 0.0_dp
+
+    res = maxval(abs(pp_new - pp_old))
+    tConverged = res < scftol
+
+    if (iScf < 3) then
+      tConverged = .false.
+    end if
+
+  end subroutine check_convergence_density
+
+
+    !> Checks convergence by computing energy change from the last SCF iteration.
   pure subroutine check_convergence_energy(energy_old, energy_new, scftol, iScf, change,&
       & tConverged)
 
@@ -197,7 +228,7 @@ contains
 
   !> Checks convergence by evaluating change in the occupied part of the eigenspectrum
   pure subroutine check_convergence_eigenspectrum(max_l, num_alpha, poly_order, eigval_new,&
-      & eigval_old, occ, scftol, iScf, change, tConverged)
+      & eigval_old, occ, scftol, iScf, res, tConverged)
 
     !> maximum angular momentum
     integer, intent(in) :: max_l
@@ -221,7 +252,7 @@ contains
     integer, intent(in) :: iScf
 
     !> obtained change
-    real(dp), intent(out) :: change
+    real(dp), intent(out) :: res
 
     !> true, if SCF converged
     logical, intent(out) :: tConverged
@@ -232,22 +263,28 @@ contains
     ! Occupation
     real(dp) :: occ_ii
 
-    change = 0.0_dp
+    ! Difference
+    real(dp) :: e_diff
 
-    ! Frobenius norm, but only occupied states contribute 
+    ! Max. difference, only occupied orbitals contribute
+    res = 0.0_dp
     do iSpin = 1, 2
       do ll = 0, max_l
         diagsize = num_alpha(ll) * poly_order(ll)
         do ii = 1, diagsize
           occ_ii = abs(occ(iSpin, ll, ii))
           if (occ_ii > 1e-16) then
-            change = change + (eigval_new(iSpin, ll, ii) - eigval_old(iSpin, ll, ii))**2 
+            ! change = change + (eigval_new(iSpin, ll, ii) - eigval_old(iSpin, ll, ii))**2 
+            e_diff = abs(eigval_new(iSpin, ll, ii) - eigval_old(iSpin, ll, ii)) 
+            if (e_diff > res) then
+              res = e_diff
+            end if
           end if
         end do
       end do
     end do
 
-    tConverged = change < scftol
+    tConverged = res < scftol
 
     if (iScf < 3) then
       tConverged = .false.

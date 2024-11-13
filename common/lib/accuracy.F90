@@ -3,7 +3,7 @@
 !! Not all routines use the string length specifications to set their character string lengths.
 module common_accuracy
 
-  use, intrinsic :: iso_fortran_env, only : real64
+  use, intrinsic :: iso_fortran_env, only : real64, real128
 
   implicit none
   private
