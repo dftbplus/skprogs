@@ -16,6 +16,7 @@ set(sources-f90
   densitymatrix.f90
   dft.f90
   diagonalizations.f90
+  diismixer.F90
   globals.f90
   hamiltonian.f90
   input.f90
@@ -24,6 +25,7 @@ set(sources-f90
   mixer.f90
   numerical_differentiation.f90
   output.f90
+  sap.f90
   total_energy.f90
   utilities.f90
   xcfunctionals.f90
@@ -32,6 +34,7 @@ set(sources-f90
 set(sources-fpp
   blasroutines.F90
   broydenmixer.F90
+  diismixer.F90
   lapackroutines.F90
   simplemixer.F90)
 

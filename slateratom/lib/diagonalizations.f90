@@ -34,8 +34,9 @@ contains
     !! eigenvalues of overlap matrices
     real(dp), allocatable :: eigenvalues(:)
 
-    !> auxiliary variables
-    integer :: ll, diagsize
+    !! auxiliary variables
+    integer :: ll, diagsize, ii
+    real(dp) :: e_min, e_max, cond_num
 
     do ll = 0, max_l
 
@@ -46,7 +47,7 @@ contains
 
       overlap = ss(ll, :,:)
 
-      call heev(overlap, eigenvalues, 'U', 'N')
+      call heev(overlap, eigenvalues, 'U', 'V')
 
       write(*, '(A,I3,A,E16.8)') 'Smallest eigenvalue of overlap for l= ', ll, ' : ', eigenvalues(1)
 
@@ -57,10 +58,29 @@ contains
         stop
       end if
 
+      if (ll == 0) then
+        e_min = minval(eigenvalues)
+        e_max = maxval(eigenvalues)
+      end if
+
+      if (minval(eigenvalues) < e_min) then
+        e_min = minval(eigenvalues)
+      end if
+
+      if (maxval(eigenvalues) > e_max) then
+        e_max = maxval(eigenvalues)
+      end if
+
       deallocate(overlap, eigenvalues)
 
     end do
+
+    cond_num = abs(e_max / e_min)
+    write(*, '(A,E16.8)') 'Condition number is ', cond_num
+    ! 16 is due to double precision
+    write(*, '(A,I2)') 'Expect convergence only up to approx. 1e-', 16 - int(anint(log10(cond_num)))
     write(*,*) ' '
+
 
   end subroutine diagonalize_overlap
 

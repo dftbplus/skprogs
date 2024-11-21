@@ -12,9 +12,12 @@ program HFAtom
   use output, only : write_eigvec, write_eigval, write_moments, write_energies,&
       & write_energies_tagged, write_potentials_file_standard, write_densities_file_standard,&
       & write_waves_file_standard, write_wave_coeffs_file, cusp_values, writeAveragePotential
+  use sap, only : sap_start_pot
   use totalenergy, only : getTotalEnergy, getTotalEnergyZora
-  use dft, only : check_accuracy, dft_start_pot, density_grid
-  use utilities, only : check_electron_number, check_convergence
+  use dft, only : check_accuracy, density_grid
+  use utilities, only : check_electron_number, check_convergence_energy,&
+      & check_convergence_commutator, check_convergence_eigenspectrum,&
+      & compute_commutator, check_convergence_density
   use zora_routines, only : scaled_zora
   use cmdargs, only : parse_command_arguments
   use common_poisson, only : TBeckeGridParams
@@ -73,6 +76,15 @@ program HFAtom
   if (nuc > 36) num_mesh_points = 1250
   if (nuc > 54) num_mesh_points = 1500
 
+  ! meta-GGA functionals sometimes exhibit extraordinary slow
+  ! convergence w.r.t the number of radial grid points
+  ! see 10.1063/5.0121187
+  ! WARNING: too high number of grid points somehow
+  ! manages to break the Broyden mixer!
+  if (xcFunctional%isMGGA(xcnr)) then
+    num_mesh_points = num_mesh_points + 1000
+  end if
+
   call echo_input(nuc, max_l, occ_shells, maxiter, scftol, poly_order, num_alpha, alpha, conf_r0,&
       & conf_power, occ, num_occ, num_power, num_alphas, xcnr, tZora, num_mesh_points, xalpha_const)
 
@@ -109,12 +121,16 @@ program HFAtom
     call hfex_lr(kk_lr, max_l, num_alpha, alpha, poly_order, problemsize, omega, grid_params)
   end if
 
-  ! convergence flag
-  tConverged = .false.
+  ! convergence flags
+  tCommutatorConverged = .false.
+  tEnergyConverged = .false.
+  tEigenspectrumConverged = .false.
 
-  ! DFT start potential
+  ! Generate guess for DFT;
+  ! Thomas-Fermi guess potential is currently disabled
   if (.not. (xcnr == xcFunctional%HF_Exchange)) then
-    call dft_start_pot(abcissa, num_mesh_points, nuc, vxc)
+    ! SAP potential
+    call sap_start_pot(abcissa, num_mesh_points, nuc, vxc)
   end if
 
   ! build initial fock matrix, core hamiltonian only
@@ -126,17 +142,23 @@ program HFAtom
 
   ! kinetic energy, nuclear-electron, and confinement matrix elements which are constant during SCF
   call build_hamiltonian(pMixer, 0, tt, uu, nuc, vconf, jj, kk, kk_lr, pp, max_l, num_alpha,&
-      & poly_order, problemsize, xcnr, num_mesh_points, weight, abcissa, vxc, alpha, pot_old,&
-      & pot_new, tZora, ff, camAlpha, camBeta)
+      & poly_order, problemsize, xcnr, num_mesh_points, weight, abcissa, vxc, vtau, alpha, pot_old,&
+      & pot_new, tZora, ff, commutator, camAlpha, camBeta)
+
+  pp_old(:,:,:,:) = pp
 
   ! self-consistency cycles
   write(*,*) 'Energies in Hartree'
   write(*,*)
-  write(*,*) ' Iter |   Total energy  |   HF-X energy  |   XC energy   |   Change in pot'
-  write(*,*) '--------------------------------------------------------------------------'
+  write(*,*) ' Iter |   Total energy    |        P          |       [F,PS]      |         E         |       lambda'
+  write(*,*) '-------------------------------------------------------------------------------------&
+      &--------------------'
   lpScf: do iScf = 1, maxiter
 
     pot_old(:,:,:,:) = pot_new
+    total_ene_old = total_ene
+    eigval_old(:,:,:) = eigval
+    pp_old(:,:,:,:) = pp
 
     ! diagonalize
     call diagonalize(max_l, num_alpha, poly_order, ff, ss, cof, eigval)
@@ -146,12 +168,15 @@ program HFAtom
 
     ! get electron density, derivatives, exc related potentials and energy densities
     call density_grid(pp, max_l, num_alpha, poly_order, alpha, num_mesh_points, abcissa, dzdr,&
-        & dz, xcnr, omega, camAlpha, camBeta, rho, drho, ddrho, vxc, exc, xalpha_const)
+        & dz, xcnr, omega, camAlpha, camBeta, rho, drho, ddrho, tau, vxc, vtau, exc, xalpha_const)
 
     ! build Fock matrix and get total energy during SCF
     call build_hamiltonian(pMixer, iScf, tt, uu, nuc, vconf, jj, kk, kk_lr, pp, max_l, num_alpha,&
-        & poly_order, problemsize, xcnr, num_mesh_points, weight, abcissa, vxc, alpha, pot_old,&
-        & pot_new, tZora, ff, camAlpha, camBeta)
+        & poly_order, problemsize, xcnr, num_mesh_points, weight, abcissa, vxc, vtau, alpha,&
+        & pot_old, pot_new, tZora, ff, commutator, camAlpha, camBeta)
+
+    ! compute [F,PS]
+    call compute_commutator(max_l, num_alpha, poly_order, ff, pp, ss, commutator)
 
     if (tZora) then
       call getTotalEnergyZora(tt, uu, nuc, vconf, jj, kk, kk_lr, pp, max_l, num_alpha, poly_order,&
@@ -164,13 +189,20 @@ program HFAtom
           & nuclear_energy, coulomb_energy, exchange_energy, x_en_2, conf_energy, total_ene)
     end if
 
-    call check_convergence(pot_old, pot_new, max_l, problemsize, scftol, iScf, change_max,&
-        & tConverged)
+    call check_convergence_commutator(commutator, scftol, iScf, commutator_max,&
+        & tCommutatorConverged)
+    call check_convergence_density(pp_old, pp, scftol, iScf, pp_diff, tDensityConverged)
+    call check_convergence_energy(total_ene_old, total_ene, scftol, iScf, total_ene_diff,&
+        & tEnergyConverged)
+    call check_convergence_eigenspectrum(max_l, num_alpha, poly_order, eigval, eigval_old, occ,&
+        & scftol, iScf, eigval_diff, tEigenspectrumConverged)
 
-    write(*, '(I4,2X,3(1X,F16.9),3X,E16.9)') iScf, total_ene, exchange_energy, x_en_2, change_max
+    ! Print SCF loop information
+    write(*, '(I4,5X,E16.9,4X,E16.9,4X,E16.9,4X,E16.9,4X,E16.9)') iScf, total_ene, pp_diff,&
+        & commutator_max, total_ene_diff, eigval_diff
 
     ! if self-consistency is reached, exit loop
-    if (tConverged) exit lpScf
+    if (tCommutatorConverged .and. tEnergyConverged .and. tEigenspectrumConverged) exit lpScf
 
     ! check conservation of number of electrons during SCF
     call check_electron_number(cof, ss, occ, max_l, num_alpha, poly_order, problemsize)
@@ -180,7 +212,7 @@ program HFAtom
   end do lpScf
 
   ! handle non-converged calculations
-  if (.not. tConverged) then
+  if (.not. (tEnergyConverged .and. tCommutatorConverged .and. tEigenspectrumConverged)) then
     call error('SCF is NOT converged, maximal SCF iterations exceeded.')
   end if
 
@@ -212,7 +244,8 @@ program HFAtom
         & conf_energy, total_ene)
   end if
 
-  write(*, '(A,E20.12)') 'Potential Matrix Elements converged to ', change_max
+  write(*, '(A,E20.12)') '[F,PS] converged to', commutator_max
+  write(*, '(A,E20.12)') 'Density matrix converged to', pp_diff
   write(*, '(A)') ' '
 
   if (tZora) then
@@ -226,7 +259,7 @@ program HFAtom
   call write_potentials_file_standard(num_mesh_points, abcissa, weight, vxc, rho, nuc, pp, max_l,&
       & num_alpha, poly_order, alpha, problemsize)
 
-  call write_densities_file_standard(num_mesh_points, abcissa, weight, rho, drho, ddrho)
+  call write_densities_file_standard(xcnr, num_mesh_points, abcissa, weight, rho, drho, ddrho, tau)
 
   ! write wave functions and eventually invert to have positive starting gradient
   call write_waves_file_standard(num_mesh_points, abcissa, weight, alpha, num_alpha, poly_order,&

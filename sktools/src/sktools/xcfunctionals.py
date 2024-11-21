@@ -189,6 +189,72 @@ class XCLCYPBE(sc.ClassDict):
         return myself
 
 
+class XCTPSS(sc.ClassDict):
+    """mGGA TPSS xc-functional."""
+
+    @classmethod
+    def fromhsd(cls, root, query):
+        """Creates instance from a HSD-node and with given query object."""
+        myself = cls()
+        myself.type = "tpss"
+        return myself
+
+
+class XCSCAN(sc.ClassDict):
+    """mGGA SCAN xc-functional."""
+
+    @classmethod
+    def fromhsd(cls, root, query):
+        """Creates instance from a HSD-node and with given query object."""
+        myself = cls()
+        myself.type = "scan"
+        return myself
+
+
+class XCR2SCAN(sc.ClassDict):
+    """mGGA r2SCAN xc-functional."""
+
+    @classmethod
+    def fromhsd(cls, root, query):
+        """Creates instance from a HSD-node and with given query object."""
+        myself = cls()
+        myself.type = "r2scan"
+        return myself
+
+
+class XCR4SCAN(sc.ClassDict):
+    """mGGA r4SCAN xc-functional."""
+
+    @classmethod
+    def fromhsd(cls, root, query):
+        """Creates instance from a HSD-node and with given query object."""
+        myself = cls()
+        myself.type = "r4scan"
+        return myself
+
+
+class XCTASK(sc.ClassDict):
+    """mGGA TASK xc-functional."""
+
+    @classmethod
+    def fromhsd(cls, root, query):
+        """Creates instance from a HSD-node and with given query object."""
+        myself = cls()
+        myself.type = "task"
+        return myself
+
+
+class XCTASK_CC(sc.ClassDict):
+    """mGGA TASK+CC xc-functional."""
+
+    @classmethod
+    def fromhsd(cls, root, query):
+        """Creates instance from a HSD-node and with given query object."""
+        myself = cls()
+        myself.type = "task+cc"
+        return myself
+
+
 class XCLocal(sc.ClassDict):
     '''Local xc-functional.'''
 
@@ -244,5 +310,11 @@ XCFUNCTIONALS = {
     'pbe0': XCPBE0,
     'b3lyp': XCB3LYP,
     'camy-b3lyp': XCCAMYB3LYP,
-    'camy-pbeh': XCCAMYPBEH
+    'camy-pbeh': XCCAMYPBEH,
+    'tpss': XCTPSS,
+    'scan': XCSCAN,
+    'r2scan': XCR2SCAN,
+    'r4scan': XCR4SCAN,
+    'task': XCTASK,
+    'task+cc': XCTASK_CC
 }

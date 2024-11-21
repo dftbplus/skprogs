@@ -15,4 +15,6 @@ contributed to this package :
 
 * Christof Köhler (University of Bremen)
 
+* Alexander Maryewski (Karlsruhe Institute of Technology, Germany)
+
 * Thomas Niehaus (University of Lyon, France)

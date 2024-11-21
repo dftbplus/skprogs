@@ -5,6 +5,7 @@ module globals
   use mixer, only : TMixer, TMixer_init, TMixer_reset, mixerTypes
   use broydenmixer, only : TBroydenMixer, TBroydenMixer_init
   use simplemixer, only : TSimpleMixer, TSimpleMixer_init
+  use diismixer, only : TDiisMixer, TDiisMixer_init
 
   implicit none
 
@@ -80,26 +81,35 @@ module globals
   !> wavefunction coefficients
   real(dp), allocatable :: cof(:,:,:,:)
 
-  !> relative changes during scf
-  real(dp) :: change_max
+  !> maximum (absolute) value in [F,PS] 
+  real(dp) :: commutator_max
 
   !> density matrix supervector
-  real(dp), allocatable :: pp(:,:,:,:)
+  real(dp), allocatable :: pp(:,:,:,:), pp_old(:,:,:,:)
+
+  !> density matrix max difference
+  real(dp) :: pp_diff
 
   !> fock matrix supervector
   real(dp), allocatable :: ff(:,:,:,:)
+
+  !> commutator [F, PS]
+  real(dp), allocatable :: commutator(:,:,:,:)
 
   !> potential matrix supervectors
   real(dp), allocatable :: pot_new(:,:,:,:), pot_old(:,:,:,:)
 
   !> eigenvalues
-  real(dp), allocatable :: eigval(:,:,:)
+  real(dp), allocatable :: eigval(:,:,:), eigval_old(:,:,:)
+
+  !> eigenvalue difference vector norm
+  real(dp) :: eigval_diff
 
   !> zora scaled eigenvalues
   real(dp), allocatable :: eigval_scaled(:,:,:)
 
   !> total energy
-  real(dp) :: total_ene
+  real(dp) :: total_ene, total_ene_old, total_ene_diff
 
   !> kinetic energy
   real(dp) :: kinetic_energy
@@ -149,6 +159,12 @@ module globals
   !> 2nd deriv. of density on grid
   real(dp), allocatable :: ddrho(:,:)
 
+  !> kinetic energy density on grid
+  real(dp), allocatable :: tau(:,:)
+
+  !> orbital-dependent tau potential on grid
+  real(dp), allocatable :: vtau(:,:)
+
   !> xc potential on grid
   real(dp), allocatable :: vxc(:,:)
 
@@ -167,11 +183,14 @@ module globals
   !> true, if zero-order regular approximation for relativistic effects is desired
   logical :: tZora
 
-  !> true, if SCF cycle reached convergency
-  logical :: tConverged
+  !> true, if SCF cycle reached convergency on a given quantity
+  logical :: tCommutatorConverged, tEnergyConverged, tEigenspectrumConverged, tDensityConverged
 
   !> identifier of mixer
   integer :: mixnr
+
+  !> DIIS subspace size
+  integer, parameter :: n_vec_diis = 10
 
   !> mixer instance
   type(TMixer), allocatable :: pMixer
@@ -181,6 +200,9 @@ module globals
 
   !> broyden mixer (if used)
   type(TBroydenMixer), allocatable :: pBroydenMixer
+
+  !> DIIS mixer (if used)
+  type(TDiisMixer), allocatable :: pDiisMixer
 
   !> mixing factor
   real(dp) :: mixing_factor
@@ -210,6 +232,8 @@ contains
     allocate(rho(num_mesh_points, 2))
     allocate(drho(num_mesh_points, 2))
     allocate(ddrho(num_mesh_points, 2))
+    allocate(tau(num_mesh_points, 2))
+    allocate(vtau(num_mesh_points, 2))
     allocate(exc(num_mesh_points))
     allocate(vxc(num_mesh_points, 2))
 
@@ -220,10 +244,12 @@ contains
     allocate(tt(0:max_l, problemsize, problemsize))
     allocate(vconf(0:max_l, problemsize, problemsize))
     allocate(ff(2, 0:max_l, problemsize, problemsize))
+    allocate(commutator(2, 0:max_l, problemsize, problemsize))
     allocate(pot_old(2, 0:max_l, problemsize, problemsize))
     allocate(pot_new(2, 0:max_l, problemsize, problemsize))
 
     allocate(eigval(2, 0:max_l, problemsize))
+    allocate(eigval_old(2, 0:max_l, problemsize))
     allocate(eigval_scaled(2, 0:max_l, problemsize))
 
     allocate(jj(0:max_l, problemsize, problemsize, 0:max_l, problemsize, problemsize))
@@ -239,12 +265,15 @@ contains
     ! fourth index of cof is the eigenvalue index, see densmatrix build
     allocate(cof(2, 0:max_l, problemsize, problemsize))
     allocate(pp(2, 0:max_l, problemsize, problemsize))
+    allocate(pp_old(2, 0:max_l, problemsize, problemsize))
 
     weight(:) = 0.0_dp
     abcissa(:) = 0.0_dp
     rho(:,:) = 0.0_dp
     drho(:,:) = 0.0_dp
     ddrho(:,:) = 0.0_dp
+    tau(:,:) = 0.0_dp
+    vtau(:,:) = 0.0_dp
 
     eigval(:,:,:) = 0.0_dp
     eigval_scaled(:,:,:) = 0.0_dp
@@ -267,6 +296,10 @@ contains
       call TBroydenMixer_init(pBroydenMixer, maxiter, mixing_factor, 0.01_dp, 1.0_dp, 1.0e5_dp,&
           & 1.0e-2_dp)
       call TMixer_init(pMixer, pBroydenMixer)
+    case(mixerTypes%diis)
+      allocate(pDiisMixer)
+      call TDiisMixer_init(pDiisMixer, n_vec_diis, mixing_factor, .false.)
+      call TMixer_init(pMixer, pDiisMixer)
     case default
       error stop "Unknown mixer type."
     end select

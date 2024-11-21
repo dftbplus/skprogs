@@ -4,6 +4,7 @@ module mixer
   use common_accuracy, only : dp
   use broydenmixer, only : TBroydenMixer, TBroydenMixer_mix, TBroydenMixer_reset
   use simplemixer, only : TSimpleMixer, TSimpleMixer_mix, TSimpleMixer_reset
+  use diismixer, only : TDiisMixer, TDiisMixer_init, TDiisMixer_mix, TDiisMixer_reset
   implicit none
 
   private
@@ -23,6 +24,9 @@ module mixer
     !> Broyden mixer instance
     type(TBroydenMixer), allocatable :: pBroydenMixer
 
+    !> DIIS mixer instance
+    type(TDiisMixer), allocatable :: pDiisMixer
+
   end type TMixer
 
 
@@ -30,6 +34,7 @@ module mixer
   interface TMixer_init
     module procedure TMixer_initSimple
     module procedure TMixer_initBroyden
+    module procedure TMixer_initDiis
   end interface TMixer_init
 
 
@@ -43,6 +48,7 @@ module mixer
   type :: TMixerTypesEnum
     integer :: simple = 1
     integer :: broyden = 2
+    integer :: diis = 3
   end type TMixerTypesEnum
 
   !> Contains mixer types
@@ -80,8 +86,22 @@ contains
 
   end subroutine TMixer_initBroyden
 
+  
+  subroutine TMixer_initDiis(this, pDiis)
 
-  !> Resets the mixer.
+    !> Mixer instance
+    type(TMixer), intent(out) :: this
+
+    !> A valid DIIS mixer instance on exit
+    type(TDiisMixer), allocatable, intent(inout) :: pDiis
+
+    this%mixerType = mixerTypes%diis
+    call move_alloc(pDiis, this%pDiisMixer)
+
+  end subroutine TMixer_initDIIS
+
+
+  !> Resets the mixer.pDiff(1:size(diff)) => diff
   subroutine TMixer_reset(this, nElem)
 
     !> Mixer instance
@@ -95,13 +115,15 @@ contains
       call TSimpleMixer_reset(this%pSimpleMixer, nElem)
     case(mixerTypes%broyden)
       call TBroydenMixer_reset(this%pBroydenMixer, nElem)
+    case(mixerTypes%diis)
+      call TDiisMixer_reset(this%pDiisMixer, nElem)
     end select
 
   end subroutine TMixer_reset
 
 
   !> Mixes two vectors.
-  subroutine TMixer_mix1D(this, inp, diff)
+  subroutine TMixer_mix1D(this, inp, diff, commtr)
 
     !> Mixer instance
     type(TMixer), intent(inout) :: this
@@ -112,18 +134,23 @@ contains
     !> Difference between input and output vectors (measure of lack of convergence)
     real(dp), intent(in) :: diff(:)
 
+    !> Commutator [F,PS]
+    real(dp), intent(in) :: commtr(:)
+
     select case (this%mixerType)
     case(mixerTypes%simple)
       call TSimpleMixer_mix(this%pSimpleMixer, inp, diff)
     case(mixerTypes%broyden)
       call TBroydenMixer_mix(this%pBroydenMixer, inp, diff)
+    case(mixerTypes%diis)
+      call TDiisMixer_mix(this%pDiisMixer, inp, diff, commtr)
     end select
 
   end subroutine TMixer_mix1D
 
 
   !> Mixes two 4D matrices.
-  subroutine TMixer_mix4D(this, inp, diff)
+  subroutine TMixer_mix4D(this, inp, diff, commtr)
 
     !> Mixer instance
     type(TMixer), intent(inout) :: this
@@ -134,16 +161,23 @@ contains
     !> Difference between input and output vectors (measure of lack of convergence)
     real(dp), intent(in), contiguous, target :: diff(:,0:,:,:)
 
+    !> Commutator [F,PS]
+    real(dp), intent(in), contiguous, target :: commtr(:,0:,:,:)
+
     !! Difference between input and output vectors (1D pointer)
     real(dp), pointer :: pDiff(:)
 
     !! Input vector on entry, result vector on exit (1D pointer)
     real(dp), pointer :: pInp(:)
 
+    !! Commutator [F,PS]
+    real(dp), pointer :: pCommtr(:)
+
     pInp(1:size(inp)) => inp
     pDiff(1:size(diff)) => diff
+    pCommtr(1:size(diff)) => commtr
 
-    call TMixer_mix1D(this, pInp, pDiff)
+    call TMixer_mix1D(this, pInp, pDiff, pCommtr)
 
   end subroutine TMixer_mix4D
 

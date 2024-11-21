@@ -6,7 +6,9 @@ module utilities
   implicit none
   private
 
-  public :: check_convergence, check_electron_number
+  public :: check_electron_number, check_convergence_energy, check_convergence_commutator,&
+      & check_convergence_eigenspectrum, compute_commutator, check_convergence_pot,&
+      & check_convergence_density
   public :: vector_length, fak, zeroOutCpotOfEmptyDensitySpinChannels
 
 
@@ -33,8 +35,8 @@ contains
 
 
   !> Checks SCF convergence by comparing new and old potential.
-  pure subroutine check_convergence(pot_old, pot_new, max_l, problemsize, scftol, iScf, change_max,&
-      & tConverged)
+  pure subroutine check_convergence_pot(pot_old, pot_new, max_l, problemsize, scftol, iScf,&
+      & change_max, tConverged)
 
     !> old and new potential to compare
     real(dp), intent(in) :: pot_old(:,0:,:,:), pot_new(:,0:,:,:)
@@ -62,10 +64,6 @@ contains
 
     change_max = 0.0_dp
 
-    if (iScf < 3) then
-      tConverged = .false.
-    end if
-
     do ii = 1, 2
       do jj = 0, max_l
         do kk = 1, problemsize
@@ -82,7 +80,217 @@ contains
       tConverged = .false.
     end if
 
-  end subroutine check_convergence
+    if (iScf < 3) then
+      tConverged = .false.
+    end if
+
+  end subroutine check_convergence_pot
+
+
+  !> Check convergence by finding the maximum absolute value of the orbital commutator [F,PS]
+  pure subroutine check_convergence_commutator(commutator, scftol, iScf, commutator_max,&
+      & tConverged)
+
+    !> commutator [F, PS]
+    real(dp), intent(in) :: commutator(:, 0:, :, :)
+
+    !> scf tolerance, i.e. convergence criteria
+    real(dp), intent(in) :: scftol
+
+    !> current SCF step
+    integer, intent(in) :: iScf
+
+    !> orbital gradient norm value
+    real(dp), intent(out) :: commutator_max
+
+    !> true, if SCF converged
+    logical, intent(out) :: tConverged
+
+    commutator_max = maxval(abs(commutator))
+
+    tConverged = commutator_max < scftol
+
+    if (iScf < 3) then
+      tConverged = .false.
+    end if
+
+  end subroutine check_convergence_commutator
+
+
+  !> Compute the commutator [F,PS] in MO basis  
+  subroutine compute_commutator(max_l, num_alpha, poly_order, ff, pp, ss, commutator)
+    !> maximum angular momentum
+    integer, intent(in) :: max_l
+
+    !> number of exponents in each shell
+    integer, intent(in) :: num_alpha(0:)
+
+    !> highest polynomial order + l in each shell
+    integer, intent(in) :: poly_order(0:)
+
+    !> Fock matrix
+    real(dp), intent(in) :: ff(:, 0:, :, :)
+
+    !> density matrix supervector
+    real(dp), intent(in) :: pp(:,0:,:,:)
+
+    !> overlap supervector
+    real(dp), intent(in) :: ss(0:,:,:)
+
+    !> commutator [F,PS]
+    real(dp), intent(out) :: commutator(:, 0:, :, :)
+
+    !! auxilliary variables
+    integer :: iSpin, ll, diagsize
+    real(dp), allocatable :: fps(:,:), spf(:,:)
+
+    commutator = 0.0_dp
+
+    diagsize = size(ff, dim=4)
+    allocate(fps(diagsize, diagsize))
+    allocate(spf(diagsize, diagsize))
+
+    do iSpin = 1, 2
+      do ll = 0, max_l
+        ! Compute [F,PS]= FPS - SPF
+        fps = matmul(ff(iSpin, ll, :, :), matmul(pp(iSpin, ll, :, :), ss(ll, :, :)))
+        spf = matmul(matmul(ss(ll, :, :), pp(iSpin, ll, :, :)), ff(iSpin, ll, :, :))
+        commutator(iSpin, ll, :, :) = fps - spf
+      end do
+    end do
+
+    deallocate(fps)
+    deallocate(spf)
+
+  end subroutine 
+
+
+  !> Checks convergence by computing max. density change from the last SCF iteration.
+  pure subroutine check_convergence_density(pp_old, pp_new, scftol, iScf, res, tConverged)
+
+    !> old and new energy to compare
+    real(dp), intent(in) :: pp_old(:,:,:,:), pp_new(:,:,:,:)
+
+    !> scf tolerance, i.e. convergence criteria
+    real(dp), intent(in) :: scftol
+
+    !> current SCF step
+    integer, intent(in) :: iScf
+
+    !> obtained maximum change in energy
+    real(dp), intent(out) :: res
+
+    !> true, if SCF converged
+    logical, intent(out) :: tConverged
+
+    res = 0.0_dp
+
+    res = maxval(abs(pp_new - pp_old))
+    tConverged = res < scftol
+
+    if (iScf < 3) then
+      tConverged = .false.
+    end if
+
+  end subroutine check_convergence_density
+
+
+    !> Checks convergence by computing energy change from the last SCF iteration.
+  pure subroutine check_convergence_energy(energy_old, energy_new, scftol, iScf, change,&
+      & tConverged)
+
+    !> old and new energy to compare
+    real(dp), intent(in) :: energy_new, energy_old
+
+    !> scf tolerance, i.e. convergence criteria
+    real(dp), intent(in) :: scftol
+
+    !> current SCF step
+    integer, intent(in) :: iScf
+
+    !> obtained maximum change in energy
+    real(dp), intent(out) :: change
+
+    !> true, if SCF converged
+    logical, intent(out) :: tConverged
+
+    change = 0.0_dp
+
+    change = energy_new - energy_old
+    tConverged = abs(change) < scftol
+
+    if (iScf < 3) then
+      tConverged = .false.
+    end if
+
+  end subroutine check_convergence_energy
+
+
+  !> Checks convergence by evaluating change in the occupied part of the eigenspectrum
+  pure subroutine check_convergence_eigenspectrum(max_l, num_alpha, poly_order, eigval_new,&
+      & eigval_old, occ, scftol, iScf, res, tConverged)
+
+    !> maximum angular momentum
+    integer, intent(in) :: max_l
+
+    !> number of exponents in each shell
+    integer, intent(in) :: num_alpha(0:)
+  
+    !> highest polynomial order + l in each shell
+    integer, intent(in) :: poly_order(0:)
+
+    !> old and new eigenspectra to compare
+    real(dp), intent(in) :: eigval_new(:,0:,:), eigval_old(:,0:,:)
+
+    !> occupations
+    real(dp), intent(in) :: occ(:,0:,:)
+
+    !> scf tolerance, i.e. convergence criteria
+    real(dp), intent(in) :: scftol
+
+    !> current SCF step
+    integer, intent(in) :: iScf
+
+    !> obtained change
+    real(dp), intent(out) :: res
+
+    !> true, if SCF converged
+    logical, intent(out) :: tConverged
+
+    ! Loop indices
+    integer :: iSpin, ll, diagsize, ii
+
+    ! Occupation
+    real(dp) :: occ_ii
+
+    ! Difference
+    real(dp) :: e_diff
+
+    ! Max. difference, only occupied orbitals contribute
+    res = 0.0_dp
+    do iSpin = 1, 2
+      do ll = 0, max_l
+        diagsize = num_alpha(ll) * poly_order(ll)
+        do ii = 1, diagsize
+          occ_ii = abs(occ(iSpin, ll, ii))
+          if (occ_ii > 1e-16) then
+            ! change = change + (eigval_new(iSpin, ll, ii) - eigval_old(iSpin, ll, ii))**2 
+            e_diff = abs(eigval_new(iSpin, ll, ii) - eigval_old(iSpin, ll, ii)) 
+            if (e_diff > res) then
+              res = e_diff
+            end if
+          end if
+        end do
+      end do
+    end do
+
+    tConverged = res < scftol
+
+    if (iScf < 3) then
+      tConverged = .false.
+    end if
+
+  end subroutine check_convergence_eigenspectrum
 
 
   !> Checks conservation of electron number during SCF. If this fluctuates you are in deep trouble.

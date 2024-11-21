@@ -6,14 +6,17 @@ module dft
   use common_constants, only : pi, rec4pi
   use xcfunctionals, only : xcFunctional, getExcVxc_LDA_PW91,&
       & getExcVxc_GGA_PBE96, getExcVxc_GGA_BLYP, getExcVxc_LCY_PBE96, getExcVxc_LCY_BNL,&
-      & getExcVxc_HYB_B3LYP, getExcVxc_HYB_PBE0, getExcVxc_CAMY_B3LYP, getExcVxc_CAMY_PBEh
+      & getExcVxc_HYB_B3LYP, getExcVxc_HYB_PBE0, getExcVxc_CAMY_B3LYP, getExcVxc_CAMY_PBEh, &
+      & getExcVxc_MGGA_TPSS, getExcVxc_MGGA_SCAN, getExcVxc_MGGA_r2SCAN, getExcVxc_MGGA_r4SCAN,&
+      & getExcVxc_MGGA_TASK, getExcVxc_MGGA_TASK_CC
   use density, only : basis, basis_times_basis_times_r2, density_at_point, density_at_point_1st,&
-      & density_at_point_2nd
+      & density_at_point_2nd, tau_at_point, basis_1st_times_basis_1st_times_r2,&
+      & basis_1st_times_basis_1st
 
   implicit none
   private
 
-  public :: dft_start_pot, density_grid, dft_exc_energy, dft_vxc_energy
+  public :: thomas_fermi_start_pot, density_grid, dft_exc_energy, dft_vxc_energy
   public :: dft_exc_matrixelement, xalpha
   public :: check_accuracy
 
@@ -25,7 +28,7 @@ contains
   !!
   !! Generalized Thomas-Fermi atomic potential as published by R. Latter,
   !! Phys. Rev. 99, 510 (1955) eqn. 5/9 and implemented in Dirk Porezags scfatom.
-  pure subroutine dft_start_pot(abcissa, num_mesh_points, nuc, vxc)
+  pure subroutine thomas_fermi_start_pot(abcissa, num_mesh_points, nuc, vxc)
 
     !> numerical integration abcissas
     real(dp), intent(in) :: abcissa(:)
@@ -59,13 +62,13 @@ contains
 
     end do
 
-  end subroutine dft_start_pot
+  end subroutine thomas_fermi_start_pot
 
 
   !> Calculate and store density and density derivatives on radial grid.
   !! Further calculates and stores exchange-correlation potential and energy density on grid.
   subroutine density_grid(pp, max_l, num_alpha, poly_order, alpha, num_mesh_points, abcissa, dzdr,&
-      & dz, xcnr, omega, camAlpha, camBeta, rho, drho, ddrho, vxc, exc, xalpha_const)
+      & dz, xcnr, omega, camAlpha, camBeta, rho, drho, ddrho, tau, vxc, vtau, exc, xalpha_const)
 
     !> density matrix supervector
     real(dp), intent(in) :: pp(:, 0:,:,:)
@@ -115,6 +118,12 @@ contains
     !> 2nd deriv. of density on grid
     real(dp), intent(out) :: ddrho(:,:)
 
+    !> kinetic energy density on grid
+    real(dp), intent(out) :: tau(:,:)
+
+    !> orbital-dependent tau potential on grid
+    real(dp), intent(out) :: vtau(:,:)
+
     !> xc potential on grid
     real(dp), intent(out) :: vxc(:,:)
 
@@ -149,6 +158,8 @@ contains
     ddrho(:,:) = 0.0_dp
     exc(:) = 0.0_dp
     vxc(:,:) = 0.0_dp
+    vtau(:,:) = 0.0_dp
+    tau(:,:) = 0.0_dp
 
     ! get density on grid
     do ii = 1, num_mesh_points
@@ -158,8 +169,9 @@ contains
     rho = max(rho, 0.0_dp)
 
     ! get density derivatives on grid
-    if (xcFunctional%isGGA(xcnr) .or. xcFunctional%isLongRangeCorrected(xcnr)&
-        & .or. xcFunctional%isGlobalHybrid(xcnr) .or. xcFunctional%isCAMY(xcnr)) then
+    if (xcFunctional%isGGA(xcnr) .or. xcFunctional%isMGGA(xcnr)&
+        & .or. xcFunctional%isLongRangeCorrected(xcnr) .or. xcFunctional%isGlobalHybrid(xcnr)&
+        & .or. xcFunctional%isCAMY(xcnr)) then
       do ii = 1, num_mesh_points
 
         drho(ii, 1) = density_at_point_1st(pp(1, :,:,:), max_l, num_alpha, poly_order, alpha,&
@@ -178,12 +190,20 @@ contains
     rhor = transpose(rho) * rec4pi
 
     ! get contracted gradients of the density
-    if (xcFunctional%isGGA(xcnr) .or. xcFunctional%isLongRangeCorrected(xcnr)&
-        & .or. xcFunctional%isGlobalHybrid(xcnr) .or. xcFunctional%isCAMY(xcnr)) then
+    if (xcFunctional%isGGA(xcnr) .or. xcFunctional%isMGGA(xcnr)&
+        & .or. xcFunctional%isLongRangeCorrected(xcnr) .or. xcFunctional%isGlobalHybrid(xcnr)&
+        & .or. xcFunctional%isCAMY(xcnr)) then
       allocate(sigma(3, nn))
       sigma(1, :) = drho(:, 1) * drho(:, 1) * rec4pi**2
       sigma(2, :) = drho(:, 1) * drho(:, 2) * rec4pi**2
       sigma(3, :) = drho(:, 2) * drho(:, 2) * rec4pi**2
+    end if
+
+    if (xcFunctional%isMGGA(xcnr)) then
+      do ii = 1, num_mesh_points
+        tau(ii, 1) = tau_at_point(pp(1, :,:,:), max_l, num_alpha, poly_order, alpha, abcissa(ii))
+        tau(ii, 2) = tau_at_point(pp(2, :,:,:), max_l, num_alpha, poly_order, alpha, abcissa(ii))
+      end do
     end if
 
     select case (xcnr)
@@ -217,6 +237,18 @@ contains
     case(xcFunctional%CAMY_PBEh)
       call getExcVxc_CAMY_PBEh(abcissa, dz, dzdr, rho, drho, sigma, omega, camAlpha, camBeta, exc,&
           & vxc)
+    case(xcFunctional%MGGA_TPSS)
+      call getExcVxc_MGGA_TPSS(abcissa, dz, dzdr, rho, drho, sigma, tau, exc, vxc, vtau)
+    case(xcFunctional%MGGA_SCAN)
+      call getExcVxc_MGGA_SCAN(abcissa, dz, dzdr, rho, drho, sigma, tau, exc, vxc, vtau)
+    case(xcFunctional%MGGA_r2SCAN)
+      call getExcVxc_MGGA_r2SCAN(abcissa, dz, dzdr, rho, drho, sigma, tau, exc, vxc, vtau)
+    case(xcFunctional%MGGA_r4SCAN)
+      call getExcVxc_MGGA_r4SCAN(abcissa, dz, dzdr, rho, drho, sigma, tau, exc, vxc, vtau)
+    case(xcFunctional%MGGA_TASK)
+      call getExcVxc_MGGA_TASK(abcissa, dz, dzdr, rho, drho, sigma, tau, exc, vxc, vtau)
+    case(xcFunctional%MGGA_TASK_CC)
+      call getExcVxc_MGGA_TASK_CC(abcissa, dz, dzdr, rho, drho, sigma, tau, exc, vxc, vtau)
     case default
       write(*, '(A,I2,A)') 'XCNR=', xcnr, ' not implemented!'
       stop
@@ -299,8 +331,11 @@ contains
 
 
   !> Calculates a single matrix element of the exchange correlation potential.
-  pure subroutine dft_exc_matrixelement(num_mesh_points, weight, abcissa, vxc, alpha1, poly1,&
-      & alpha2, poly2, ll, exc_matrixelement)
+  pure subroutine dft_exc_matrixelement(xcnr, num_mesh_points, weight, abcissa, vxc, vtau, alpha1,&
+      & poly1, alpha2, poly2, ll, exc_matrixelement)
+
+    !> identifier of exchange-correlation type
+    integer, intent(in) :: xcnr
 
     !> number of numerical integration points
     integer, intent(in) :: num_mesh_points
@@ -313,6 +348,9 @@ contains
 
     !> xc potential on grid
     real(dp), intent(in) :: vxc(:,:)
+
+    !> orbital-dependent tau potential on grid
+    real(dp), intent(in) :: vtau(:,:)
 
     !> basis exponent of 1st basis
     real(dp), intent(in) :: alpha1
@@ -332,10 +370,10 @@ contains
     !> single matrix element of the exchange correlation potential
     real(dp), intent(out) :: exc_matrixelement(2)
 
-    !> stores product of two basis functions and r^2
+    !! stores product of two basis functions and r^2
     real(dp) :: basis
 
-    !> auxiliary variable
+    !! auxiliary variable
     integer :: ii
 
     exc_matrixelement(:) = 0.0_dp
@@ -345,6 +383,14 @@ contains
 
       exc_matrixelement(1) = exc_matrixelement(1) - weight(ii) * vxc(ii, 1) * basis
       exc_matrixelement(2) = exc_matrixelement(2) - weight(ii) * vxc(ii, 2) * basis
+
+      if (xcFunctional%isMGGA(xcnr)) then
+        ! «basis» for MGGA is a product of gradients
+        basis = basis_1st_times_basis_1st_times_r2(alpha1, poly1, alpha2, poly2, ll, abcissa(ii))
+
+        exc_matrixelement(1) = exc_matrixelement(1) - weight(ii) * vtau(ii, 1) * basis * 0.5_dp
+        exc_matrixelement(2) = exc_matrixelement(2) - weight(ii) * vtau(ii, 2) * basis * 0.5_dp
+      end if
     end do
 
   end subroutine dft_exc_matrixelement
