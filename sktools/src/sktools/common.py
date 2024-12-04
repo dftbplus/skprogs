@@ -123,19 +123,18 @@ PAT_FORTRAN_FLOAT = re.compile(
 PAT_FORTRAN_SEPARATOR = re.compile(r'[,]?\s+')
 
 
-def split_fortran_fields(sep, maxsplit=0):
+def split_fortran_fields(line, maxsplit=0):
     ''''Splits a line containing Fortran (numeric) fields.
 
     Args:
 
-        sep (str): separator to use when splitting the string
+        line (str): Fortran style content to split
         maxsplit (int): maximum number of splits allowed
 
     '''
 
     return [field for field in
-            PAT_FORTRAN_SEPARATOR.split(sep, maxsplit=maxsplit)
-            if len(field) > 1]
+            PAT_FORTRAN_SEPARATOR.split(line, maxsplit=maxsplit) if field]
 
 
 def convert_fortran_floats(txt):
