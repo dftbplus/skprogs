@@ -55,6 +55,8 @@ function (skprogs_add_fypp_defines fyppflags)
     list(APPEND _fyppflags -DWITH_MPI)
   endif()
 
+  list(APPEND _fyppflags -DLIBXC_VERSION_MAJOR="${Libxc_VERSION_MAJOR}")
+
   set(${fyppflags} ${_fyppflags} PARENT_SCOPE)
 
 endfunction()

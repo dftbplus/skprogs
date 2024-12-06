@@ -30,10 +30,17 @@ module twocnt
 
   use, intrinsic :: iso_c_binding, only : c_size_t
 
+#:if LIBXC_VERSION_MAJOR == 6
   use xc_f03_lib_m, only : xc_f03_func_t, xc_f03_func_init, xc_f03_func_end, xc_f03_lda_vxc,&
       & xc_f03_gga_vxc, XC_LDA_X, XC_LDA_X_YUKAWA, XC_LDA_C_PW, XC_GGA_X_PBE, XC_GGA_C_PBE,&
       & XC_GGA_X_B88, XC_GGA_C_LYP, XC_GGA_X_SFAT_PBE, XC_HYB_GGA_XC_B3LYP,&
       & XC_HYB_GGA_XC_CAMY_B3LYP, XC_UNPOLARIZED, xc_f03_func_set_ext_params
+#:elif LIBXC_VERSION_MAJOR == 7
+  use xc_f03_lib_m, only : xc_f03_func_t, xc_f03_func_init, xc_f03_func_end, xc_f03_lda_vxc,&
+      & xc_f03_gga_vxc, xc_f03_func_set_ext_params, XC_UNPOLARIZED
+  use xc_f03_funcs_m, only : XC_LDA_X, XC_LDA_X_YUKAWA, XC_LDA_C_PW, XC_GGA_X_PBE, XC_GGA_C_PBE,&
+      & XC_GGA_X_B88, XC_GGA_C_LYP, XC_GGA_X_SFAT_PBE, XC_HYB_GGA_XC_B3LYP, XC_HYB_GGA_XC_CAMY_B3LYP
+#:endif
 
   implicit none
   private
