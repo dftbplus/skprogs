@@ -25,7 +25,6 @@ set(sources-f90
   output.f90
   total_energy.f90
   utilities.f90
-  xcfunctionals.f90
   zora_routines.f90)
 
 set(sources-fpp
@@ -34,7 +33,8 @@ set(sources-fpp
   confinement.F90
   input.F90
   lapackroutines.F90
-  simplemixer.F90)
+  simplemixer.F90
+  xcfunctionals.F90)
 
 skprogs_preprocess("${FYPP}" "${fypp_flags}" "F90" "f90" "${sources-fpp}" sources-f90-preproc)
 

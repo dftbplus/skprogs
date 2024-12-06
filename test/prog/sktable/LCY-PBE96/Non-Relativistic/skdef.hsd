@@ -95,10 +95,10 @@ OnecenterParameters {
 TwoCenterParameters {
 
   $EqGrid = EquidistantGrid {
-      GridStart = 0.6
-      GridSeparation = 0.02
+      GridStart = 2.0
+      GridSeparation = 0.2
       Tolerance = 5e-5
-      MaxDistance = -1.4
+      MaxDistance = -2.5
   }
 
   $SkTwocnt_300_150 = Sktwocnt {
