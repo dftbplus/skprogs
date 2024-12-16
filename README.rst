@@ -47,10 +47,9 @@ management framework using `Miniconda
 We recommend to set up a dedicated conda environment and to use the
 `mamba solver <https://mamba.readthedocs.io/>`_ ::
 
-  conda create --name skprogs
+  conda install -n base mamba
+  conda create -n skprogs
   conda activate skprogs
-  conda install conda-libmamba-solver
-  conda config --set solver libmamba
 
 to install the latest stable release of SkProgs (Fortran and Python
 components)::
