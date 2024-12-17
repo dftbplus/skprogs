@@ -12,32 +12,32 @@ jobs:
 
     runs-on: ${{ matrix.os }}
 
+    defaults:
+      run:
+        shell: bash -l {0}
+
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
-        mpi: [nompi, openmpi]
+        # Switch from openmpi to mpich, since installing openmpi-mpifort
+        # from the conda-forge channel downgrades gfortran at the moment
+        mpi: [nompi, mpich]
         config: [Debug]
-        version: [13]
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
-    - name: Set up python
-      uses: actions/setup-python@v4
+    - name: Set up miniforge
+      uses: conda-incubator/setup-miniconda@v3
       with:
-        python-version: '3.x'
+        miniforge-version: latest
+        auto-activate-base: true
+        activate-environment: ""
 
     - name: Install GCC (Linux)
-      run: |
-        sudo add-apt-repository ppa:ubuntu-toolchain-r/test
-        sudo apt-get update
-        sudo apt-get install -y gcc-${{ matrix.version}} gfortran-${{ matrix.version }}
-        sudo update-alternatives \
-          --install /usr/bin/gcc gcc /usr/bin/gcc-${{ matrix.version }} 100 \
-          --slave /usr/bin/gfortran gfortran /usr/bin/gfortran-${{ matrix.version }} \
-          --slave /usr/bin/gcov gcov /usr/bin/gcov-${{ matrix.version }}
+      run: mamba install c-compiler cxx-compiler fortran-compiler
 
     - name: Enable MPI build
       if: contains(matrix.mpi, 'openmpi') || contains(matrix.mpi, 'mpich')
@@ -49,46 +49,33 @@ jobs:
 
     - name: Set Compiler
       run: |
-        echo "FC=gfortran" >> $GITHUB_ENV
-        echo "CC=gcc" >> $GITHUB_ENV
+        echo "FC=${CONDA_PREFIX}/bin/gfortran" >> $GITHUB_ENV
+        echo "CC=${CONDA_PREFIX}/bin/gcc" >> $GITHUB_ENV
 
     - name: Install OpenMPI
       if: contains(matrix.mpi, 'openmpi')
-      run: |
-        sudo apt-get update
-        sudo apt-get install libopenmpi-dev
+      run: mamba install openmpi openmpi-mpifort
 
     - name: Install MPICH
       if: contains(matrix.mpi, 'mpich')
-      run: |
-        sudo apt-get update
-        sudo apt-get install mpich
+      run: mamba install mpich mpich-mpifort
 
-    - name: Compile and Install libXC
-      run: |
-        git clone https://gitlab.com/libxc/libxc.git
-        cd libxc/
-        git checkout 6.2.2
-        cmake -DCMAKE_INSTALL_PREFIX=${PWD}/${BUILD_DIR}/${INSTALL_DIR} -DENABLE_FORTRAN=True -B ${BUILD_DIR} .
-        cd ${BUILD_DIR}
-        make -j2
-        make install
-        cd ../../
+    - name: Install BLAS
+      run: mamba install openblas libopenblas
 
-    - name: Set libXC search path
-      run: |
-        echo "CMAKE_PREFIX_PATH=./libxc/${BUILD_DIR}/${INSTALL_DIR}/" >> $GITHUB_ENV
+    - name: Install libxc
+      run: mamba install libxc=6.2.2
 
-    - name: Install requirements (pip)
-      run: |
-        pip3 install --upgrade pip
-        pip3 install wheel
-        pip3 install cmake fypp numpy scipy
+    - name: Set libxc search path
+      run: echo "CMAKE_PREFIX_PATH=${CONDA_PREFIX}/" >> $GITHUB_ENV
+
+    - name: Install requirements (conda)
+      run: mamba install cmake fypp numpy scipy
 
     - name: Configure build
-      run: >-
-        cmake -B ${BUILD_DIR} -DWITH_MPI=${WITH_MPI}
-        -DCMAKE_INSTALL_PREFIX=${PWD}/${BUILD_DIR}/${INSTALL_DIR}
+      run: |
+        cmake -B ${BUILD_DIR} -DWITH_MPI=${WITH_MPI} \
+        -DCMAKE_INSTALL_PREFIX=${PWD}/${BUILD_DIR}/${INSTALL_DIR} \
         -DCMAKE_BUILD_TYPE=${{ matrix.config }} .
 
     - name: Build project
@@ -102,8 +89,7 @@ jobs:
 
     - name: Configure build (TEST_MPI_PROCS=2)
       if: contains(matrix.mpi, 'openmpi') || contains(matrix.mpi, 'mpich')
-      run: |
-        cmake -B ${BUILD_DIR} -DTEST_MPI_PROCS=2 .
+      run: cmake -B ${BUILD_DIR} -DTEST_MPI_PROCS=2 .
 
     - name: Run regression tests (TEST_MPI_PROCS=2)
       if: contains(matrix.mpi, 'openmpi') || contains(matrix.mpi, 'mpich')
@@ -113,8 +99,7 @@ jobs:
         popd
 
     - name: Install project
-      run: |
-        cmake --install ${BUILD_DIR}
+      run: cmake --install ${BUILD_DIR}
 
   intel-build:
 
@@ -135,7 +120,7 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Setup Python
       uses: actions/setup-python@v4
@@ -157,7 +142,7 @@ jobs:
         echo "FC=ifx" >> ${GITHUB_ENV}
         echo "CC=icx" >> ${GITHUB_ENV}
 
-    - name: Compile and install libXC
+    - name: Compile and install libxc
       run: |
         git clone https://gitlab.com/libxc/libxc.git
         cd libxc/
@@ -168,7 +153,7 @@ jobs:
         make install
         cd ../../
 
-    - name: Set libXC search path
+    - name: Set libxc search path
       run: |
         echo "CMAKE_PREFIX_PATH=./libxc/${BUILD_DIR}/${INSTALL_DIR}/" >> $GITHUB_ENV
 
