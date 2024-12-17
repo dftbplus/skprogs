@@ -20,6 +20,8 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
+        # Switch from openmpi to mpich, since installing openmpi-mpifort
+        # from the conda-forge channel downgrades gfortran at the moment
         mpi: [nompi, mpich]
         config: [Debug]
 
