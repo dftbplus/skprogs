@@ -314,8 +314,8 @@ OnecenterParameters {
     $StandardDeltaFilling
     Calculator = SlaterAtom {
       Exponents {
-	S = 0.5 1.2 2.9 7.0
-	P = 0.5 1.2 2.9 7.0
+	S = 0.5 1.21 2.9 7.0
+	P = 0.5 1.21 2.9 7.0
       }
       MaxPowers {
 	S = 3
