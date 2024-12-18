@@ -23,7 +23,12 @@ jobs:
         # Switch from openmpi to mpich, since installing openmpi-mpifort
         # from the conda-forge channel downgrades gfortran at the moment
         mpi: [nompi, mpich]
+        libxc: [6, 7]
         config: [Debug]
+        # Serial binary is tested with libxc 7
+        exclude:
+          - mpi: nompi
+            libxc: 6
 
     steps:
     - name: Checkout code
@@ -63,8 +68,13 @@ jobs:
     - name: Install BLAS
       run: mamba install openblas libopenblas
 
-    - name: Install libxc
+    - name: Install libxc (6.2.2)
+      if: contains(matrix.libxc, '6')
       run: mamba install libxc=6.2.2
+
+    - name: Install libxc (7.0.0)
+      if: contains(matrix.libxc, '7')
+      run: mamba install libxc=7.0.0
 
     - name: Set libxc search path
       run: echo "CMAKE_PREFIX_PATH=${CONDA_PREFIX}/" >> $GITHUB_ENV
@@ -72,27 +82,32 @@ jobs:
     - name: Install requirements (conda)
       run: mamba install cmake fypp numpy scipy
 
-    - name: Configure build
+    - name: Configure build (-DTEST_MPI_PROCS=1)
+      if: contains(matrix.mpi, 'nompi') || contains(matrix.libxc, '6')
       run: |
         cmake -B ${BUILD_DIR} -DWITH_MPI=${WITH_MPI} \
         -DCMAKE_INSTALL_PREFIX=${PWD}/${BUILD_DIR}/${INSTALL_DIR} \
-        -DCMAKE_BUILD_TYPE=${{ matrix.config }} .
+        -DCMAKE_BUILD_TYPE=${{ matrix.config }} -DTEST_MPI_PROCS=1 .
+
+    - name: Configure build (-DTEST_MPI_PROCS=2)
+      if: "! contains(matrix.mpi, 'nompi') && ! contains(matrix.libxc, '6')"
+      run: |
+        cmake -B ${BUILD_DIR} -DWITH_MPI=${WITH_MPI} \
+        -DCMAKE_INSTALL_PREFIX=${PWD}/${BUILD_DIR}/${INSTALL_DIR} \
+        -DCMAKE_BUILD_TYPE=${{ matrix.config }} -DTEST_MPI_PROCS=2 .
 
     - name: Build project
       run: cmake --build ${BUILD_DIR}
 
-    - name: Run regression tests
+    - name: Run regression tests (-j2)
+      if: contains(matrix.mpi, 'nompi') || contains(matrix.libxc, '6')
       run: |
         pushd ${BUILD_DIR}
         ctest -j2 --output-on-failure
         popd
 
-    - name: Configure build (TEST_MPI_PROCS=2)
-      if: contains(matrix.mpi, 'openmpi') || contains(matrix.mpi, 'mpich')
-      run: cmake -B ${BUILD_DIR} -DTEST_MPI_PROCS=2 .
-
-    - name: Run regression tests (TEST_MPI_PROCS=2)
-      if: contains(matrix.mpi, 'openmpi') || contains(matrix.mpi, 'mpich')
+    - name: Run regression tests (-j1)
+      if: "! contains(matrix.mpi, 'nompi') && ! contains(matrix.libxc, '6')"
       run: |
         pushd ${BUILD_DIR}
         ctest -j1 --output-on-failure

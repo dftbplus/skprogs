@@ -15,6 +15,7 @@
 #:set DEBUG = getvar('DEBUG', 0)
 #:set WITH_ASSERT = defined('WITH_ASSERT') or DEBUG > 0
 #:set WITH_MPI = defined('WITH_MPI')
+#:set LIBXC_VERSION_MAJOR = getvar('LIBXC_VERSION_MAJOR')
 
 
 #!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
