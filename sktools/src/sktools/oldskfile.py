@@ -1,6 +1,7 @@
 """Contains the representation of the old SK-file."""
 
 
+import re
 import os.path
 import warnings
 import numpy as np
@@ -30,6 +31,12 @@ This SPLINE is just a DUMMY-SPLINE!!!!!!!!!!!!!!!
 """
 
 FLOAT_FORMSTR = " {:20.12E}"
+PATTERN_EXTRATAG = (
+    r"(?i)\s*RangeSep\s*CAM\s+([-+]?(?:[0-9]+\.[0-9]+|\.[0-9]+|[0-9]+)"
+    r"(?:[eE][-+]?[0-9]+)?)\s+([-+]?(?:[0-9]+\.[0-9]+|\.[0-9]+|[0-9]+)"
+    r"(?:[eE][-+]?[0-9]+)?)\s+([-+]?(?:[0-9]+\.[0-9]+|\.[0-9]+|[0-9]+)"
+    r"(?:[eE][-+]?[0-9]+)?)\s*(?:\n|$)"
+)
 
 
 class OldSKFile:
@@ -85,11 +92,16 @@ class OldSKFile:
             values = sc.convert_fortran_floats(fp.readline())
             hamiltonian[iline, 0:ninteg] = values[0:ninteg]
             overlap[iline, 0:ninteg] = values[ninteg:2*ninteg]
-        # Currently, everything after SK table is treated as spline repulsive
-        splinerep = fp.read()
+
+        # the remaining content may contain the spline repulsive and hybrid
+        # functional tag
+        remaining_content = fp.read()
+        splinerep, cam_params = parse_cam_from_content(remaining_content)
+        extra_tag = generate_cam_extratag(cam_params)
+
         fp.close()
         return cls(extended, dr, hamiltonian, overlap, onsites, spinpolerror,
-                   hubbardus, occupations, mass, splinerep, polyrep)
+                   hubbardus, occupations, mass, splinerep, polyrep, extra_tag)
 
 
     def tofile(self, fname):
@@ -209,8 +221,21 @@ class OldSKFile:
                 warnings.warn('Mismatch in nuclear mass.')
                 return False
 
-        # Spline/polynomial repulsive comparison and
-        # Hyb/LC/CAM tag still missing in comparison
+        # Spline/polynomial repulsive is still missing in the comparison
+
+        if self.extratag and ref.extratag:
+            _, cam_params_self = parse_cam_from_content(
+                '\n'.join(self.extratag))
+            _, cam_params_ref = parse_cam_from_content(
+                '\n'.join(ref.extratag))
+            equal = np.allclose(
+                cam_params_self, cam_params_ref, rtol=rtol, atol=atol)
+        else:
+            equal = self.extratag == ref.extratag
+
+        if not equal:
+            warnings.warn('Mismatch in the hybrid functional extra tag.')
+            return False
 
         return equal
 
@@ -467,3 +492,32 @@ class OldSKFileSet:
     def _get_basis_indexed_dict(basis, values):
         mydict = {shell: value for shell, value in zip(basis, values)}
         return mydict
+
+
+def parse_cam_from_content(content):
+    '''Attemps to parse the CAM parameters.'''
+
+    match = re.search(PATTERN_EXTRATAG, content)
+
+    if match:
+        cam_params = tuple(map(float, match.groups()))
+        remaining_content = content[:match.start()] + '\n' \
+            + content[match.end():]
+    else:
+        cam_params = None
+        remaining_content = content
+    remaining_content.strip('\n')
+
+    return remaining_content, cam_params
+
+
+def generate_cam_extratag(cam_params):
+    '''Generates the extra hybrid functional tag from CAM parameters.'''
+
+    if cam_params is not None:
+        hyb_tag = "RangeSep\nCAM" + 3 * FLOAT_FORMSTR
+        extra_tag = [hyb_tag.format(*cam_params)]
+    else:
+        extra_tag = None
+
+    return extra_tag

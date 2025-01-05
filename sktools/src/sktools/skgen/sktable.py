@@ -1,9 +1,9 @@
 import logging
 import numpy as np
-import sktools.oldskfile
 import sktools.common as sc
 from .atom import run_atom
 from .twocnt import run_twocnt
+from sktools.oldskfile import OldSKFileSet, generate_cam_extratag
 
 logger = logging.getLogger("skgen.sktable")
 
@@ -150,33 +150,23 @@ class SkgenSktableAssembly:
         # if range-separated hybrid is used, add the RangeSep tag
         extra_tag = None
         xcn = myinput.xcf.type
-        if xcn in ('lcy-bnl', 'lcy-pbe'):
-            rsh_tag = "RangeSep\nLC {:f}".format(myinput.xcf.omega)
-            extra_tag = [rsh_tag]
-        if xcn in ('camy-b3lyp', 'camy-pbeh'):
-            rsh_tag = "RangeSep\nCAM {:f} {:f} {:f}".format(myinput.xcf.omega,
-                                                            myinput.xcf.alpha,
-                                                            myinput.xcf.beta)
-            extra_tag = [rsh_tag]
-        if xcn == 'pbe0':
-            rsh_tag = "GlobalHybrid\nHF {:f}".format(myinput.xcf.alpha)
-            extra_tag = [rsh_tag]
-        if xcn == 'b3lyp':
-            rsh_tag = "GlobalHybrid\nHF {:f}".format(0.20)
-            extra_tag = [rsh_tag]
+        if xcn in ('camy-b3lyp', 'camy-pbeh', 'lcy-bnl', 'lcy-pbe', 'pbe0',
+                   'b3lyp'):
+            extra_tag = generate_cam_extratag((
+                myinput.xcf.omega, myinput.xcf.alpha, myinput.xcf.beta))
 
         if self._input.homo:
             onsites, occs, hubbus, spinpolerr, mass = self._get_atomic_data()
             if not myinput.shellresolved:
                 hubbus = self._override_with_homo_value(
                     myinput.atomconfig1, self._atom_prereq1.result, hubbus)
-            skfiles = sktools.oldskfile.OldSKFileSet(
+            skfiles = OldSKFileSet(
                 grid, ham, over, valshells1, None, onsites=onsites,
                 spinpolerror=spinpolerr, hubbardus=hubbus, occupations=occs,
                 mass=mass, dummy_repulsive=add_dummy_repulsive,
                 extraTag=extra_tag)
         else:
-            skfiles = sktools.oldskfile.OldSKFileSet(
+            skfiles = OldSKFileSet(
                 grid, ham, over, valshells1, valshells2,
                 dummy_repulsive=add_dummy_repulsive, extraTag=extra_tag)
         files_written = skfiles.tofile(workdir, myinput.elem1, myinput.elem2)
