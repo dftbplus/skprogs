@@ -138,7 +138,7 @@ jobs:
       uses: actions/checkout@v4
 
     - name: Setup Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: 3.x
 
@@ -146,9 +146,9 @@ jobs:
       uses: rscohn2/setup-oneapi@v0
       with:
         components: |
-          icx@2024.0.0
-          ifx@2024.0.0
-          mkl@2024.0.0
+          icx@2025.0.4
+          ifx@2025.0.4
+          mkl@2025.0.1
 
     - name: Setup Intel environment
       run: |
