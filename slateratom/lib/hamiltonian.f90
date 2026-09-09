@@ -3,9 +3,10 @@ module hamiltonian
 
   use common_accuracy, only : dp
   use dft, only : dft_exc_matrixelement
-  use mixer, only : TMixer, TMixer_mix
-  use zora_routines, only : zora_t_correction
+  use mixer, only : TMixer, TMixer_mix, TMixer_getMixerType, TMixer_reset
+  use utilities, only : compute_commutator
   use xcfunctionals, only : xcFunctional
+  use zora_routines, only : zora_t_correction
 
   implicit none
   private
@@ -19,7 +20,7 @@ contains
   !> Main driver routine for Fock matrix build-up. Also calls mixer with potential matrix.
   subroutine build_hamiltonian(pMixer, iScf, tt, uu, nuc, vconf, jj, kk, kk_lr, pp, max_l,&
       & num_alpha, poly_order, problemsize, xcnr, num_mesh_points, weight, abcissa, vxc, alpha,&
-      & pot_old, pot_new, tZora, ff, camAlpha, camBeta)
+      & pot_old, pot_new, overlap, invsqrt_ss, commutator, tZora, ff, camAlpha, camBeta)
 
     !> mixer instances
     type(TMixer), intent(inout) :: pMixer
@@ -86,6 +87,15 @@ contains
 
     !> new potential
     real(dp), intent(out) :: pot_new(:,0:,:,:)
+
+    !> Overlap matrix S
+    real(dp), intent(in) :: overlap(0:, :,:)
+    
+    !> S^(-1/2)
+    real(dp), intent(in) :: invsqrt_ss(0:, :,:)
+
+    !> commutator S^(-1/2) [F,PS] S^(-1/2)
+    real(dp), intent(out) :: commutator(:, 0:, :, :)
 
     !> true, if zero-order regular approximation for relativistic effects is desired
     logical, intent(in) :: tZora
@@ -179,10 +189,52 @@ contains
     pot_new(1, :,:,:) = - real(nuc, dp) * uu + j_matrix - k_matrix(1, :,:,:)
     pot_new(2, :,:,:) = - real(nuc, dp) * uu + j_matrix - k_matrix(2, :,:,:)
 
+    ! pre-build Fock matrix for commutator computation
+    do ii = 0, max_l
+      ss = 0
+      do jjj = 1, num_alpha(ii)
+        do kkk = 1, poly_order(ii)
+          ss = ss + 1
+          ttt = 0
+          do ll = 1, num_alpha(ii)
+            do mm = 1, poly_order(ii)
+              ttt = ttt + 1
+
+              ff(1, ii, ss, ttt) = tt(ii, ss, ttt) + pot_new(1, ii, ss, ttt) + vconf(ii, ss, ttt)
+              ff(2, ii, ss, ttt) = tt(ii, ss, ttt) + pot_new(2, ii, ss, ttt) + vconf(ii, ss, ttt)
+
+              if (tZora) then
+                ff(1, ii, ss, ttt) = ff(1, ii, ss, ttt) + t_zora(1, ii, ss, ttt)
+                ff(2, ii, ss, ttt) = ff(2, ii, ss, ttt) + t_zora(2, ii, ss, ttt)
+              end if
+
+            end do
+          end do
+        end do
+      end do
+    end do
+
+    ! compute S^(-1/2) [F,PS] S^(-1/2)
+    call compute_commutator(max_l, num_alpha, poly_order, ff, pp, overlap, invsqrt_ss, commutator)
+
+    ! Not sure: before or after mixer (potential .ne. Matrix elements)?
+    ! Should be irrelevant once self-consistency is reached.
+    if (tZora .and. (iScf /= 0)) then
+      call zora_t_correction(1, t_zora, max_l, num_alpha, alpha, poly_order, num_mesh_points,&
+          & weight, abcissa, vxc, nuc, pp, problemsize)
+    end if
+
     ! mixer
     allocate(pot_diff, mold=pot_old)
-    pot_diff(:,0:,:,:) = pot_old - pot_new
-    call TMixer_mix(pMixer, pot_new, pot_diff)
+    ! pot_diff(:,0:,:,:) = pot_old - pot_new
+    pot_diff(:,0:,:,:) = pot_new - pot_old
+
+    call TMixer_mix(pMixer, pot_new, pot_diff, commutator)
+
+    ! guard against uninitalised arrays on step 0
+    if (iScf == 0) then
+      call TMixer_reset(pMixer, size(pot_new))
+    end if
 
     ! Not sure: before or after mixer (potential .ne. Matrix elements)?
     ! Should be irrelevant once self-consistency is reached.
@@ -215,6 +267,8 @@ contains
         end do
       end do
     end do
+
+   deallocate(pot_diff)
 
   end subroutine build_hamiltonian
 

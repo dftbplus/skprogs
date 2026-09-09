@@ -4,11 +4,12 @@
 !! The interface of all LAPACK calls must be defined in the module lapack.
 module lapackroutines
 
-  use common_accuracy, only : dp, rdp
+  use common_accuracy, only : rdp
+  use common_message, only : error
   implicit none
 
   private
-  public :: getrf, getrs
+  public :: gesv, getrf, getrs
 
 
   !> Computes the LU decomposition of a general rectangular matrix using partial pivoting with row
@@ -29,7 +30,69 @@ module lapackroutines
   end interface getrs
 
 
+  !> Computes the solution to a real system of linear equations A * X = B, where A is an N-by-N
+  !> matrix and X and B are N-by-NRHS matrices
+  interface gesv
+    module procedure gesv_dble
+  end interface gesv
+
 contains
+
+  !> Solves a general system of linear equations A * X = B, where A is a real matrix.
+  subroutine gesv_dble(aa, bb, nEquation, nSolution)
+
+    !> Contains the coefficients on entry, the LU factorisation on exit.
+    real(rdp), intent(inout) :: aa(:,:)
+
+    !> Right hand side(s) of the linear equation on entry, solution(s) on exit.
+    real(rdp), intent(inout) :: bb(:,:)
+
+    !> The size of the problem (nr. of variables and equations). Must be only specified if different
+    !> from size(aa, dim=1).
+    integer, intent(in), optional :: nEquation
+
+    !> Nr. of right hand sides (nr. of solutions). Must be only specified if different from size(b,
+    !> dim=2).
+    integer, intent(in), optional :: nSolution
+
+    integer :: info
+    integer :: nn, nrhs, lda, ldb
+    integer, allocatable :: ipiv(:)
+    character(len=100) :: error_string
+
+    lda = size(aa, dim=1)
+    if (present(nEquation)) then
+      @:ASSERT(nEquation >= 1 .and. nEquation <= lda)
+      nn = nEquation
+    else
+      nn = lda
+    end if
+    @:ASSERT(size(aa, dim=2) >= nn)
+
+    ldb = size(bb, dim=1)
+    @:ASSERT(ldb >= nn)
+    nrhs = size(bb, dim=2)
+    if (present(nSolution)) then
+      @:ASSERT(nSolution <= nrhs)
+      nrhs = nSolution
+    end if
+
+    info = 0
+    allocate(ipiv(nn))
+    call dgesv(nn, nrhs, aa, lda, ipiv, bb, ldb, info)
+
+    if (info /= 0) then
+      if (info < 0) then
+        write(error_string, "(A,I0)")'Failure in dgesv illegal argument at position : ', info
+      else
+        write(error_string, "(A,I0)")'Linear dependent system in dgesv,&
+            & info flag : ', info
+      end if
+      call error(error_string)
+    end if
+
+  end subroutine gesv_dble
+
 
   !> Double precision version of getrf.
   subroutine getrf_dble(aa, ipiv, nRow, nColumn, iError)
@@ -161,5 +224,31 @@ contains
     call getrs(amat, ipiv, bptr, trans, iError)
 
   end subroutine getrs1_dble
+
+  !> Solves overdetermined or underdetermined systems for GE matrices
+  ! subroutine dgelss_dble(amat, bmat, trans)
+
+  !   !> Matrix of the linear system
+  !   real(rdp), intent(inout) :: amat(:,:)
+
+  !   !>
+  !   real(rdp), intent(inout) :: bmat
+
+  !   !> Optional transpose (defaults to 'n')
+  !   character(len=1), intent(in), optional :: trans
+
+  !   !> Error flag, zero on successful exit
+  !   integer, intent(out), optional :: iError
+
+  !   integer :: nn, lda, info, lwork
+  !   real(rdp), allocatable :: work(:)
+  !   real(rdp) :: work2(1)
+    
+  !   integer :: info
+  !   allocate(svals(n), work(8*n))
+  !   call dgelss(n, n, 1, amat, size(amat,1), bmat, size(bmat,1), svals, 1.0e-10_dp, rank, work, 8*n, info)
+  !   if (info /= 0) call error("DIIS: dgelss failed to converge")
+  !     deallocate(svals, work)
+  ! end subroutine dgelss_dble
 
 end module lapackroutines

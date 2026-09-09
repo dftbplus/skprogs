@@ -17,7 +17,8 @@ program HFAtom
       & write_waves_file_standard, write_wave_coeffs_file, cusp_values, writeAveragePotential
   use totalenergy, only : getTotalEnergy, getTotalEnergyZora
   use dft, only : check_accuracy, dft_start_pot, density_grid
-  use utilities, only : check_electron_number, check_convergence
+  use utilities, only : check_electron_number, check_convergence_pot, check_convergence_spectrum,&
+      & compute_commutator
   use zora_routines, only : scaled_zora
   use cmdargs, only : parse_command_arguments
   use common_poisson, only : TBeckeGridParams
@@ -94,6 +95,7 @@ program HFAtom
   ! build supervectors
   write(*, '(A)') 'Startup: Building Supervectors'
   call overlap(ss, max_l, num_alpha, alpha, poly_order)
+  
   call nuclear(uu, max_l, num_alpha, alpha, poly_order)
   call kinetic(tt, max_l, num_alpha, alpha, poly_order)
 
@@ -113,7 +115,7 @@ program HFAtom
   end if
 
   ! test for linear dependency
-  call diagonalize_overlap(max_l, num_alpha, poly_order, ss)
+  call diagonalize_overlap(max_l, num_alpha, poly_order, ss, invsqrt_ss)
 
   ! build supermatrices
   write(*, '(A)') 'Startup: Building Supermatrices'
@@ -147,15 +149,16 @@ program HFAtom
   ! kinetic energy, nuclear-electron, and confinement matrix elements which are constant during SCF
   call build_hamiltonian(pMixer, 0, tt, uu, nuc, vconf_matrix, jj, kk, kk_lr, pp, max_l, num_alpha,&
       & poly_order, problemsize, xcnr, num_mesh_points, weight, abcissa, vxc, alpha, pot_old,&
-      & pot_new, tZora, ff, camAlpha, camBeta)
+      & pot_new, ss, invsqrt_ss, commutator, tZora, ff, camAlpha, camBeta)
 
   ! self-consistency cycles
   write(*,*) 'Energies in Hartree'
   write(*,*)
-  write(*,*) ' Iter |   Total energy  |   HF-X energy  |   XC energy   |   Change in pot'
+  write(*,*) ' Iter |   Total energy  |  d(Spectrum)  |   d(Commutator)   |  d(Potential)'
   write(*,*) '--------------------------------------------------------------------------'
   lpScf: do iScf = 1, maxiter
 
+    eigval_old(:,:,:) = eigval
     pot_old(:,:,:,:) = pot_new
 
     ! diagonalize
@@ -171,7 +174,7 @@ program HFAtom
     ! build Fock matrix and get total energy during SCF
     call build_hamiltonian(pMixer, iScf, tt, uu, nuc, vconf_matrix, jj, kk, kk_lr, pp, max_l,&
         & num_alpha, poly_order, problemsize, xcnr, num_mesh_points, weight, abcissa, vxc, alpha,&
-        & pot_old, pot_new, tZora, ff, camAlpha, camBeta)
+        & pot_old, pot_new, ss, invsqrt_ss, commutator, tZora, ff, camAlpha, camBeta)
 
     if (tZora) then
       call getTotalEnergyZora(tt, uu, nuc, vconf_matrix, jj, kk, kk_lr, pp, max_l, num_alpha,&
@@ -185,10 +188,19 @@ program HFAtom
           & total_ene)
     end if
 
-    call check_convergence(pot_old, pot_new, max_l, problemsize, scftol, iScf, change_max,&
+    call check_convergence_pot(pot_old, pot_new, max_l, problemsize, scftol, iScf, d_pot_max,&
         & tConverged)
+    call check_convergence_spectrum(max_l, num_alpha, poly_order, eigval, eigval_old, occ,&
+        & scftol, iScf, d_spectrum_max, tSpectrumConverged)
+    commutator_max = maxval(abs(commutator))
+    tCommutatorConverged = (maxval(abs(commutator)) < scftol)
 
-    write(*, '(I4,2X,3(1X,F16.9),3X,E16.9)') iScf, total_ene, exchange_energy, x_en_2, change_max
+    write(*, '(I4,2X,3(1X,E16.9),3X,E16.9)') iScf, total_ene, d_spectrum_max, commutator_max, d_pot_max
+
+    ! In case of DIIS, use commutator instead of potential change for convergence
+    if (mixnr == 3) then
+      tConverged = tCommutatorConverged
+    end if
 
     ! if self-consistency is reached, exit loop
     if (tConverged) exit lpScf
@@ -233,7 +245,7 @@ program HFAtom
         & exchange_energy, x_en_2, conf_energy, total_ene)
   end if
 
-  write(*, '(A,E20.12)') 'Potential Matrix Elements converged to ', change_max
+  write(*, '(A,E20.12)') 'Potential Matrix Elements converged to ', d_pot_max
   write(*, '(A)') ' '
 
   if (tZora) then

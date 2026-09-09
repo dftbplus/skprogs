@@ -11,3 +11,4 @@ __pycache__
 _gitmsg.saved.txt
 *.egg-info
 dist
+.vscode/

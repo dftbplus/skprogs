@@ -5,6 +5,7 @@ module globals
   use mixer, only : TMixer, TMixer_init, TMixer_reset, mixerTypes
   use broydenmixer, only : TBroydenMixer, TBroydenMixer_init
   use simplemixer, only : TSimpleMixer, TSimpleMixer_init
+  use diismixer, only : TDiisMixer, TDiisMixer_init
   use confinement, only : TConfInp
 
   implicit none
@@ -61,6 +62,9 @@ module globals
   !> overlap supervector
   real(dp), allocatable :: ss(:,:,:)
 
+  !> inv. square root of the overlap supervector
+  real(dp), allocatable :: invsqrt_ss(:,:,:)
+
   !> nucleus-electron supervector
   real(dp), allocatable :: uu(:,:,:)
 
@@ -85,8 +89,14 @@ module globals
   !> wavefunction coefficients
   real(dp), allocatable :: cof(:,:,:,:)
 
-  !> relative changes during scf
-  real(dp) :: change_max
+  !> max abs. change in potential matrix in the last scf step
+  real(dp) :: d_pot_max
+
+  !> max abs. change in occupied Fock eigenvalues in the last scf step
+  real(dp) :: d_spectrum_max
+
+  !> max abs. value in the commutator from the current scf step
+  real(dp) :: commutator_max
 
   !> density matrix supervector
   real(dp), allocatable :: pp(:,:,:,:)
@@ -94,14 +104,20 @@ module globals
   !> fock matrix supervector
   real(dp), allocatable :: ff(:,:,:,:)
 
+  !> commutator [F, PS]
+  real(dp), allocatable :: commutator(:,:,:,:)
+
   !> potential matrix supervectors
   real(dp), allocatable :: pot_new(:,:,:,:), pot_old(:,:,:,:)
 
   !> eigenvalues
-  real(dp), allocatable :: eigval(:,:,:)
+  real(dp), allocatable :: eigval(:,:,:), eigval_old(:,:,:)
 
   !> zora scaled eigenvalues
   real(dp), allocatable :: eigval_scaled(:,:,:)
+
+  !> true, if SCF cycle reached convergency on a given quantity
+  logical :: tCommutatorConverged, tEnergyConverged, tSpectrumConverged
 
   !> total energy
   real(dp) :: total_ene
@@ -187,6 +203,9 @@ module globals
   !> broyden mixer (if used)
   type(TBroydenMixer), allocatable :: pBroydenMixer
 
+  !> DIIS mixer (if used)
+  type(TDiisMixer), allocatable :: pDiisMixer
+
   !> mixing factor
   real(dp) :: mixing_factor
 
@@ -220,16 +239,19 @@ contains
 
     allocate(ss(0:max_l, problemsize, problemsize))
     write(*, '(A,I0,A)') 'Size of one Supervectors is ', size(ss), ' double precision elements'
+    allocate(invsqrt_ss(0:max_l, problemsize, problemsize))
 
     allocate(uu(0:max_l, problemsize, problemsize))
     allocate(tt(0:max_l, problemsize, problemsize))
     allocate(vconf(num_mesh_points, 0:max_l))
     allocate(vconf_matrix(0:max_l, problemsize, problemsize))
     allocate(ff(2, 0:max_l, problemsize, problemsize))
+    allocate(commutator(2, 0:max_l, problemsize, problemsize))
     allocate(pot_old(2, 0:max_l, problemsize, problemsize))
     allocate(pot_new(2, 0:max_l, problemsize, problemsize))
 
     allocate(eigval(2, 0:max_l, problemsize))
+    allocate(eigval_old(2, 0:max_l, problemsize))
     allocate(eigval_scaled(2, 0:max_l, problemsize))
 
     allocate(jj(0:max_l, problemsize, problemsize, 0:max_l, problemsize, problemsize))
@@ -253,6 +275,7 @@ contains
     ddrho(:,:) = 0.0_dp
 
     eigval(:,:,:) = 0.0_dp
+    eigval_old(:,:,:) = 0.0_dp
     eigval_scaled(:,:,:) = 0.0_dp
 
     cof(:,:,:,:) = 0.0_dp
@@ -273,6 +296,10 @@ contains
       call TBroydenMixer_init(pBroydenMixer, maxiter, mixing_factor, 0.01_dp, 1.0_dp, 1.0e5_dp,&
           & 1.0e-2_dp)
       call TMixer_init(pMixer, pBroydenMixer)
+    case(mixerTypes%diis)
+      allocate(pDiisMixer)
+      call TDiisMixer_init(pDiisMixer, 10, mixing_factor, .false.)
+      call TMixer_init(pMixer, pDiisMixer)
     case default
       error stop "Unknown mixer type."
     end select

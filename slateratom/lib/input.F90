@@ -252,7 +252,7 @@ contains
     read(*,*) tPrintEigvecs
 
     write(*, '(A)') 'Enter mixer and mixing parameter <1:&
-        & 1: Simple mixer, 2: Broyden mixer'
+        & 1: Simple mixer, 2: Broyden mixer, 3: DIIS'
     read(*,*) mixnr, mixing_factor
 
   end subroutine read_input_1

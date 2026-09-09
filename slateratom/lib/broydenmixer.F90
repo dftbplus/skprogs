@@ -48,11 +48,11 @@ module broydenmixer
     !> Weights for prev. iterations
     real(dp), allocatable :: ww(:)
 
-    !> Charge difference in last iteration
-    real(dp), allocatable :: qDiffLast(:)
+    !> Input increment in last iteration
+    real(dp), allocatable :: incrementLast(:)
 
-    !> Input charge in last iteration
-    real(dp), allocatable :: qInpLast(:)
+    !> Input quantity that is being mixed, last iteration
+    real(dp), allocatable :: inputLast(:)
 
     !> Storage for the "a" matrix
     real(dp), allocatable :: aa(:,:)
@@ -70,7 +70,7 @@ contains
 
   !> Creates a Broyden mixer instance.
   !! The weight associated with an iteration is calculated as weigthFac/ww where ww is the Euclidean
-  !! norm of the charge difference vector. If the calculated weigth is outside of the
+  !! norm of the quantity difference vector. If the calculated weigth is outside of the
   !! [minWeight, maxWeight] region it is replaced with the appropriate boundary value.
   subroutine TBroydenMixer_init(this, mIter, mixParam, omega0, minWeight, maxWeight, weightFac)
 
@@ -107,8 +107,8 @@ contains
     this%maxWeight = maxWeight
     this%weightFac = weightFac
     allocate(this%ww(mIter-1))
-    allocate(this%qInpLast(this%nElem))
-    allocate(this%qDiffLast(this%nElem))
+    allocate(this%inputLast(this%nElem))
+    allocate(this%incrementLast(this%nElem))
     allocate(this%aa(mIter-1, mIter-1))
     allocate(this%dF(this%nElem, mIter - 1))
     allocate(this%uu(this%nElem, mIter - 1))
@@ -129,10 +129,10 @@ contains
 
     if (nElem /= this%nElem) then
       this%nElem = nElem
-      deallocate(this%qInpLast)
-      deallocate(this%qDiffLast)
-      allocate(this%qInpLast(this%nElem))
-      allocate(this%qDiffLast(this%nElem))
+      deallocate(this%inputLast)
+      deallocate(this%incrementLast)
+      allocate(this%inputLast(this%nElem))
+      allocate(this%incrementLast(this%nElem))
       deallocate(this%dF)
       allocate(this%dF(this%nElem, this%mIter - 1))
       deallocate(this%uu)
@@ -153,24 +153,24 @@ contains
   !!   The restriction arises from the assumption that the dot-products of density matrices are
   !!   real-valued (imaginary parts add up to zero due to the hermitian property) and the linear
   !!   system of equations remains real-valued.
-  subroutine TBroydenMixer_mix(this, qInpResult, qDiff)
+  subroutine TBroydenMixer_mix(this, inputResult, increment)
 
     !> The Broyden mixer
     type(TBroydenMixer), intent(inout) :: this
 
     !> Input charges on entry, mixed charges on exit
-    real(dp), intent(inout) :: qInpResult(:)
+    real(dp), intent(inout) :: inputResult(:)
 
     !> Charge difference between output and input charges
-    real(dp), intent(in) :: qDiff(:)
+    real(dp), intent(in) :: increment(:)
 
     this%iIter = this%iIter + 1
     if (this%iIter > this%mIter) then
       error stop "Broyden mixer: Maximal nr. of steps exceeded"
     end if
 
-    call modifiedBroydenMixing(qInpResult, this%qInpLast, this%qDiffLast, this%aa,&
-        & this%ww, this%iIter, qDiff, this%alpha, this%omega0, this%minWeight, this%maxWeight,&
+    call modifiedBroydenMixing(inputResult, this%inputLast, this%incrementLast, this%aa,&
+        & this%ww, this%iIter, increment, this%alpha, this%omega0, this%minWeight, this%maxWeight,&
         & this%weightFac, this%nElem, this%dF, this%uu)
 
   end subroutine TBroydenMixer_mix
