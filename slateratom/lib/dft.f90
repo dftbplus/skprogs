@@ -13,7 +13,7 @@ module dft
   implicit none
   private
 
-  public :: dft_start_pot, density_grid, dft_exc_energy, dft_vxc_energy
+  public :: thomas_fermi_start_pot, density_grid, dft_exc_energy, dft_vxc_energy
   public :: dft_exc_matrixelement, xalpha
   public :: check_accuracy
 
@@ -25,7 +25,7 @@ contains
   !!
   !! Generalized Thomas-Fermi atomic potential as published by R. Latter,
   !! Phys. Rev. 99, 510 (1955) eqn. 5/9 and implemented in Dirk Porezags scfatom.
-  pure subroutine dft_start_pot(abcissa, num_mesh_points, nuc, vxc)
+  pure subroutine thomas_fermi_start_pot(abcissa, num_mesh_points, nuc, vxc)
 
     !> numerical integration abcissas
     real(dp), intent(in) :: abcissa(:)
@@ -59,7 +59,7 @@ contains
 
     end do
 
-  end subroutine dft_start_pot
+  end subroutine thomas_fermi_start_pot
 
 
   !> Calculate and store density and density derivatives on radial grid.

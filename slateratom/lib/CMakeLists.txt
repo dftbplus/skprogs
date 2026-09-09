@@ -23,6 +23,7 @@ set(sources-f90
   mixer.f90
   numerical_differentiation.f90
   output.f90
+  sap.f90
   total_energy.f90
   utilities.f90
   zora_routines.f90)

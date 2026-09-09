@@ -8,7 +8,9 @@ LDA-PW91/Non-Relativistic/Dynamic-noconv
 LDA-PW91/Non-Relativistic/Power
 LDA-PW91/Non-Relativistic/WS
 GGA-PBE96/Non-Relativistic
+GGA-PBE96/SAP_Guess
 HYB-PBE0/Non-Relativistic
+HYB-PBE0/SAP_Guess
 HYB-B3LYP/Non-Relativistic
 LCY-BNL/Non-Relativistic
 LCY-PBE96/Non-Relativistic

@@ -21,6 +21,9 @@ SUPPORTED_FUNCTIONALS = {'lda' : 2, 'pbe' : 3, 'blyp' : 4, 'lcy-pbe' : 5,
                          'lcy-bnl' : 6, 'pbe0' : 7, 'b3lyp' : 8,
                          'camy-b3lyp' : 9, 'camy-pbeh' : 10}
 
+GUESS_TYPES = {'Thomas-Fermi': 1,
+               'SAP': 2}
+
 INPUT_FILE = "slateratom.in"
 STDOUT_FILE = "output"
 DEFAULT_BINARY = "slateratom"
@@ -64,11 +67,12 @@ class SlaterAtomSettings(sc.ClassDict):
         Maximal power for every angular momentum.
     """
 
-    def __init__(self, exponents, maxpowers, scftol, maxscfiter):
+    def __init__(self, exponents, maxpowers, scfguess, scftol, maxscfiter):
         super().__init__()
         self.exponents = exponents
         self.maxpowers = maxpowers
         self.scftol = scftol
+        self.scfguess = scfguess
         self.maxscfiter = maxscfiter
 
     @classmethod
@@ -77,11 +81,13 @@ class SlaterAtomSettings(sc.ClassDict):
         exponents = sc.get_shellvalues_list(node, query, conv.float1)
         node = query.getchild(root, "maxpowers")
         maxpowers = sc.get_shellvalues_list(node, query, conv.int0)
+        scfguess = query.getvalue(
+            root, "scfguess", defvalue="Thomas-Fermi")
         scftol = query.getvalue(
             root, "scftolerance", converter=conv.float0, defvalue=1.0e-10)
         maxscfiter = query.getvalue(
             root, "maxscfiterations", converter=conv.int0, defvalue=120)
-        return cls(exponents, maxpowers, scftol, maxscfiter)
+        return cls(exponents, maxpowers, scfguess, scftol, maxscfiter)
 
     def __eq__(self, other):
         if not isinstance(other, SlaterAtomSettings):
@@ -100,6 +106,8 @@ class SlaterAtomSettings(sc.ClassDict):
             for ii in range(len(myexps)):
                 if abs(myexps[ii] - otherexps[ii]) > sc.INPUT_FLOAT_TOLERANCE:
                     return False
+        if (self.scfguess != other.scfguess):
+            return False
         if (abs(self.scftol - other.scftol)
                 > sc.INPUT_FLOAT_TOLERANCE):
             return False
@@ -158,6 +166,10 @@ class SlateratomInput:
             raise sc.SkgenException(msg)
         if len(settings.maxpowers) != atomconfig.maxang + 1:
             msg = "Slateratom: Missing STO max. powers for some shells"
+            raise sc.SkgenException(msg)
+        
+        if self._settings.scfguess not in GUESS_TYPES.keys():
+            msg = "SlaterAtom: unsupported guess (must be either Thomas-Fermi or SAP)"
             raise sc.SkgenException(msg)
 
         if self._settings.scftol <= 0.0:
@@ -365,6 +377,8 @@ class SlateratomInput:
 
         out.append("{:s} \t\t{:s} write eigenvectors".format(
             self._LOGICALSTRS[False], self._COMMENT))
+        out.append("{} \t\t\t{:s} SCF guess".format(GUESS_TYPES[self._settings.scfguess],
+                                                     self._COMMENT))
         out.append("{} {:g} \t\t\t{:s} broyden mixer, mixing factor".format(
             2, 0.1, self._COMMENT))
 

@@ -20,8 +20,8 @@ contains
   !> Reads in all properties, except for occupation numbers.
   subroutine read_input_1(nuc, max_l, occ_shells, maxiter, scftol, poly_order, min_alpha,&
       & max_alpha, num_alpha, tAutoAlphas, alpha, conf_type, confInp, num_occ, num_power,&
-      & num_alphas, xcnr, tPrintEigvecs, tZora, mixnr, mixing_factor, xalpha_const, omega,&
-      & camAlpha, camBeta, grid_params)
+      & num_alphas, xcnr, tPrintEigvecs, tZora, mixnr, mixing_factor, scfGuess, xalpha_const,&
+      & omega,camAlpha, camBeta, grid_params)
 
     !> nuclear charge, i.e. atomic number
     integer, intent(out) :: nuc
@@ -85,6 +85,9 @@ contains
 
     !> mixing factor
     real(dp), intent(out) :: mixing_factor
+    
+    !> SCF guess
+    integer, intent(out) :: scfGuess
 
     !> exchange parameter for X-Alpha exchange
     real(dp), intent(out) :: xalpha_const
@@ -250,6 +253,10 @@ contains
 
     write(*, '(A)') 'Print Eigenvectors ? .true./.false.'
     read(*,*) tPrintEigvecs
+
+    write(*, '(A)') 'Enter SCF guess:&
+        & 1: Thomas-Fermi, 2: superposition of atomic potentials (SAP)'
+    read(*,*) scfGuess
 
     write(*, '(A)') 'Enter mixer and mixing parameter <1:&
         & 1: Simple mixer, 2: Broyden mixer'

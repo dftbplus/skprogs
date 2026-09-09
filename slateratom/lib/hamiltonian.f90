@@ -17,7 +17,7 @@ module hamiltonian
 contains
 
   !> Main driver routine for Fock matrix build-up. Also calls mixer with potential matrix.
-  subroutine build_hamiltonian(pMixer, iScf, tt, uu, nuc, vconf, jj, kk, kk_lr, pp, max_l,&
+  subroutine build_hamiltonian(pMixer, iScf, scfGuess, tt, uu, nuc, vconf, jj, kk, kk_lr, pp, max_l,&
       & num_alpha, poly_order, problemsize, xcnr, num_mesh_points, weight, abcissa, vxc, alpha,&
       & pot_old, pot_new, tZora, ff, camAlpha, camBeta)
 
@@ -26,6 +26,9 @@ contains
 
     !> current SCF step
     integer, intent(in) :: iScf
+
+    !> SCF guess ID
+    integer, intent(in) :: scfGuess
 
     !> kinetic supervector
     real(dp), intent(in) :: tt(0:,:,:)
@@ -176,13 +179,20 @@ contains
     end if
 
     ! build mixer input
-    pot_new(1, :,:,:) = - real(nuc, dp) * uu + j_matrix - k_matrix(1, :,:,:)
-    pot_new(2, :,:,:) = - real(nuc, dp) * uu + j_matrix - k_matrix(2, :,:,:)
+    if (iScf == 0 .and. scfGuess == 2) then
+      pot_new(1, :,:,:) =  -k_matrix(1, :,:,:)
+      pot_new(2, :,:,:) =  -k_matrix(2, :,:,:)
+    else
+      pot_new(1, :,:,:) = -real(nuc, dp) * uu + j_matrix - k_matrix(1, :,:,:)
+      pot_new(2, :,:,:) = -real(nuc, dp) * uu + j_matrix - k_matrix(2, :,:,:)
+    end if
 
     ! mixer
     allocate(pot_diff, mold=pot_old)
-    pot_diff(:,0:,:,:) = pot_old - pot_new
-    call TMixer_mix(pMixer, pot_new, pot_diff)
+    if (iScf /= 0) then
+        pot_diff(:,0:,:,:) = pot_old - pot_new
+        call TMixer_mix(pMixer, pot_new, pot_diff)
+    end if
 
     ! Not sure: before or after mixer (potential .ne. Matrix elements)?
     ! Should be irrelevant once self-consistency is reached.

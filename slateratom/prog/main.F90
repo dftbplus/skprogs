@@ -15,8 +15,9 @@ program HFAtom
   use output, only : write_eigvec, write_eigval, write_moments, write_energies,&
       & write_energies_tagged, write_potentials_file_standard, write_densities_file_standard,&
       & write_waves_file_standard, write_wave_coeffs_file, cusp_values, writeAveragePotential
+  use sap, only : sap_start_pot
   use totalenergy, only : getTotalEnergy, getTotalEnergyZora
-  use dft, only : check_accuracy, dft_start_pot, density_grid
+  use dft, only : check_accuracy, thomas_fermi_start_pot, density_grid
   use utilities, only : check_electron_number, check_convergence
   use zora_routines, only : scaled_zora
   use cmdargs, only : parse_command_arguments
@@ -61,8 +62,8 @@ program HFAtom
   call parse_command_arguments()
   call read_input_1(nuc, max_l, occ_shells, maxiter, scftol, poly_order, min_alpha, max_alpha,&
       & num_alpha, tAutoAlphas, alpha, conf_type, confInp, num_occ, num_power, num_alphas, xcnr,&
-      & tPrintEigvecs, tZora, mixnr, mixing_factor, xalpha_const, omega, camAlpha, camBeta,&
-      & grid_params)
+      & tPrintEigvecs, tZora, mixnr, mixing_factor, scfGuess, xalpha_const, omega, camAlpha,&
+      & camBeta, grid_params)
 
   problemsize = num_power * num_alphas
 
@@ -134,7 +135,16 @@ program HFAtom
 
   ! DFT start potential
   if (.not. (xcnr == xcFunctional%HF_Exchange)) then
-    call dft_start_pot(abcissa, num_mesh_points, nuc, vxc)
+    
+    select case (scfGuess)
+    case (2)
+      call sap_start_pot(abcissa, nuc, vxc)
+    case (1)
+      call thomas_fermi_start_pot(abcissa, num_mesh_points, nuc, vxc)
+    case default
+      call error('Unsupported guess.')
+    end select
+
   end if
 
   ! build initial fock matrix, core hamiltonian only
@@ -145,9 +155,9 @@ program HFAtom
   pot_old(:,:,:,:) = 0.0_dp
 
   ! kinetic energy, nuclear-electron, and confinement matrix elements which are constant during SCF
-  call build_hamiltonian(pMixer, 0, tt, uu, nuc, vconf_matrix, jj, kk, kk_lr, pp, max_l, num_alpha,&
-      & poly_order, problemsize, xcnr, num_mesh_points, weight, abcissa, vxc, alpha, pot_old,&
-      & pot_new, tZora, ff, camAlpha, camBeta)
+  call build_hamiltonian(pMixer, 0, scfGuess, tt, uu, nuc, vconf_matrix, jj, kk, kk_lr, pp, max_l,&
+      & num_alpha, poly_order, problemsize, xcnr, num_mesh_points, weight, abcissa, vxc, alpha,&
+      & pot_old, pot_new, tZora, ff, camAlpha, camBeta)
 
   ! self-consistency cycles
   write(*,*) 'Energies in Hartree'
@@ -169,7 +179,7 @@ program HFAtom
         & dz, xcnr, omega, camAlpha, camBeta, rho, drho, ddrho, vxc, exc, xalpha_const)
 
     ! build Fock matrix and get total energy during SCF
-    call build_hamiltonian(pMixer, iScf, tt, uu, nuc, vconf_matrix, jj, kk, kk_lr, pp, max_l,&
+    call build_hamiltonian(pMixer, iScf, scfGuess, tt, uu, nuc, vconf_matrix, jj, kk, kk_lr, pp, max_l,&
         & num_alpha, poly_order, problemsize, xcnr, num_mesh_points, weight, abcissa, vxc, alpha,&
         & pot_old, pot_new, tZora, ff, camAlpha, camBeta)
 

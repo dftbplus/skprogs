@@ -178,6 +178,9 @@ module globals
   !> identifier of mixer
   integer :: mixnr
 
+  !> SCF guess ID
+  integer :: scfGuess
+
   !> mixer instance
   type(TMixer), allocatable :: pMixer
 
